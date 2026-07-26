@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "Dizkarte",
+    "slug": "dizkarte",
+    "scheme": "dizkarte",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "icon": "./assets/app-icon-logo.png",
+    "splash": {
+      "image": "./assets/app-icon-logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "invalid.dizkarte.mobile"
+    },
+    "android": {
+      "package": "invalid.dizkarte.mobile",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/app-icon-logo.png",
+        "backgroundColor": "#FFFFFF"
+      }
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
+    },
+    "plugins": ["expo-router"],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

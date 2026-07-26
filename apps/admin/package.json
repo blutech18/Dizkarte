@@ -1,0 +1,37 @@
+{
+  "name": "@dizkarte/admin",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dizkarte protected Admin web app (Next.js App Router).",
+  "license": "UNLICENSED",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@dizkarte/adapter-supabase": "0.1.0",
+    "@dizkarte/config": "0.1.0",
+    "@dizkarte/domain": "0.1.0",
+    "@supabase/ssr": "0.5.2",
+    "@supabase/supabase-js": "2.110.8",
+    "next": "15.5.20",
+    "react": "19.0.7",
+    "react-dom": "19.0.7",
+    "zod": "3.24.1"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "6.6.3",
+    "@testing-library/react": "16.1.0",
+    "@types/react": "19.0.2",
+    "@types/react-dom": "19.0.2",
+    "eslint-config-next": "15.5.20",
+    "jsdom": "25.0.1",
+    "typescript": "5.7.3",
+    "vitest": "3.2.7"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "@dizkarte/adapter-supabase",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dizkarte Supabase-backed adapters. Concrete, RLS-respecting implementations of the domain ports (read-only marketplace slice first). Isolates the @supabase/supabase-js dependency from the pure domain.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b tsconfig.json",
+    "clean": "tsc -b tsconfig.json --clean"
+  },
+  "dependencies": {
+    "@dizkarte/config": "*",
+    "@dizkarte/domain": "*",
+    "@supabase/supabase-js": "2.110.8"
+  }
+}

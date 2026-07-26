@@ -1,0 +1,709 @@
+﻿            Dizkarte - Platform Scope of Work & Product Specification  
+                   Task Marketplace Platform for the Philippine Market  
+
+1. Platform Overview  
+
+Dizkarte is a task marketplace platform inspired by Airtasker, designed for the Philippine market.  
+The platform connects people who need everyday tasks completed with verified taskers who are  
+willing to earn extra income by completing those tasks.  
+
+The platform will allow clients to post tasks, set a budget, choose a location and schedule, review  
+offers, finalise bookings, and release payments only after the task is completed. Taskers will be  
+able to browse tasks near them, make offers, ask questions, negotiate, complete work, and  
+withdraw their earnings securely.  
+
+Dizkarte is built around three main goals:  
+
+    1.  Help clients find reliable people to complete tasks.  
+    2.  Help taskers find flexible earning opportunities.  
+    3.  Make task-based work safer through ID verification, escrow payments, reviews, and  
+        platform-managed communication.  
+
+2. Core Platform Users  
+
+2.1 Clients  
+
+Clients are users who post tasks and pay taskers to complete them. A client may need help with  
+errands, deliveries, moving, cleaning, repairs, admin support, event assistance, or other  
+task-based services.  
+
+2.2 Taskers  
+
+Taskers are users who accept and complete posted tasks in exchange for payment. Taskers must  
+complete a separate tasker registration and verification process before they can accept paid jobs.  
+
+2.3 Admin  
+
+The admin team manages user verification, disputes, safety reports, flagged content, payments,  
+support tickets, and platform quality control.  
+
+3. Account Creation and Verification  
+﻿All users must create an account before posting tasks or becoming a tasker.  
+
+During account creation, users must submit basic profile information, including:  
+
+    ●   Full name  
+    ●   Mobile number  
+    ●   Email address  
+    ●   Profile photo  
+    ●   City and barangay  
+    ●   Valid government ID  
+    ●   Account password or social login credentials  
+
+Before a user can post a task or apply to become a tasker, ID verification must be required. This  
+helps improve platform safety and reduces fake accounts, scams, and unserious users.  
+
+Verification status should appear on the user profile once approved.  
+
+4. Client Task Posting Feature  
+
+The task posting feature is the main function of Dizkarte. Clients should be encouraged to type  
+their task manually so the request is specific and detailed. Categories will still exist, but they will  
+mainly be used for filtering and organisation rather than forcing users into a fixed task template.  
+
+4.1 Task Title  
+
+Clients must enter a clear task title.  
+
+Example:  
+
+    ●   “Pick up documents from Makati”  
+    ●   “Help move small furniture”  
+    ●   “Assemble IKEA-style table”  
+    ●   “Buy and deliver medicine”  
+    ●   “Event booth assistant for 4 hours”  
+
+4.2 Task Description  
+
+Clients must provide a description explaining what needs to be done. This should include  
+specific instructions, expectations, item details, tools needed, and any important reminders.  
+
+4.3 Media Uploads  
+﻿Clients may upload photos and videos to help explain the task. This is useful for furniture  
+assembly, repair jobs, moving tasks, item pickup, errands, and visual references.  
+
+Allowed uploads:  
+
+    ●   Images  
+    ●   Videos  
+    ●   Screenshots  
+    ●   Reference files, if needed  
+
+4.4 Location  
+
+Clients must select the task location. Location should include:  
+
+    ●   City  
+    ●   Barangay  
+    ●   Optional landmark  
+    ●   Map pin  
+
+Exact address and personal contact details should not be required during public task posting.  
+These should only be shared later inside the messaging feature after booking and payment have  
+been finalised.  
+
+4.5 Date and Time  
+
+Clients must be able to set:  
+
+    ●   Preferred date  
+    ●   Preferred time  
+    ●   Flexible or fixed schedule  
+    ●   Same-day or future booking  
+
+4.6 Budget  
+
+Clients must set a task budget. This is the amount they are willing to pay for the task. Taskers  
+may accept the budget or negotiate through offers.  
+
+The budget should display clearly on the public task listing.  
+
+4.7 Category Filtering  
+
+Categories will be available mainly for filtering and discovery. Users can search and filter by  
+category, but clients should still type their task freely.  
+﻿Possible task categories include:  
+
+    ●   Delivery and pickup  
+    ●   Errands  
+    ●   Moving help  
+    ●   Handyman  
+    ●   Cleaning  
+    ●   Assembly  
+    ●   Admin and paperwork  
+    ●   Event help  
+    ●   Business support  
+    ●   Pet-related tasks  
+    ●   Tech help  
+    ●   General help  
+
+5. Task Browsing and Discovery  
+
+Taskers must be able to find tasks easily based on location, category, budget, time, and task type.  
+
+5.1 Task Feed  
+
+The task feed should show available tasks with basic details:  
+
+    ●   Task title  
+    ●   Budget  
+    ●   City and barangay  
+    ●   Date and time  
+    ●   Category  
+    ●   Client rating  
+    ●   Task status  
+    ●   Number of offers made  
+
+5.2 Search Function  
+
+Users must be able to search for specific tasks using keywords.  
+
+Examples:  
+
+    ●   “pickup”  
+    ●   “moving”  
+    ●   “documents”  
+    ●   “assembly”  
+﻿    ●   “Makati”  
+    ●   “event assistant”  
+
+5.3 Filters  
+
+Taskers should be able to filter tasks by:  
+
+    ●   Location  
+    ●   City  
+    ●   Barangay  
+    ●   Category  
+    ●   Budget range  
+    ●   Date  
+    ●   Same-day tasks  
+    ●   Distance  
+    ●   Task status  
+    ●   Newest tasks  
+    ●   Highest budget  
+    ●   Nearby tasks  
+
+5.4 Map View  
+
+Dizkarte should include a map feature where taskers can see available tasks near their area. The  
+map should show task pins based on city, barangay, or approximate location.  
+
+For privacy, exact addresses should not be shown until the booking is finalised and the client has  
+paid.  
+
+6. Offers, Negotiation, and Questions  
+
+Taskers can make offers on available tasks. The offer system should allow taskers to accept the  
+posted budget or propose a different amount.  
+
+6.1 Tasker Offer  
+
+A tasker ’s offer may include:  
+
+    ●   Proposed price  
+    ●   Short message  
+    ●   Estimated completion time  
+    ●   Relevant experience  
+    ●   Availability  
+﻿    ●   Questions for the client  
+
+6.2 Negotiation  
+
+Clients and taskers may negotiate before finalising the booking. Negotiation can include:  
+
+    ●   Final price  
+    ●   Task scope  
+    ●   Schedule  
+    ●   Required tools/materials  
+    ●   Timing  
+    ●   Clarifications  
+
+However, full messaging should only become available once the client has paid and finalised the  
+booking. Before payment, communication should be limited to offer-related comments and  
+public task questions to avoid off-platform transactions.  
+
+7. Booking and Payment System  
+
+Dizkarte should use an escrow-style payment system to protect both clients and taskers.  
+
+7.1 Client Payment  
+
+When the client chooses a tasker and finalises the booking, the client must pay the total agreed  
+task amount through the platform.  
+
+Accepted payment options should include:  
+
+    ●   Credit card  
+    ●   Debit card  
+    ●   GCash  
+    ●   Maya  
+
+7.2 Escrow Payment Holding  
+
+Once the client pays, the funds are not immediately released to the tasker. The money is held  
+securely by the platform until the task is completed.  
+
+This protects the client from paying before receiving the service and protects the tasker by  
+confirming that the client has already paid.  
+
+7.3 Completion and Fund Release  
+﻿After the task is completed, the tasker should ask the client to confirm completion and release the  
+funds before leaving.  
+
+The client then confirms that the task is completed through the app.  
+
+Once the client releases the payment, the tasker receives the funds in their Dizkarte balance.  
+
+7.4 Withdrawal  
+
+Taskers can withdraw their earnings from the tasker dashboard. Withdrawal methods may  
+include:  
+
+    ●   Bank account  
+    ●   GCash  
+    ●   Maya  
+
+Withdrawal history should be visible in the tasker dashboard.  
+
+8. Messaging Feature  
+
+The messaging feature becomes available only after the client has paid and finalised the booking.  
+
+This is where both users can safely share sensitive details that should not be visible publicly.  
+
+8.1 Messaging Functions  
+
+The messaging feature should allow:  
+
+    ●   Text chat  
+    ●   Image uploads  
+    ●   Video uploads  
+    ●   Address sharing  
+    ●   Contact details sharing  
+    ●   Clarification of task details  
+    ●   Updates before and during task completion  
+
+8.2 Purpose of Messaging  
+
+Messaging is used for final instructions and coordination after the booking is confirmed. For  
+example:  
+
+    ●   Exact address  
+    ●   Gate or lobby instructions  
+﻿    ●   Contact person  
+    ●   Photos of items  
+    ●   Video of the problem  
+    ●   Updates on arrival  
+    ●   Task completion proof  
+
+8.3 Safety Note  
+
+Because messaging may include exact addresses and contact details, this feature should only  
+open after payment and booking confirmation. This reduces scams and prevents users from  
+moving transactions outside the platform too early.  
+
+9. Tasker Profile  
+
+When clients view a tasker ’s profile, they should see clear information that helps them decide  
+whether the tasker is reliable.  
+
+The tasker profile should include:  
+
+    ●   Profile photo  
+    ●   Full name or display name  
+    ●   ID verified badge  
+    ●   Overall rating  
+    ●   Completion rate  
+    ●   Total number of completed tasks  
+    ●   Portfolio photos  
+    ●   About section  
+    ●   Reviews  
+    ●   Work experience  
+    ●   Specialties  
+    ●   Service areas  
+    ●   Barangay/city coverage  
+    ●   Member since date  
+
+9.1 Profile Photo  
+
+Taskers must upload a clear profile photo.  
+
+9.2 ID Verified Badge  
+
+A visible badge should show that the tasker has submitted ID and passed verification.  
+﻿9.3 Overall Rating  
+
+Taskers should have an overall rating based on completed task reviews.  
+
+9.4 Completion Rate  
+
+Completion rate should show the percentage of accepted tasks successfully completed.  
+
+9.5 Total Tasks Completed  
+
+The profile should display how many tasks the tasker has completed in total.  
+
+9.6 Portfolio  
+
+Taskers can upload photos to showcase their skills and previous work.  
+
+Examples:  
+
+    ●   Furniture assembled  
+    ●   Cleaning before/after  
+    ●   Event work  
+    ●   Delivery proof  
+    ●   Repairs  
+    ●   Creative or admin work  
+
+9.7 About Section  
+
+Taskers can write a short introduction about themselves, their work style, and what tasks they  
+accept.  
+
+9.8 Work Experience and Specialties  
+
+Taskers can list experience and specialties such as:  
+
+    ●   Moving assistance  
+    ●   Furniture assembly  
+    ●   Admin errands  
+    ●   Delivery  
+    ●   Cleaning  
+    ●   Repairs  
+    ●   Event staffing  
+    ●   Pet care  
+    ●   Business errands  
+﻿9.9 Reviews  
+
+Clients can read previous reviews after task completion. Reviews help build trust and give future  
+clients confidence.  
+
+10. Review System  
+
+Dizkarte should use a fair two-way review system.  
+
+After task completion, both client and tasker may leave a review.  
+
+10.1 Hidden Review Rule  
+
+Users should not be able to see the other person’s review until they submit their own review. This  
+prevents biased or revenge-based reviewing.  
+
+Once both reviews are submitted, or once the review period ends, the reviews become visible.  
+
+10.2 Review Details  
+
+Reviews may include:  
+
+    ●   Star rating  
+    ●   Written comment  
+    ●   Reliability  
+    ●   Communication  
+    ●   Quality of work  
+    ●   Timeliness  
+    ●   Professionalism  
+
+11. Personal Account Profile  
+
+Each user should have a personal account profile where they can manage their account, settings,  
+payment methods, and safety preferences.  
+
+The personal account profile should include:  
+
+11.1 Account Settings  
+
+Users can update:  
+
+    ●   Name  
+    ●   Email  
+﻿    ●   Mobile number  
+    ●   Password  
+    ●   Profile photo  
+    ●   Location  
+    ●   Language preference  
+
+11.2 Payment Options  
+
+Users can add and manage:  
+
+    ●   Credit card  
+    ●   Debit card  
+    ●   GCash  
+    ●   Maya  
+
+11.3 Account Information  
+
+Users can view account details, verification status, and profile completeness.  
+
+11.4 Notifications and Settings  
+
+Users can manage notifications for:  
+
+    ●   New task offers  
+    ●   Booking updates  
+    ●   Messages  
+    ●   Payment updates  
+    ●   Review reminders  
+    ●   Nearby tasks  
+    ●   Promotions  
+    ●   Safety alerts  
+
+11.5 Help and Support  
+
+The help and support section should include:  
+
+    ●   FAQs  
+    ●   Contact support  
+    ●   Report a user  
+    ●   Payment issues  
+    ●   Booking issues  
+    ●   Cancellation support  
+    ●   Dispute support  
+﻿11.6 Safety Section  
+
+The safety section should include information on:  
+
+    ●   User verification  
+    ●   Escrow payment protection  
+    ●   Insurance information  
+    ●   Legal terms  
+    ●   Safety guidelines  
+    ●   Reporting process  
+    ●   Dispute resolution  
+    ●   Platform rules  
+
+12. Tasker Registration and Dashboard  
+
+Users who want to earn through Dizkarte must complete a tasker registration process.  
+
+12.1 Tasker Registration Requirements  
+
+To become a tasker, users must submit:  
+
+    ●   Full name  
+    ●   Mobile number  
+    ●   Valid government ID  
+    ●   ID verification  
+    ●   Bank account details  
+    ●   Billing address  
+    ●   Profile photo  
+    ●   Photo verification or selfie verification  
+    ●   Service area  
+    ●   Specialties  
+    ●   Short tasker bio  
+
+Tasker approval should be reviewed by the platform before the user can accept tasks.  
+
+12.2 Tasker Dashboard Access  
+
+Once approved, taskers should see a “Tasker Dashboard” button at the top of the app.  
+
+The dashboard should include:  
+
+    ●   Available tasks  
+    ●   Active bookings  
+﻿    ●   Completed tasks  
+    ●   Earnings  
+    ●   Pending payouts  
+    ●   Withdrawal button  
+    ●   Reviews  
+    ●   Completion rate  
+    ●   Task history  
+    ●   Portfolio management  
+    ●   Profile settings  
+    ●   Verification status  
+
+12.3 Earnings  
+
+Taskers should be able to view:  
+
+    ●   Total earnings  
+    ●   Pending escrow amount  
+    ●   Available balance  
+    ●   Withdrawn amount  
+    ●   Completed task income  
+    ●   Platform fees  
+    ●   Withdrawal history  
+
+12.4 Withdrawals  
+
+Taskers can withdraw available funds after the client releases payment.  
+
+Withdrawal options may include:  
+
+    ●   Bank transfer  
+    ●   GCash  
+    ●   Maya  
+
+13. Admin Features  
+
+The admin dashboard should allow the Dizkarte team to manage platform safety, users,  
+payments, and task quality.  
+
+Admin should be able to:  
+
+    ●   Review ID verification  
+    ●   Approve or reject tasker applications  
+﻿    ●   View posted tasks  
+    ●   Remove suspicious tasks  
+    ●   Review reported users  
+    ●   Freeze suspicious accounts  
+    ●   Manage disputes  
+    ●   Monitor escrow payments  
+    ●   Manage refunds  
+    ●   Track completed tasks  
+    ●   View platform revenue  
+    ●   Manage category filters  
+    ●   Review uploaded media  
+    ●   Manage help and support tickets  
+
+14. Safety and Trust Features  
+
+Trust is one of the most important parts of Dizkarte.  
+
+The platform should include:  
+
+    ●   Required ID verification  
+    ●   Tasker registration approval  
+    ●   Profile ratings  
+    ●   Completion rate  
+    ●   Escrow payments  
+    ●   Hidden review system  
+    ●   Report user function  
+    ●   Dispute resolution  
+    ●   Safety guidelines  
+    ●   Insurance/legal information  
+    ●   Secure messaging after booking  
+    ●   No public sharing of exact address before payment  
+
+15. Platform Fees and Revenue Model  
+
+Dizkarte can earn through platform fees applied to task transactions.  
+
+Possible revenue streams include:  
+
+15.1 Tasker Service Fee  
+
+A percentage is deducted from the tasker ’s completed payment.  
+﻿Example:  
+Client pays ₱1,000.  
+Platform takes 8%  
+Tasker receives the remaining balance.  
+
+15.2 Client Booking Fee  
+
+The client may pay a small protection fee which is optional.  
+
+16. Example User Flow  
+
+16.1 Client Flow  
+
+    1.  User creates an account.  
+    2.  User submits ID verification.  
+    3.  User posts a task with title, description, budget, location, date, time, photos, and videos.  
+    4.  Task appears in task feed and map view.  
+    5.  Taskers submit offers.  
+    6.  Client reviews tasker profiles, ratings, completion rate, reviews, and portfolio.  
+    7.  Client selects a tasker.  
+    8.  Client pays the agreed amount.  
+    9.  Payment is held in escrow.  
+    10. Messaging opens.  
+    11. Client and tasker share exact address and final details.  
+    12. Tasker completes the task.  
+    13. Client releases funds.  
+    14. Tasker receives payment.  
+    15. Both users leave reviews.  
+    16. Reviews become visible after both sides submit their review.  
+
+16.2 Tasker Flow  
+
+    1.  User creates an account.  
+    2.  User applies to become a tasker.  
+    3.  User submits mobile number, ID, bank details, billing address, profile photo, and photo  
+        verification.  
+    4.  Dizkarte approves the tasker account.  
+    5.  Tasker browses tasks using search, filters, and map view.  
+    6.  Tasker submits offers on tasks.  
+    7.  Client accepts an offer and pays.  
+    8.  Messaging opens.  
+﻿    9.  Tasker completes the task.  
+    10. Tasker asks client to release funds before leaving.  
+    11. Funds become available in tasker balance.  
+    12. Tasker and client leave reviews.  
+    13. Tasker withdraws earnings.  
+
+17. Design and Branding Direction  
+
+Dizkarte should feel energetic, trustworthy, and Filipino. The brand should appeal to students,  
+young professionals, side hustlers, parents, small business owners, and everyday users who need  
+help.  
+
+The platform should avoid feeling too formal or corporate. It should feel modern, useful, and  
+approachable.  
+
+Suggested brand tone:  
+
+    ●   Friendly  
+    ●   Witty  
+    ●   Helpful  
+    ●   Reliable  
+    ●   Empowering  
+    ●   Street-smart but trustworthy  
+
+18. Reference Basis  
+
+Dizkarte is conceptually inspired by Airtasker ’s task marketplace model, including task posting,  
+offer-based task acceptance, tasker profiles, messaging, reviews, and escrow-style payment  
+protection.  
+
+Additional interface, navigation, and interaction details may be further refined through a screen  
+recording or walkthrough of Airtasker ’s app experience. The screen recording can be used as a  
+product reference for layout flow, feature placement, task listing behaviour, offer management,  
+messaging structure, and booking confirmation process.  
+
+Dizkarte should not copy Airtasker directly. Instead, it should adapt the task marketplace model  
+for Filipino users, local payment methods, barangay/city-based location filters, Philippine  
+side-hustle culture, and local trust and safety needs.  
+
+19. MVP Scope  
+
+The minimum viable product should include:  
+﻿     ●   User registration  
+     ●   ID verification  
+     ●   Client task posting  
+     ●   Task feed  
+     ●   Search and filters  
+     ●   Map view  
+     ●   Tasker registration  
+     ●   Tasker dashboard  
+     ●   Offer submission  
+     ●   Booking confirmation  
+     ●   Escrow payment flow  
+     ●   Payment options: card, GCash, Maya  
+     ●   Messaging after payment  
+     ●   Task completion confirmation  
+     ●   Fund release  
+     ●   Tasker withdrawal  
+     ●   Profile pages  
+     ●   Ratings and reviews  
+     ●   Help and support  
+     ●   Safety and reporting  
+     ●   Admin dashboard  
+
+  
+
+20. Conclusion  
+
+Dizkarte is designed to become a trusted Filipino task marketplace where clients can easily post  
+tasks and taskers can earn flexible income. By combining task posting, verified profiles,  
+location-based discovery, escrow payments, secure messaging, reviews, and tasker dashboards,  
+Dizkarte creates a safer and more organised way for everyday work to be requested, completed,  
+and paid for.  
+
+The platform should focus first on trust, simplicity, and local usability. Once the core task  
+marketplace is stable, Dizkarte can expand into more categories, business accounts, premium  
+tasker tools, and stronger safety features.  
+
+  

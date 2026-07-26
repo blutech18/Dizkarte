@@ -1,0 +1,1178 @@
+/*
+ * Dizkarte Admin — semantic CSS system.
+ *
+ * All colors reference the `--dk-*` custom properties generated from the
+ * exact @dizkarte/config semantic token contract (see layout.tsx). No new
+ * hard-coded brand hex values are introduced here. Admin skews more neutral
+ * than mobile per the 70/20/10 brand balance.
+ */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--dk-background);
+  color: var(--dk-textPrimary);
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji";
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--dk-link);
+}
+
+img {
+  max-width: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+/* Visible keyboard focus everywhere; never color-only (shape + outline). */
+:focus-visible {
+  outline: 3px solid var(--dk-focusRing);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ---------- Skip link ---------- */
+
+.dk-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 1000;
+  background: var(--dk-primary);
+  color: var(--dk-onPrimary);
+  padding: 10px 16px;
+  border-radius: 0 0 8px 0;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.dk-skip-link:focus {
+  left: 0;
+}
+
+/* ---------- App shell ---------- */
+
+.dk-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.dk-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--dk-surface);
+  border-right: 1px solid var(--dk-borderSubtle);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 12px;
+  gap: 4px;
+}
+
+.dk-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 20px;
+}
+
+.dk-sidebar-brand img {
+  height: 32px;
+  width: auto;
+  display: block;
+}
+
+.dk-nav-section {
+  margin-top: 18px;
+  padding: 0 10px 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dk-textSecondary);
+}
+
+.dk-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  color: var(--dk-textPrimary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.dk-nav-link:hover {
+  background: var(--dk-surfaceSubtle);
+}
+
+.dk-nav-link[aria-current="page"] {
+  background: var(--dk-primarySoft);
+  color: var(--dk-primaryPressed);
+  font-weight: 700;
+}
+
+.dk-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.dk-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--dk-borderSubtle);
+  background: var(--dk-surface);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.dk-topbar-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--dk-textSecondary);
+}
+
+.dk-content {
+  padding: 24px;
+  flex: 1;
+  width: 100%;
+  max-width: 1200px;
+}
+
+.dk-breadcrumbs {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--dk-textSecondary);
+  margin-bottom: 8px;
+}
+
+.dk-breadcrumbs a {
+  color: var(--dk-textSecondary);
+  text-decoration: none;
+}
+
+.dk-breadcrumbs a:hover {
+  text-decoration: underline;
+}
+
+.dk-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.dk-page-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: var(--dk-textPrimary);
+}
+
+.dk-page-subtitle {
+  margin: 0;
+  color: var(--dk-textSecondary);
+  font-size: 14px;
+}
+
+.dk-page-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* ---------- Dev/synthetic labeling ---------- */
+
+.dk-dev-banner {
+  background: var(--dk-warningSoft);
+  color: var(--dk-warningOnSoft);
+  border-bottom: 1px solid var(--dk-warningSolid);
+  padding: 8px 24px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* ---------- Cards ---------- */
+
+.dk-card {
+  background: var(--dk-surface);
+  border: 1px solid var(--dk-borderSubtle);
+  border-radius: 12px;
+  padding: 18px;
+}
+
+.dk-card + .dk-card {
+  margin-top: 12px;
+}
+
+.dk-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.dk-stat-card {
+  background: var(--dk-surface);
+  border: 1px solid var(--dk-borderSubtle);
+  border-radius: 12px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.dk-stat-card:hover {
+  border-color: var(--dk-borderControl);
+}
+
+.dk-stat-card-label {
+  font-size: 13px;
+  color: var(--dk-textSecondary);
+  font-weight: 600;
+}
+
+.dk-stat-card-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--dk-textPrimary);
+}
+
+.dk-stat-card-hint {
+  font-size: 12px;
+  color: var(--dk-textSecondary);
+}
+
+/* ---------- Buttons ---------- */
+
+.dk-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 9px 16px;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  text-decoration: none;
+  line-height: 1.2;
+  min-height: 40px;
+}
+
+.dk-btn:disabled,
+.dk-btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  background: var(--dk-disabledBackground) !important;
+  color: var(--dk-disabledForeground) !important;
+  border-color: var(--dk-disabledBackground) !important;
+}
+
+.dk-btn-primary {
+  background: var(--dk-primary);
+  color: var(--dk-onPrimary);
+}
+
+.dk-btn-primary:hover:not(:disabled) {
+  background: var(--dk-primaryHover);
+}
+
+.dk-btn-primary:active:not(:disabled) {
+  background: var(--dk-primaryPressed);
+}
+
+.dk-btn-secondary {
+  background: var(--dk-surface);
+  color: var(--dk-primary);
+  border-color: var(--dk-borderControl);
+}
+
+.dk-btn-secondary:hover:not(:disabled) {
+  background: var(--dk-surfaceSubtle);
+}
+
+.dk-btn-destructive {
+  background: var(--dk-errorSolid);
+  color: #ffffff;
+}
+
+.dk-btn-destructive:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+.dk-btn-text {
+  background: transparent;
+  color: var(--dk-link);
+  padding: 9px 8px;
+}
+
+.dk-btn-sm {
+  padding: 6px 12px;
+  font-size: 13px;
+  min-height: 32px;
+}
+
+/* ---------- Forms ---------- */
+
+.dk-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.dk-label {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--dk-textPrimary);
+}
+
+.dk-required::after {
+  content: " *";
+  color: var(--dk-errorSolid);
+}
+
+.dk-input,
+.dk-select,
+.dk-textarea {
+  border: 1px solid var(--dk-borderControl);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--dk-surface);
+  color: var(--dk-textPrimary);
+  min-height: 40px;
+}
+
+.dk-textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.dk-field-description {
+  font-size: 12px;
+  color: var(--dk-textSecondary);
+}
+
+.dk-field-error {
+  font-size: 12px;
+  color: var(--dk-errorOnSoft);
+  font-weight: 600;
+}
+
+.dk-input[aria-invalid="true"],
+.dk-select[aria-invalid="true"],
+.dk-textarea[aria-invalid="true"] {
+  border-color: var(--dk-errorSolid);
+}
+
+/* ---------- Status badges (never color-only: label + color) ---------- */
+
+.dk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.dk-badge-neutral {
+  background: var(--dk-surfaceSubtle);
+  color: var(--dk-textSecondary);
+}
+
+.dk-badge-brand {
+  background: var(--dk-primarySoft);
+  color: var(--dk-primaryPressed);
+}
+
+.dk-badge-success {
+  background: var(--dk-successSoft);
+  color: var(--dk-successOnSoft);
+}
+
+.dk-badge-warning {
+  background: var(--dk-warningSoft);
+  color: var(--dk-warningOnSoft);
+}
+
+.dk-badge-error {
+  background: var(--dk-errorSoft);
+  color: var(--dk-errorOnSoft);
+}
+
+.dk-badge-info {
+  background: var(--dk-infoSoft);
+  color: var(--dk-infoOnSoft);
+}
+
+/* ---------- Tables (with card fallback for narrow viewports) ---------- */
+
+.dk-table-wrap {
+  overflow-x: auto;
+}
+
+.dk-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.dk-table th {
+  text-align: left;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--dk-textSecondary);
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--dk-borderSubtle);
+}
+
+.dk-table td {
+  padding: 12px;
+  border-bottom: 1px solid var(--dk-borderSubtle);
+  vertical-align: middle;
+}
+
+.dk-table tbody tr:hover {
+  background: var(--dk-surfaceSubtle);
+}
+
+@media (max-width: 720px) {
+  .dk-table-wrap table.dk-table-desktop {
+    display: none;
+  }
+}
+
+@media (min-width: 721px) {
+  .dk-record-cards {
+    display: none;
+  }
+}
+
+.dk-record-card {
+  border: 1px solid var(--dk-borderSubtle);
+  border-radius: 10px;
+  padding: 14px;
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dk-record-card-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 13px;
+}
+
+.dk-record-card-row dt {
+  color: var(--dk-textSecondary);
+}
+
+.dk-record-card-row dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+
+/* ---------- Async states ---------- */
+
+.dk-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+  padding: 48px 20px;
+  color: var(--dk-textSecondary);
+}
+
+.dk-state-title {
+  font-weight: 700;
+  color: var(--dk-textPrimary);
+  font-size: 15px;
+}
+
+.dk-skeleton-row {
+  height: 44px;
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    var(--dk-surfaceSubtle) 25%,
+    var(--dk-borderSubtle) 37%,
+    var(--dk-surfaceSubtle) 63%
+  );
+  background-size: 400% 100%;
+  animation: dk-skeleton 1.6s ease-in-out infinite;
+  margin-bottom: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dk-skeleton-row {
+    animation: none;
+  }
+}
+
+@keyframes dk-skeleton {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+/* ---------- Button loading spinner (real vector, never an emoji) ---------- */
+
+.dk-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  opacity: 0.85;
+  animation: dk-spin 0.7s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dk-spinner {
+    animation: none;
+  }
+}
+
+@keyframes dk-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------- Dialog ---------- */
+
+.dk-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--dk-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 100;
+}
+
+.dk-dialog {
+  background: var(--dk-surfaceElevated);
+  border-radius: 14px;
+  padding: 22px;
+  max-width: 460px;
+  width: 100%;
+  box-shadow: 0 20px 60px var(--dk-shadow);
+}
+
+.dk-dialog-title {
+  margin: 0 0 8px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.dk-dialog-body {
+  color: var(--dk-textSecondary);
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.dk-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* ---------- Utility ---------- */
+
+.dk-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.dk-muted {
+  color: var(--dk-textSecondary);
+}
+
+.dk-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dk-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dk-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--dk-textSecondary);
+}
+
+/* =========================================================================
+ * Public header, landing page, and redesigned auth/app-shell chrome.
+ * Airtasker-inspired: clean white sticky header, bold rounded pill CTAs,
+ * generous white space, circular icon chips, and a mobile-first app shell
+ * with a hamburger-triggered drawer + bottom quick-nav bar on small screens.
+ * All colors still reference --dk-* semantic tokens only.
+ * ========================================================================= */
+
+/* ---------- Public header (landing + login) ---------- */
+
+.dk-public-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 20px;
+  background: var(--dk-surface);
+  border-bottom: 1px solid var(--dk-borderSubtle);
+}
+
+.dk-public-header-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--dk-textPrimary);
+}
+
+.dk-public-header-brand img {
+  height: 30px;
+  width: auto;
+  display: block;
+}
+
+.dk-public-header-brand-name {
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+}
+
+.dk-public-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ---------- Landing page ---------- */
+
+.dk-landing {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--dk-background);
+}
+
+.dk-hero {
+  padding: 56px 20px 40px;
+  text-align: center;
+  background: linear-gradient(180deg, var(--dk-surfaceBrand) 0%, var(--dk-background) 100%);
+}
+
+.dk-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--dk-surface);
+  border: 1px solid var(--dk-borderSubtle);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--dk-textSecondary);
+  margin-bottom: 18px;
+}
+
+.dk-hero-title {
+  font-size: clamp(28px, 5vw, 44px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--dk-textPrimary);
+  margin: 0 0 14px;
+  line-height: 1.1;
+}
+
+.dk-hero-subtitle {
+  font-size: clamp(15px, 2vw, 18px);
+  color: var(--dk-textSecondary);
+  max-width: 560px;
+  margin: 0 auto 28px;
+}
+
+.dk-hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.dk-hero-stats {
+  display: flex;
+  justify-content: center;
+  gap: clamp(20px, 6vw, 56px);
+  margin-top: 40px;
+  flex-wrap: wrap;
+}
+
+.dk-hero-stat-value {
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--dk-textPrimary);
+}
+
+.dk-hero-stat-label {
+  font-size: 12px;
+  color: var(--dk-textSecondary);
+  font-weight: 600;
+}
+
+.dk-section {
+  padding: 44px 20px;
+  max-width: 1080px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.dk-section-title {
+  font-size: 24px;
+  font-weight: 800;
+  text-align: center;
+  color: var(--dk-textPrimary);
+  margin: 0 0 8px;
+}
+
+.dk-section-subtitle {
+  text-align: center;
+  color: var(--dk-textSecondary);
+  margin: 0 0 32px;
+  font-size: 14px;
+}
+
+/* Circular icon chips — mirrors Airtasker's round category icon grid. */
+.dk-chip-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+}
+
+.dk-chip-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 20px 14px;
+  border-radius: 16px;
+  background: var(--dk-surface);
+  border: 1px solid var(--dk-borderSubtle);
+}
+
+.dk-chip-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 999px;
+  background: var(--dk-primarySoft);
+  color: var(--dk-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dk-chip-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--dk-textPrimary);
+}
+
+.dk-chip-text {
+  font-size: 12px;
+  color: var(--dk-textSecondary);
+  margin: 0;
+}
+
+.dk-landing-footer {
+  margin-top: auto;
+  padding: 24px 20px;
+  border-top: 1px solid var(--dk-borderSubtle);
+  text-align: center;
+  color: var(--dk-textSecondary);
+  font-size: 12px;
+}
+
+/* ---------- Redesigned auth card ---------- */
+
+.dk-auth-shell {
+  min-height: calc(100vh - 64px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  background: var(--dk-background);
+}
+
+.dk-auth-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--dk-surface);
+  border: 1px solid var(--dk-borderSubtle);
+  border-radius: 20px;
+  padding: 28px 26px;
+  box-shadow: 0 20px 50px var(--dk-shadow);
+}
+
+.dk-auth-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.dk-auth-logo img {
+  height: 40px;
+}
+
+.dk-auth-title {
+  text-align: center;
+  font-size: 22px;
+  font-weight: 800;
+  margin: 0 0 4px;
+  color: var(--dk-textPrimary);
+}
+
+.dk-auth-subtitle {
+  text-align: center;
+  font-size: 13px;
+  color: var(--dk-textSecondary);
+  margin: 0 0 22px;
+}
+
+.dk-input-icon-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.dk-input-icon-wrap svg {
+  position: absolute;
+  left: 12px;
+  color: var(--dk-textSecondary);
+  pointer-events: none;
+}
+
+.dk-input-icon-wrap .dk-input {
+  padding-left: 38px;
+  width: 100%;
+}
+
+.dk-auth-demo {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--dk-surfaceSubtle);
+  border: 1px solid var(--dk-borderSubtle);
+}
+
+/* ---------- App shell (protected) — Airtasker-style mobile app chrome ---------- */
+
+.dk-app-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--dk-borderSubtle);
+  background: var(--dk-surface);
+  position: sticky;
+  top: 0;
+  z-index: 15;
+}
+
+.dk-app-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.dk-hamburger-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--dk-borderSubtle);
+  background: var(--dk-surface);
+  color: var(--dk-textPrimary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.dk-app-topbar-brand {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  color: var(--dk-textPrimary);
+  text-decoration: none;
+}
+
+.dk-app-topbar-brand img {
+  height: 24px;
+}
+
+.dk-topbar-user-menu {
+  position: relative;
+}
+
+.dk-avatar-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--dk-borderSubtle);
+  background: var(--dk-surface);
+  border-radius: 999px;
+  padding: 4px 12px 4px 4px;
+  cursor: pointer;
+  color: var(--dk-textPrimary);
+}
+
+.dk-avatar-circle {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--dk-primary);
+  color: var(--dk-onPrimary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.dk-avatar-name {
+  font-size: 13px;
+  font-weight: 600;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dk-user-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  background: var(--dk-surfaceElevated);
+  border: 1px solid var(--dk-borderSubtle);
+  border-radius: 12px;
+  min-width: 220px;
+  box-shadow: 0 16px 40px var(--dk-shadow);
+  padding: 10px;
+  z-index: 30;
+}
+
+.dk-user-menu-header {
+  padding: 6px 8px 10px;
+  border-bottom: 1px solid var(--dk-borderSubtle);
+  margin-bottom: 8px;
+}
+
+.dk-user-menu-header strong {
+  display: block;
+  font-size: 14px;
+}
+
+.dk-user-menu-header span {
+  font-size: 12px;
+  color: var(--dk-textSecondary);
+}
+
+.dk-user-menu-panel .dk-btn {
+  width: 100%;
+}
+
+/* ---------- Sidebar drawer behavior ---------- */
+
+.dk-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 8px;
+}
+
+.dk-sidebar-close-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--dk-borderSubtle);
+  background: var(--dk-surface);
+  color: var(--dk-textPrimary);
+  cursor: pointer;
+}
+
+.dk-nav-link-icon {
+  display: inline-flex;
+  color: var(--dk-textSecondary);
+  flex-shrink: 0;
+}
+
+.dk-nav-link[aria-current="page"] .dk-nav-link-icon {
+  color: var(--dk-primaryPressed);
+}
+
+.dk-sidebar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: var(--dk-overlay);
+  z-index: 14;
+}
+
+/* ---------- Bottom quick-nav bar (mobile only, Airtasker-style) ---------- */
+
+.dk-bottom-nav {
+  display: none;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 16;
+  background: var(--dk-surface);
+  border-top: 1px solid var(--dk-borderSubtle);
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom, 0px));
+}
+
+.dk-bottom-nav-list {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 2px;
+}
+
+.dk-bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 2px;
+  border-radius: 10px;
+  color: var(--dk-textSecondary);
+  text-decoration: none;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.dk-bottom-nav-item[aria-current="page"] {
+  color: var(--dk-primaryPressed);
+  background: var(--dk-primarySoft);
+}
+
+@media (max-width: 900px) {
+  .dk-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: 280px;
+    max-width: 82vw;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    z-index: 15;
+    box-shadow: 0 20px 50px var(--dk-shadow);
+  }
+
+  .dk-sidebar.dk-sidebar-open {
+    transform: translateX(0);
+  }
+
+  .dk-sidebar-close-btn {
+    display: flex;
+  }
+
+  .dk-sidebar-backdrop.dk-sidebar-backdrop-open {
+    display: block;
+  }
+
+  .dk-hamburger-btn {
+    display: flex;
+  }
+
+  .dk-app-topbar-brand {
+    display: flex;
+  }
+
+  .dk-avatar-name {
+    display: none;
+  }
+
+  .dk-content {
+    padding-bottom: 84px;
+  }
+
+  .dk-bottom-nav {
+    display: block;
+  }
+}

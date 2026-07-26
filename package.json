@@ -1,0 +1,53 @@
+{
+  "name": "dizkarte",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dizkarte — Philippines-focused mobile task marketplace (monorepo).",
+  "license": "UNLICENSED",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11.0",
+    "npm": ">=10.0.0"
+  },
+  "workspaces": [
+    "packages/config",
+    "packages/domain",
+    "packages/adapter-supabase",
+    "apps/admin",
+    "apps/mobile"
+  ],
+  "scripts": {
+    "build": "tsc -b tsconfig.json",
+    "typecheck": "tsc -b tsconfig.json --force",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "format": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
+    "format:write": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
+    "clean": "tsc -b tsconfig.json --clean",
+    "admin:typecheck": "npm run typecheck --workspace apps/admin",
+    "admin:test": "npm run test --workspace apps/admin",
+    "admin:build": "npm run build --workspace apps/admin",
+    "mobile:typecheck": "npm run typecheck --workspace apps/mobile",
+    "mobile:test": "npm run test --workspace apps/mobile",
+    "mobile:export": "npm run export --workspace apps/mobile",
+    "mobile:config-check": "npm run config-check --workspace apps/mobile",
+    "test:all": "npm run test && npm run admin:test && npm run mobile:test",
+    "typecheck:all": "npm run typecheck && npm run admin:typecheck && npm run mobile:typecheck",
+    "seed:supabase": "node scripts/seed-supabase.mjs",
+    "migrations:bundle": "node scripts/build-migration-bundle.mjs",
+    "verify:supabase": "node scripts/verify-supabase-schema.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.17.0",
+    "@types/node": "22.10.5",
+    "eslint": "9.17.0",
+    "prettier": "3.4.2",
+    "typescript": "5.7.3",
+    "typescript-eslint": "8.19.1",
+    "vitest": "3.2.7"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.110.8"
+  }
+}

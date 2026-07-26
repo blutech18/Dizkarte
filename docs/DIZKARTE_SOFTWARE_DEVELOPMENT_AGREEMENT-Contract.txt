@@ -1,0 +1,435 @@
+﻿  
+
+SOFTWARE DEVELOPMENT AGREEMENT   
+
+This Software Development Agreement ("Agreement") is entered into on July 17, 2026  
+("Effective Date") by and between:   
+
+CLIENT   
+
+Marielle Aman   
+ ("Client") and   
+
+DEVELOPER   
+
+Cristan Jade Jumawan  
+("Developer")   
+
+Collectively referred to as the "Parties."   
+
+                                                                                                                        
+
+1. PURPOSE   
+
+The Client engages the Developer to design, develop, test, deploy, and deliver the Dizkarte  
+Mobile Application, a task marketplace platform for the Philippine market, in accordance with  
+the agreed Scope of Work and Product Specification.   
+
+The Developer agrees to complete the Project in a professional manner, exercising reasonable  
+skill, care, and diligence, and in accordance with industry best practices.   
+
+                                                                                                                        
+
+2. PROJECT SCOPE   
+
+The Project shall include all features, functionality, deliverables, and technical requirements  
+outlined in the attached Scope of Work and Product Specification.   
+
+This includes, but is not limited to:   
+
+     ●   User Registration & Authentication   
+     ●   Client & Tasker Profiles   
+         ID Verification   
+         Task Posting   
+     ●   Marketplace Browsing   
+﻿     ●   
+     ●   
+
+     ●   Search & Filtering   
+     ●   Offer Submission   
+     ●   Messaging System   
+     ●   Ratings & Reviews   
+     ●   Notifications   
+     ●   Escrow Payment System   
+     ●   Withdrawal Functionality   
+     ●   Admin Dashboard   
+     ●   Android Application   
+     ●   iOS Application   
+     ●   Documentation   
+     ●   Deployment Preparation   
+
+Any functionality not expressly included within the agreed Scope of Work shall constitute a  
+change request.   
+
+                                                                                                                       
+
+3. PROJECT COST & PAYMENT SCHEDULE   
+
+The total fixed project fee shall be:   
+
+PHP 80,000.00   
+
+Payments shall be milestone-based.   
+
+No payment shall become due unless the applicable milestone has been completed, demonstrated,  
+and approved by the Client in writing.   
+
+Milestone 1 – 25%   
+
+PHP 20,000   
+
+Upon completion of:   
+
+     ●   Planning & Project Setup   
+     ●   UI/UX Planning   
+     ●   Database Architecture   
+         Authentication Setup   
+         Project Structure   
+﻿     ●   
+     ●   
+
+                                                                                                                         
+
+Milestone 2 – 25%   
+
+PHP 20,000   
+
+Upon completion of:   
+
+     ●   User Registration   
+     ●   User Profiles   
+     ●   Task Posting   
+     ●   Marketplace Browsing   
+     ●   Search   
+     ●   Filtering   
+     ●   Offer System   
+     ●   Tasker Dashboard   
+     ●   Core Marketplace Workflow   
+
+                                                                                                                         
+
+Milestone 3 – 25%   
+
+PHP 20,000   
+
+Upon completion of:   
+
+     ●   Messaging   
+     ●   Maps   
+     ●   Ratings   
+     ●   Reviews   
+     ●   Notifications   
+     ●   Admin Features   
+
+                                                                                                                         
+
+Milestone 4 – 25%   
+
+PHP 20,000   
+
+Upon completion of:   
+         Payment Integration   
+         Escrow Workflow   
+﻿     ●   
+     ●   
+
+     ●   Testing   
+     ●   Deployment   
+     ●   Source Code Turnover   
+     ●   Documentation   
+     ●   Final Acceptance   
+
+If any milestone contains material defects or incomplete functionality, the Client may withhold  
+payment until the issues have been corrected.   
+
+                                                                                                                        
+
+4. PROJECT TIMELINE   
+
+Target Completion:   
+
+On or Before September 2026   
+
+The Parties agree to the following development schedule:   
+
+Phase 1   
+
+July 20 – July 21  
+
+Planning & Project Setup   
+
+Phase 2   
+
+July 22 – August 9   
+
+Core Marketplace Development   
+
+Phase 3   
+
+August 10 – August 23   
+
+Advanced Features   
+
+Phase 4   
+
+August 24 – September 6   
+
+Payment Integration, Testing & Optimization   
+﻿  
+
+Phase 5   
+
+September 7 – September 21   
+
+User Acceptance Testing, Deployment & Project Turnover   
+
+The Developer acknowledges that timely completion is a material obligation under this  
+Agreement.   
+
+                                                                                                                               
+
+5. DELAYS   
+
+The timeline assumes the Client provides timely:   
+
+     ●    approvals   
+     ●    feedback   
+     ●   branding   
+     ●   required materials   
+
+If delays are caused by the Client, the schedule may be adjusted.   
+
+If delays are caused by the Developer without reasonable justification, the Client may require a  
+revised delivery schedule or terminate the Agreement.   
+
+                                                                                                                               
+
+6. CHANGE REQUESTS   
+
+Any feature, functionality, or modification outside the agreed scope must be approved in writing  
+before work begins.   
+
+Changes may affect:   
+
+     ●   Project Cost   
+     ●    Timeline   
+     ●   Deliverables   
+
+                                                                                                                               
+﻿  
+
+7. OWNERSHIP OF INTELLECTUAL PROPERTY   
+
+The Parties acknowledge that the Dizkarte concept, business model, branding, workflows,  
+software architecture, UI/UX, documentation, and all associated intellectual property belong  
+solely and exclusively to the Client.   
+
+Upon receipt of the final payment, the Developer irrevocably assigns to the Client all rights, title,  
+and interest in and to the Deliverables, including all copyrights and other intellectual property  
+rights.   
+
+The Client shall be the exclusive owner of, including but not limited to:   
+
+     ●   Source Code   
+     ●   Mobile Applications   
+     ●   Backend   
+     ●   Database   
+     ●   APIs   
+     ●   UI/UX Designs   
+     ●   Wireframes   
+     ●   Figma Files   
+     ●   Git Repository   
+     ●   Supabase Project   
+     ●   Documentation   
+     ●   Build Files   
+     ●   Assets   
+     ●   Branding   
+     ●   Graphics   
+     ●   Icons   
+     ●   Design Files   
+     ●   Admin Dashboard   
+     ●   Project Architecture   
+     ●   Business Logic   
+     ●   All future modifications completed under this Agreement   
+
+The Developer shall retain no ownership, licence, or continuing rights over any Deliverable  
+except as expressly permitted under Section 10.   
+
+                                                                                                                         
+﻿  
+
+8. SOURCE CODE & PROJECT TURNOVER   
+
+Upon completion of the Project, the Developer shall deliver and transfer full ownership and  
+administrative control of all Project assets to the Client.   
+This includes:   
+
+     ●   Complete Source Code   
+     ●   Git Repository   
+     ●   Supabase Project   
+     ●   Database   
+     ●   Environment Variables   
+     ●   API Keys   
+     ●   Firebase   
+     ●   Documentation   
+     ●   Build Files   
+     ●   Signing Certificates   
+     ●   Signing Keys   
+     ●   Android Build   
+     ●   iOS Build   
+     ●   Deployment Instructions   
+     ●   Administrator Credentials   
+     ●   Third-party integrations   
+     ●   Any accounts created specifically for the Project   
+
+No files, credentials, repositories, documentation, or access required to operate, maintain,  
+modify, or deploy the Project may be withheld.   
+
+                                                                                                                          
+
+9. CONFIDENTIALITY   
+
+The Developer shall keep strictly confidential all information relating to Dizkarte.   
+
+Confidential Information includes but is not limited to:   
+
+     ●   source code   
+     ●   designs   
+     ●   UI   
+     ●   databases   
+     ●   financial information   
+     ●   pricing   
+﻿  
+
+     ●   business plans   
+     ●   marketing   
+     ●   documentation   
+     ●   future features   
+     ●   credentials   
+     ●   user information   
+
+The Developer shall not copy, disclose, distribute, discuss, publish, reproduce, or otherwise use  
+any confidential information except as necessary to complete this Project.   
+
+These obligations survive termination of this Agreement.   
+
+                                                                                                                                
+
+10. UNAUTHORISED USE   
+
+Without the Client's prior written consent, the Developer shall not:   
+
+     ●   reuse any code   
+     ●   copy any feature   
+     ●   create a similar application   
+     ●   sell any part of the project   
+     ●   distribute files   
+     ●   disclose confidential information   
+     ●   publish screenshots   
+     ●   publish videos   
+     ●   demonstrate the application publicly   
+     ●   use any project material commercially   
+
+Any unauthorised disclosure, leak, publication, sharing, copying, reproduction, distribution, or  
+use of any part of the Project shall constitute a material breach of this Agreement.   
+
+In the event of such a breach, the Client shall be entitled to:   
+
+     ●   immediate termination of this Agreement;   
+     ●   a refund of all payments made under this Agreement;   
+     ●   compensation for all losses, damages, and costs arising from the breach;   
+     ●   injunctive or equitable relief to prevent further unauthorised use or disclosure; and ● any  
+         other remedies available under applicable law.   
+
+                                                                                                                                
+﻿  
+
+11. PORTFOLIO USE   
+
+The Developer may include the Project within a personal portfolio only after the official public  
+launch of Dizkarte.   
+Prior to launch, the Developer shall not publish or share:   
+
+     ●   screenshots   
+     ●   videos   
+     ●   demonstrations   
+     ●   social media posts   
+     ●   descriptions   
+     ●   designs   
+     ●   code snippets   
+
+Portfolio use after launch shall not imply ownership of the Project and must not disclose  
+confidential information or proprietary source code.   
+
+                                                                                                                            
+
+12. POST-LAUNCH MAINTENANCE   
+
+The Developer shall provide sixty (60) calendar days of post-launch maintenance commencing  
+on the official production launch date.   
+
+The maintenance period shall include, at no additional cost:   
+
+     ●   Bug Fixes   
+     ●   Error Corrections   
+     ●   Performance Optimisation   
+     ●   Compatibility Issues   
+     ●   Security Fixes   
+     ●   Deployment Support   
+     ●   Technical Assistance   
+     ●   General Maintenance   
+     ●   Knowledge Transfer   
+     ●   Assistance during Project Turnover   
+
+This maintenance period applies only to functionality included within the agreed project scope  
+and does not include new features or enhancements requested after launch.   
+
+                                                                                                                            
+﻿  
+
+13. ACCEPTANCE   
+
+Final acceptance shall occur only after:   
+     ●   successful User Acceptance Testing;   
+     ●   completion of agreed revisions;   
+     ●   successful deployment of the Android and iOS applications;   
+     ●   delivery of all documentation;   
+     ●   transfer of all source code, repositories, credentials, and project assets;  ● completion of  
+         the Project turnover.   
+
+                                                                                                                         
+
+14. ENTIRE AGREEMENT   
+
+This Agreement, together with the attached Scope of Work and Product Specification, constitutes  
+the complete agreement between the Parties and supersedes all prior discussions, negotiations,  
+and understandings.   
+
+This Agreement shall be governed by the laws of the Republic of the Philippines. Any dispute  
+arising out of or relating to this Agreement shall be subject to the exclusive jurisdiction of the  
+competent courts of the Republic of the Philippines.   
+
+                                                                                                                         
+
+SIGNATURES   
+
+CLIENT   
+
+Marielle Aman   
+
+Signature: _______________________   
+
+Date: ___________________________   
+
+                                                                                                                         
+
+DEVELOPER   
+
+Name: Cristan Jade Jumawan   
+
+Signature: _______________________   
+﻿  
+
+Date: July 17, 2026   
+
+   

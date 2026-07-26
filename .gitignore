@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Test / coverage
+coverage/
+.vitest/
+
+# Environment — never commit real secrets
+.env
+.env.*
+!.env.example
+apps/*/.env
+apps/*/.env.*
+!apps/*/.env.example
+
+# Local convenience notes (development test logins). The authoritative roster
+# lives in scripts/seed-supabase.mjs; this file is a personal cheat sheet.
+DEV-ACCOUNTS.txt
+
+# Downloaded CLI tooling. Platform-specific binaries (hundreds of MB) that any
+# machine can re-fetch — they are not source and must not be in history.
+.tools/
+
+# Supabase local
+supabase/.branches/
+supabase/.temp/
+.supabase/
+
+# Kiro IDE workspace (specs, steering, local settings). Authoring tooling for
+# this project rather than part of the delivered system.
+.kiro/
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Expo / native
+.expo/
+apps/mobile/.expo/
+apps/mobile/dist-export/
+*.log
+npm-debug.log*
+
+# Next.js
+apps/admin/.next/
+apps/admin/out/

@@ -1,0 +1,52 @@
+{
+  "name": "@dizkarte/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dizkarte Expo + React Native mobile app (Expo Router).",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "expo-router/entry",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "export": "expo export --platform web --output-dir dist-export",
+    "config-check": "expo config --type public",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@dizkarte/adapter-supabase": "0.1.0",
+    "@dizkarte/config": "0.1.0",
+    "@dizkarte/domain": "0.1.0",
+    "@react-native-async-storage/async-storage": "2.1.0",
+    "@supabase/supabase-js": "2.110.8",
+    "expo": "57.0.7",
+    "expo-constants": "57.0.6",
+    "expo-linking": "57.0.3",
+    "expo-router": "57.0.7",
+    "expo-status-bar": "3.0.9",
+    "expo-web-browser": "57.0.1",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.0",
+    "react-native-gesture-handler": "2.29.0",
+    "react-native-reanimated": "4.5.2",
+    "react-native-safe-area-context": "5.7.0",
+    "react-native-screens": "4.25.2",
+    "react-native-svg": "15.15.4",
+    "react-native-url-polyfill": "2.0.0",
+    "react-native-web": "0.21.1",
+    "zod": "3.24.1"
+  },
+  "devDependencies": {
+    "@babel/core": "7.26.0",
+    "@testing-library/react-native": "13.2.0",
+    "@types/react": "19.2.3",
+    "babel-preset-expo": "57.0.3",
+    "react-test-renderer": "19.2.3",
+    "typescript": "5.7.3",
+    "vitest": "3.2.7"
+  }
+}

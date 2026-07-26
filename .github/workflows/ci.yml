@@ -1,0 +1,196 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Format, lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install (clean, locked)
+        run: npm ci
+
+      - name: Format check
+        run: npm run format
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck / build packages
+        run: npm run build
+
+      - name: Unit tests (packages)
+        run: npm test
+
+  admin:
+    name: Admin app (typecheck, test, build)
+    runs-on: ubuntu-latest
+    env:
+      DIZKARTE_ENV: development
+      SUPABASE_URL: https://ci-placeholder-project.supabase.co
+      SUPABASE_ANON_KEY: ci-placeholder-anon-key
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install (clean, locked)
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: apps/admin
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        working-directory: apps/admin
+        run: npx vitest run
+
+      - name: Production build
+        working-directory: apps/admin
+        run: npx next build
+
+  mobile:
+    name: Mobile app (typecheck, test, export, config check)
+    runs-on: ubuntu-latest
+    env:
+      EXPO_PUBLIC_DIZKARTE_ENV: development
+      EXPO_PUBLIC_SUPABASE_URL: https://ci-placeholder-project.supabase.co
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install (clean, locked)
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: apps/mobile
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        working-directory: apps/mobile
+        run: npx vitest run
+
+      - name: Expo config validation
+        working-directory: apps/mobile
+        run: npx expo config --type public
+
+      - name: Expo web export (bundle validation)
+        working-directory: apps/mobile
+        run: npx expo export --platform web --output-dir dist-export
+
+  secret-safe-config:
+    name: Secret-safe configuration check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure no committed .env files (only .env.example allowed)
+        run: |
+          if git ls-files | grep -E '(^|/)\.env($|\.)' | grep -v '\.env\.example$'; then
+            echo "::error::A committed .env file was found. Remove it."
+            exit 1
+          fi
+          echo "OK: no committed .env files."
+
+      - name: Scan for obvious service-role key leakage in source
+        run: |
+          # Supabase service-role JWTs carry the "service_role" claim. Fail if a
+          # long token-like string with that marker is committed anywhere.
+          if grep -RIn --exclude-dir=node_modules --exclude-dir=.git \
+               -e 'service_role' -- . \
+             | grep -Ev '(\.md:|\.sql:|\.yml:|SUPABASE_SERVICE_ROLE_KEY=|// |-- |ADMIN_|user_capability|has_capability)'; then
+            echo "::error::Possible service-role reference leak. Review the matches above."
+            exit 1
+          fi
+          echo "OK: no obvious service-role key leakage."
+
+  migrations-static:
+    name: Migration static checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure migrations are ordered and non-empty
+        run: |
+          set -e
+          count=$(ls supabase/migrations/*.sql | wc -l)
+          echo "Found $count migration files."
+          test "$count" -gt 0
+          for f in supabase/migrations/*.sql; do
+            test -s "$f" || { echo "::error::Empty migration $f"; exit 1; }
+          done
+          echo "OK: migrations present and non-empty."
+
+
+  database:
+    name: Database migrations + RLS/security SQL suites
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Pinned to match the version validated locally (see change log).
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.109.1
+
+      # Boots the local stack (db + auth + storage schemas) on the runner's
+      # Docker and applies migrations + seed on first start.
+      - name: Start Supabase
+        run: supabase start
+
+      # Deterministic clean apply of migrations 0001..NNNN + seed (mirrors the
+      # local validation). Fails the job if any migration fails to apply.
+      - name: Reset database (clean migration apply)
+        run: supabase db reset
+
+      - name: Ensure psql client is available
+        run: psql --version || (sudo apt-get update && sudo apt-get install -y postgresql-client)
+
+      # Run each SQL self-check suite with ON_ERROR_STOP so any FAIL/exception
+      # aborts the job with a non-zero exit. Matches the local run:
+      # ledger_and_constraints 4/4, rls_enabled 3/3, security_hardening 30/30.
+      - name: Run SQL test suites
+        run: |
+          set -euo pipefail
+          DB_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+          for suite in ledger_and_constraints rls_enabled security_hardening; do
+            echo "=== running supabase/tests/$suite.sql ==="
+            psql "$DB_URL" -v ON_ERROR_STOP=1 -f "supabase/tests/$suite.sql"
+          done
+          echo "OK: all SQL suites passed."
+
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop
