@@ -1,0 +1,85 @@
+{
+  "$comment": [
+    "Single source of truth for the development account roster.",
+    "Consumed by scripts/seed-supabase.mjs (Node, via fs), by the Admin login",
+    "page, and by the mobile sign-in screen, so the roster and password can",
+    "never drift between the seeder and what the apps display.",
+    "",
+    "DEVELOPMENT ONLY. Emails use the reserved, non-deliverable .invalid TLD.",
+    "A seeded project must never be a production project: these credentials are",
+    "deliberately well-known so the team can sign in without coordination."
+  ],
+  "password": "Password123!",
+  "accounts": [
+    {
+      "email": "super-admin@dev.dizkarte.invalid",
+      "displayName": "Super Admin",
+      "roleLabel": "Super Admin",
+      "surface": "admin",
+      "capabilities": ["ADMIN_SUPER"],
+      "verified": true,
+      "tasker": null,
+      "purpose": "Sees everything and satisfies every capability gate, including Categories, Audit log and Settings."
+    },
+    {
+      "email": "support-admin@dev.dizkarte.invalid",
+      "displayName": "Support Admin",
+      "roleLabel": "Support Admin",
+      "surface": "admin",
+      "capabilities": ["ADMIN_SUPPORT"],
+      "verified": true,
+      "tasker": null,
+      "purpose": "Trust and safety: verification, Tasker applications, users, tasks, bookings, reports, support tickets."
+    },
+    {
+      "email": "finance-admin@dev.dizkarte.invalid",
+      "displayName": "Finance Admin",
+      "roleLabel": "Finance Admin",
+      "surface": "admin",
+      "capabilities": ["ADMIN_FINANCE"],
+      "verified": true,
+      "tasker": null,
+      "purpose": "Money and disputes: payments and ledger, reconciliation, withdrawals, disputes."
+    },
+    {
+      "email": "client@dev.dizkarte.invalid",
+      "displayName": "Maria Santos",
+      "roleLabel": "Client",
+      "surface": "mobile",
+      "capabilities": ["CLIENT"],
+      "verified": true,
+      "tasker": null,
+      "purpose": "Identity approved. Owns the seeded open tasks. Post, edit and publish tasks, browse, select an offer."
+    },
+    {
+      "email": "tasker@dev.dizkarte.invalid",
+      "displayName": "Ramon Bautista",
+      "roleLabel": "Approved Tasker",
+      "surface": "mobile",
+      "capabilities": ["CLIENT", "TASKER"],
+      "verified": true,
+      "tasker": "APPROVED",
+      "purpose": "Approved and unsuspended. Submit and withdraw offers, Tasker Dashboard, edit the public Tasker profile."
+    },
+    {
+      "email": "tasker-applicant@dev.dizkarte.invalid",
+      "displayName": "Liza Fernandez",
+      "roleLabel": "Tasker applicant",
+      "surface": "mobile",
+      "capabilities": ["CLIENT"],
+      "verified": true,
+      "tasker": "IN_REVIEW",
+      "purpose": "Application in review. Populates the Admin approvals queue. Cannot submit offers yet, which is correct."
+    },
+    {
+      "email": "new-user@dev.dizkarte.invalid",
+      "displayName": "Juana New User",
+      "roleLabel": "Unverified user",
+      "surface": "mobile",
+      "capabilities": ["CLIENT"],
+      "verified": false,
+      "tasker": null,
+      "purpose": "No verification case. Confirms the gates refuse: publishing a task and submitting an offer both fail."
+    }
+  ]
+}

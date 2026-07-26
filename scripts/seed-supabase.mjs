@@ -53,41 +53,32 @@ const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 });
 
 /**
- * Shared password for every development account.
+ * Development account roster and shared password.
  *
- * Read from the git-ignored `.env.seed`, never hardcoded: these accounts exist
- * on a real Supabase project, so a password committed to source control would be
- * a working credential for anyone who reads the repository.
+ * Read from `packages/config/src/dev/dev-accounts.json`, the single source the
+ * Admin login page and the mobile sign-in screen also read, so the credentials
+ * an app displays can never drift from the ones actually provisioned here.
+ *
+ * Loaded with `fs` rather than `import` because this is a plain Node script and
+ * the config package ships TypeScript sources, not a build.
+ *
+ * Emails use the reserved, non-deliverable `.invalid` TLD, so none of these
+ * addresses can receive mail — password-reset and email-confirmation flows must
+ * be tested with a real inbox instead.
  */
-const ACCOUNT_PASSWORD = process.env.SEED_ACCOUNT_PASSWORD?.trim();
+const ROSTER = JSON.parse(
+  readFileSync(resolve(repoRoot, "packages/config/src/dev/dev-accounts.json"), "utf8"),
+);
 
-if (!ACCOUNT_PASSWORD) {
-  console.error(
-    "Missing SEED_ACCOUNT_PASSWORD.\n" +
-      "Add it to .env.seed (git-ignored). Choose any value at least 10 characters long;\n" +
-      "it becomes the password for every development account listed in this script.",
-  );
-  process.exit(1);
-}
-if (ACCOUNT_PASSWORD.length < 10) {
-  console.error("SEED_ACCOUNT_PASSWORD must be at least 10 characters (Supabase policy).");
-  process.exit(1);
-}
-
-/**
- * Development account roster. Emails use the non-deliverable `.invalid` TLD, so
- * none of these addresses can receive real mail — password-reset and
- * email-confirmation flows must be tested with a real inbox instead.
- */
-const ACCOUNTS = [
-  { email: "super-admin@dev.dizkarte.invalid", displayName: "Super Admin", capabilities: ["ADMIN_SUPER"], verified: true },
-  { email: "support-admin@dev.dizkarte.invalid", displayName: "Support Admin", capabilities: ["ADMIN_SUPPORT"], verified: true },
-  { email: "finance-admin@dev.dizkarte.invalid", displayName: "Finance Admin", capabilities: ["ADMIN_FINANCE"], verified: true },
-  { email: "client@dev.dizkarte.invalid", displayName: "Maria Santos", capabilities: ["CLIENT"], verified: true },
-  { email: "tasker@dev.dizkarte.invalid", displayName: "Ramon Bautista", capabilities: ["CLIENT", "TASKER"], verified: true, tasker: "APPROVED" },
-  { email: "tasker-applicant@dev.dizkarte.invalid", displayName: "Liza Fernandez", capabilities: ["CLIENT"], verified: true, tasker: "IN_REVIEW" },
-  { email: "new-user@dev.dizkarte.invalid", displayName: "Juana New User", capabilities: ["CLIENT"], verified: false },
-].map((account) => ({ ...account, password: ACCOUNT_PASSWORD }));
+const ACCOUNT_PASSWORD = ROSTER.password;
+const ACCOUNTS = ROSTER.accounts.map((account) => ({
+  email: account.email,
+  displayName: account.displayName,
+  capabilities: account.capabilities,
+  verified: account.verified,
+  ...(account.tasker ? { tasker: account.tasker } : {}),
+  password: ACCOUNT_PASSWORD,
+}));
 
 const CATEGORIES = [
   { slug: "home-cleaning", name: "Home Cleaning", sort_order: 1 },

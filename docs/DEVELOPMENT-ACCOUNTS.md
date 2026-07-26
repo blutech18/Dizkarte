@@ -1,27 +1,49 @@
 # Development accounts
 
-The roster of accounts created by `npm run seed:supabase`, what each one is for,
-and how to sign in.
+The accounts created by `npm run seed:supabase`, what each is for, and how to
+sign in.
 
-**No passwords are recorded here.** These accounts exist on a real Supabase
-project, so a password in source control would be a working credential for
-anyone who reads this repository. The password is whatever you set as
-`SEED_ACCOUNT_PASSWORD` in the git-ignored `.env.seed` — every account below
-shares it, and re-running the seeder resets them all to that value.
+> **Development only.** These credentials are deliberately well-known so the
+> team can sign in without coordination. Never seed a production project, and
+> never reuse this password for a real account.
+
+**Shared password for every account: `Password123!`**
+
+Supabase stores it bcrypt-hashed in `auth.users` — the plaintext exists only in
+the roster file below, never in the database.
 
 Email addresses use the reserved, non-deliverable `.invalid` TLD, so none of
-them can receive real mail. Password-reset and email-confirmation flows
-therefore cannot be exercised with these accounts; use a real inbox for those.
+them can receive mail. Password-reset and email-confirmation flows therefore
+cannot be exercised with these accounts; use a real inbox for those.
+
+## Single source of truth
+
+`packages/config/src/dev/dev-accounts.json` holds the roster and the password.
+It is read by:
+
+- `scripts/seed-supabase.mjs` — provisions the accounts
+- the Admin login page — lists the Admin accounts
+- the mobile sign-in screen — lists the mobile accounts and prefills the form
+
+Because all three read the same file, what an app displays can never drift from
+what was actually provisioned. Change the password in that one file and re-run
+the seeder.
+
+Both apps gate the on-screen list on the resolved environment being
+`development` or `test`, so it never renders against staging or production.
 
 ## Setup
 
 ```bash
-cp .env.seed.example .env.seed     # then fill in the three values
+cp .env.seed.example .env.seed     # then fill in the two Supabase values
 npm run seed:supabase              # idempotent — safe to re-run
 ```
 
-`.env.seed` needs your Supabase URL, the service-role key (Project Settings →
-API), and `SEED_ACCOUNT_PASSWORD`.
+`.env.seed` needs only your Supabase URL and the service-role key (Project
+Settings → API). No password configuration is required.
+
+Re-running the seeder resets every account below to the shared password, so if
+you change one in the app the seeder restores it.
 
 ## Admin console
 
@@ -39,7 +61,8 @@ account actually holds. `ADMIN_SUPER` satisfies every gate.
 
 ## Mobile app
 
-Run `npm run start --workspace apps/mobile`.
+Run `npm run start --workspace apps/mobile`. The sign-in screen has a
+"Development test accounts" panel — tap an account to prefill the form.
 
 | Account | State | Use it to test |
 | --- | --- | --- |
@@ -60,5 +83,3 @@ a Tasker on Dizkarte. Admin capabilities are add-ons, not replacements.
 - Escrow checkout and payouts are not reachable with any account: no payment or
   payout provider is approved, so bookings deliberately stop at
   `PAYMENT_PENDING` until the payment integration lands.
-- `DEV-ACCOUNTS.txt` at the repository root is a personal, git-ignored cheat
-  sheet. It is optional and never committed.

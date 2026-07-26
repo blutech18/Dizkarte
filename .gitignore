@@ -12,10 +12,13 @@ build/
 coverage/
 .vitest/
 
-# Environment — never commit real secrets
+# Environment — never commit real secrets.
+# The `*.example` templates are the exception: they hold placeholders only and
+# are how a new machine learns which variables to set.
 .env
 .env.*
 !.env.example
+!.env.seed.example
 apps/*/.env
 apps/*/.env.*
 !apps/*/.env.example

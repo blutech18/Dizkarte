@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { DEV_ACCOUNT_PASSWORD, devAccountsFor } from "@dizkarte/config";
 import { loadServerConfig, isDevAdapterActive } from "@/lib/config";
 import { PublicHeader } from "@/components/shell/PublicHeader";
 import { LoginForm } from "./LoginForm";
@@ -44,6 +45,11 @@ export default async function LoginPage({
 
           <LoginForm from={from ?? "/dashboard"} />
 
+          {/*
+            Rendered only in development, and driven by the shared roster the
+            seeder reads, so this list can never drift from the accounts that
+            actually exist.
+          */}
           {devMode ? (
             <div className="dk-auth-demo">
               <p className="dk-field-description" style={{ fontWeight: 700, marginBottom: 6 }}>
@@ -53,18 +59,14 @@ export default async function LoginPage({
                 className="dk-field-description"
                 style={{ margin: 0, paddingLeft: 18, lineHeight: 1.7 }}
               >
-                <li>super-admin@dev.dizkarte.invalid</li>
-                <li>support-admin@dev.dizkarte.invalid</li>
-                <li>finance-admin@dev.dizkarte.invalid</li>
+                {devAccountsFor("admin").map((account) => (
+                  <li key={account.email}>
+                    <strong>{account.roleLabel}</strong> — {account.email}
+                  </li>
+                ))}
               </ul>
-              {/*
-                Passwords are deliberately not rendered. They are set from
-                SEED_ACCOUNT_PASSWORD in the git-ignored `.env.seed`, so they never
-                reach source control or a served page.
-              */}
               <p className="dk-field-description" style={{ marginTop: 6, marginBottom: 0 }}>
-                Password is the <code>SEED_ACCOUNT_PASSWORD</code> value from your local{" "}
-                <code>.env.seed</code>.
+                Password for every account: <code>{DEV_ACCOUNT_PASSWORD}</code>
               </p>
             </div>
           ) : null}
