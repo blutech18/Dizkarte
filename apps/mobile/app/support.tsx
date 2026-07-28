@@ -146,12 +146,12 @@ export default function SupportScreen() {
               />
               <View style={styles.evidenceRow}>
                 <Button
-                  label="Attach sample photo"
+                  label="Attach photo"
                   onPress={() => addEvidence("image")}
                   variant="secondary"
                 />
                 <Button
-                  label="Attach sample video"
+                  label="Attach video"
                   onPress={() => addEvidence("video")}
                   variant="secondary"
                 />

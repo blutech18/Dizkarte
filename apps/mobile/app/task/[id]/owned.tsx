@@ -14,7 +14,7 @@ import {
 } from "../../../src/components/ui/AsyncState";
 import { useSession } from "../../../src/providers/SessionProvider";
 import { useMarketplace } from "../../../src/providers/MarketplaceProvider";
-import { categoryName } from "../../../src/services/marketplace/categories";
+import { useCategories } from "../../../src/providers/CategoriesProvider";
 import type {
   OfferRecord,
   OwnedTaskRecord,
@@ -44,6 +44,7 @@ export default function OwnedTaskDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useSession();
   const { repository, notifyChanged } = useMarketplace();
+  const { nameFor } = useCategories();
   const [task, setTask] = useState<OwnedTaskRecord | null>(null);
   const [questions, setQuestions] = useState<ReadonlyArray<TaskQuestionRecord>>([]);
   const [offers, setOffers] = useState<ReadonlyArray<OfferRecord>>([]);
@@ -129,7 +130,7 @@ export default function OwnedTaskDetailScreen() {
         <StatusBadge tone={TASK_STATUS_TONE[task.status] ?? "neutral"} label={task.status} />
       </View>
       <Text style={styles.meta}>
-        {categoryName(task.draft.categoryId)} · {formatPhp(task.draft.budgetCentavos)}
+        {nameFor(task.draft.categoryId) ?? "Task"} · {formatPhp(task.draft.budgetCentavos)}
       </Text>
 
       {paymentPending ? (

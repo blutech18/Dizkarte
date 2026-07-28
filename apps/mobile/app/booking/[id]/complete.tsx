@@ -102,12 +102,12 @@ export default function RequestCompletionScreen() {
         <Text style={styles.evidenceTitle}>Evidence</Text>
         <View style={styles.buttonRow}>
           <Button
-            label="Add sample photo"
+            label="Attach photo"
             onPress={() => addEvidence("image")}
             variant="secondary"
           />
           <Button
-            label="Add sample video"
+            label="Attach video"
             onPress={() => addEvidence("video")}
             variant="secondary"
           />

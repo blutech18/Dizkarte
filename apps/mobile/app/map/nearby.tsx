@@ -127,7 +127,7 @@ export default function NearbyMapScreen() {
         <Stack.Screen options={{ headerShown: true, title: "Nearby map" }} />
         <DeniedState
           title="Map unavailable"
-          description="No map provider is configured in this environment. This is never replaced with a synthetic fallback outside development/test."
+          description="Map view is unavailable until a map provider is configured. Browse nearby work from the task list instead."
         />
       </Screen>
     );
@@ -136,8 +136,15 @@ export default function NearbyMapScreen() {
   return (
     <Screen scroll={false}>
       <Stack.Screen options={{ headerShown: true, title: "Nearby map" }} />
-      <View style={styles.banner} accessibilityRole="alert">
-        <Text style={styles.bannerText}>SYNTHETIC APPROXIMATE MAP — NOT LIVE NAVIGATION</Text>
+      {/*
+        Locations are intentionally approximate: the feed only ever exposes a
+        rounded point, never a task's exact address. Turn-by-turn navigation is
+        not part of this view.
+      */}
+      <View style={styles.banner}>
+        <Text style={styles.bannerText}>
+          Approximate locations only — exact addresses are shared after booking
+        </Text>
       </View>
       {state === "loading" ? <LoadingState label="Loading map results" /> : null}
       {state === "error" ? <ErrorState onRetry={retry} /> : null}

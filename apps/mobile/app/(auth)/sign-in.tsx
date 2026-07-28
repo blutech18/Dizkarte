@@ -7,7 +7,6 @@ import { TextField } from "../../src/components/ui/TextField";
 import { Button } from "../../src/components/ui/Button";
 import { useSession } from "../../src/providers/SessionProvider";
 import { SocialSignIn } from "../../src/components/auth/SocialSignIn";
-import { DevAccountsHint } from "../../src/components/auth/DevAccountsHint";
 import { theme, spacing, fontSize } from "../../src/theme";
 
 export default function SignInScreen() {
@@ -88,14 +87,6 @@ export default function SignInScreen() {
             </Link>
           </View>
           <SocialSignIn />
-          <DevAccountsHint
-            onSelect={(devEmail, devPassword) => {
-              setEmail(devEmail);
-              setPassword(devPassword);
-              setFormError(null);
-              setFieldErrors({});
-            }}
-          />
           <View style={styles.footerRow}>
             <Text style={styles.footerText}>Don&apos;t have an account? </Text>
             <Link href="/(auth)/register">

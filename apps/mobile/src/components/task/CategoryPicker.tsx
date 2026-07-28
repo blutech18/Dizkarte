@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { theme, radii, spacing, fontSize, MIN_TOUCH_TARGET } from "../../theme";
-import { SYNTHETIC_CATEGORIES } from "../../services/marketplace/categories";
+import { useCategories } from "../../providers/CategoriesProvider";
 
 export type CategoryPickerProps = {
   readonly value: string | null;
@@ -9,10 +9,22 @@ export type CategoryPickerProps = {
   readonly error?: string;
 };
 
-/** Accessible single-select category list. Not a native `<select>` — RN has none. */
+/**
+ * Accessible single-select category list. Not a native `<select>` — RN has none.
+ *
+ * Options come from the live catalog, so the id handed to `onChange` is the real
+ * `categories.id` that `tasks.category_id` references.
+ */
 export function CategoryPicker({ value, onChange, error }: CategoryPickerProps) {
   const [open, setOpen] = useState(false);
-  const selected = SYNTHETIC_CATEGORIES.find((c) => c.id === value);
+  const { categories, loading } = useCategories();
+  const selected = categories.find((c) => c.id === value);
+
+  const placeholder = loading
+    ? "Loading categories…"
+    : categories.length === 0
+      ? "No categories available"
+      : "Choose a category";
 
   return (
     <View style={styles.container}>
@@ -21,13 +33,15 @@ export function CategoryPicker({ value, onChange, error }: CategoryPickerProps) 
       </Text>
       <Pressable
         onPress={() => setOpen((v) => !v)}
+        disabled={loading || categories.length === 0}
         accessibilityRole="button"
-        accessibilityLabel={selected ? `Category: ${selected.name}` : "Choose a category"}
+        accessibilityLabel={selected ? `Category: ${selected.name}` : placeholder}
         accessibilityHint="Opens the list of task categories"
+        accessibilityState={{ disabled: loading || categories.length === 0, expanded: open }}
         style={[styles.trigger, error ? styles.triggerError : null]}
       >
         <Text style={selected ? styles.triggerText : styles.triggerPlaceholder}>
-          {selected ? selected.name : "Choose a category"}
+          {selected ? selected.name : placeholder}
         </Text>
       </Pressable>
       {error ? (
@@ -37,7 +51,7 @@ export function CategoryPicker({ value, onChange, error }: CategoryPickerProps) 
       ) : null}
       {open ? (
         <View style={styles.list} accessibilityRole="menu">
-          {SYNTHETIC_CATEGORIES.map((category) => (
+          {categories.map((category) => (
             <Pressable
               key={category.id}
               onPress={() => {

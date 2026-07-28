@@ -46,6 +46,7 @@ import type {
   DisputeRecord,
   DraftTaskInput,
   LedgerSummary,
+  MarketplaceCategory,
   MessageRecord,
   MyOfferHistoryItem,
   MyProfileRecord,
@@ -1427,6 +1428,27 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
       createdAt: row.created_at,
       history: [],
     };
+  }
+
+  // =========================================================================
+  // Service catalog
+  // =========================================================================
+
+  /**
+   * Active categories from the real catalog. RLS exposes active rows to any
+   * authenticated user, so this needs no privileged path — and the ids returned
+   * are exactly what `tasks.category_id` must reference.
+   */
+  async listCategories(): Promise<ReadonlyArray<MarketplaceCategory>> {
+    const { data, error } = await this.client
+      .from("categories")
+      .select("id,slug,name,sort_order")
+      .eq("active", true)
+      .order("sort_order", { ascending: true });
+    fail("listCategories", error);
+    return ((data ?? []) as ReadonlyArray<{ id: string; slug: string; name: string }>).map(
+      (row) => ({ id: row.id, slug: row.slug, name: row.name }),
+    );
   }
 
   // =========================================================================

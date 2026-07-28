@@ -454,3 +454,19 @@ export type MyProfileUpdateInput = {
 export type UpdateProfileOutcome =
   | { readonly ok: true; readonly profile: MyProfileRecord }
   | { readonly ok: false; readonly message: string };
+
+// --- Service catalog ---
+
+/**
+ * A selectable service category, as served by the real `categories` table.
+ *
+ * `id` is the database primary key and is what `tasks.category_id` references,
+ * so it must never be a locally invented value — a placeholder id fails the
+ * foreign key on task creation and makes every real task render as
+ * uncategorized.
+ */
+export type MarketplaceCategory = {
+  readonly id: string;
+  readonly slug: string;
+  readonly name: string;
+};

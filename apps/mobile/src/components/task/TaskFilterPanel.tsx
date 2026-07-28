@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
-import { SYNTHETIC_CATEGORIES, categoryName } from "../../services/marketplace/categories";
+import { useCategories } from "../../providers/CategoriesProvider";
 import { TextField } from "../ui/TextField";
 import { Button } from "../ui/Button";
 import { theme, spacing, fontSize, radii, MIN_TOUCH_TARGET } from "../../theme";
@@ -31,13 +31,15 @@ export {
 } from "./taskFilterQuery";
 
 /**
- * Human-readable chip summary of every applied filter. Wraps the
- * framework-free `describeActiveFilters` from `taskFilterQuery.ts` with the
- * mobile-local synthetic category name lookup, so existing callers (e.g.
- * `app/(tabs)/home.tsx`) keep the original single-argument call shape.
+ * Human-readable chip summary of every applied filter.
+ *
+ * A hook rather than a plain function because the category label now comes from
+ * the live catalog: resolving it against a bundled list would show a stale or
+ * missing name for any category added since the build.
  */
-export function describeActiveFilters(filters: TaskFilterState): ReadonlyArray<string> {
-  return describeActiveFiltersRaw(filters, categoryName);
+export function useActiveFilterChips(filters: TaskFilterState): ReadonlyArray<string> {
+  const { nameFor } = useCategories();
+  return describeActiveFiltersRaw(filters, (categoryId) => nameFor(categoryId) ?? undefined);
 }
 
 export type TaskFilterPanelProps = {
@@ -56,6 +58,7 @@ export function TaskFilterPanel({
   onClose,
   distanceAvailable,
 }: TaskFilterPanelProps) {
+  const { categories } = useCategories();
   const [categoryId, setCategoryId] = useState<string | undefined>(filters.categoryId);
   const [minBudget, setMinBudget] = useState(
     filters.minBudgetCentavos ? String(filters.minBudgetCentavos / 100) : "",
@@ -151,7 +154,7 @@ export function TaskFilterPanel({
                   Any
                 </Text>
               </Pressable>
-              {SYNTHETIC_CATEGORIES.map((category) => (
+              {categories.map((category) => (
                 <Pressable
                   key={category.id}
                   onPress={() => setCategoryId(category.id)}

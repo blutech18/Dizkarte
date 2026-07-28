@@ -10,7 +10,7 @@ import { Icon } from "../ui/Icon";
 import { LoadingState, ErrorState, EmptyState } from "../ui/AsyncState";
 import { useSession } from "../../providers/SessionProvider";
 import { useMarketplace } from "../../providers/MarketplaceProvider";
-import { categoryName } from "../../services/marketplace/categories";
+import { useCategories } from "../../providers/CategoriesProvider";
 import type { OwnedTaskRecord } from "../../services/marketplace/types";
 import { theme, spacing, fontSize, radii, MIN_TOUCH_TARGET } from "../../theme";
 
@@ -118,6 +118,10 @@ type LoadState = "loading" | "loaded" | "error";
 export function ClientMyTasks() {
   const { session } = useSession();
   const { repository, revision } = useMarketplace();
+  const { nameFor } = useCategories();
+  // The catalog loads asynchronously, so fall back to a neutral word rather
+  // than claiming the task is uncategorized.
+  const categoryLabel = (categoryId: string) => nameFor(categoryId) ?? "Task";
   const [tasks, setTasks] = useState<ReadonlyArray<OwnedTaskRecord>>([]);
   const [state, setState] = useState<LoadState>("loading");
   const [filter, setFilter] = useState<FilterKey>("all");
@@ -210,7 +214,8 @@ export function ClientMyTasks() {
                   <StatusBadge tone={STATUS_TONE[task.status]} label={STATUS_LABEL[task.status]} />
                 </View>
                 <Text style={styles.cardMeta}>
-                  {categoryName(task.draft.categoryId)} · {formatPhp(task.draft.budgetCentavos || 0)}
+                  {categoryLabel(task.draft.categoryId)} ·{" "}
+                  {formatPhp(task.draft.budgetCentavos || 0)}
                   {task.questionCount > 0
                     ? ` · ${task.questionCount} question${task.questionCount === 1 ? "" : "s"}`
                     : ""}

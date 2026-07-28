@@ -126,9 +126,8 @@ function TaskerDashboard() {
           <MiniStat label="Withdrawn" value={formatPhp(ledger.withdrawnCentavos)} />
         </View>
         <Text style={styles.caption}>
-          Development-only projection mirroring the production ledger categories (pending,
-          protected, available, reserved, withdrawn). The backend ledger stays authoritative once
-          wired.
+          Balances are derived from the platform ledger and update as work is confirmed. Payouts
+          become available once a payout provider is approved.
         </Text>
       </View>
 

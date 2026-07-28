@@ -11,7 +11,7 @@ import { LoadingState, ErrorState, DeniedState } from "../../../src/components/u
 import { useSession } from "../../../src/providers/SessionProvider";
 import { useMarketplace } from "../../../src/providers/MarketplaceProvider";
 import { isClient, isIdentityVerified } from "../../../src/services/session-types";
-import { categoryName } from "../../../src/services/marketplace/categories";
+import { useCategories } from "../../../src/providers/CategoriesProvider";
 import type { OwnedTaskRecord } from "../../../src/services/marketplace/types";
 import { theme, spacing, fontSize, radii } from "../../../src/theme";
 
@@ -29,6 +29,7 @@ export default function PreviewTaskScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useSession();
   const { repository, notifyChanged } = useMarketplace();
+  const { nameFor } = useCategories();
   const [task, setTask] = useState<OwnedTaskRecord | null>(null);
   const [state, setState] = useState<LoadState>("loading");
   const [publishing, setPublishing] = useState(false);
@@ -118,7 +119,7 @@ export default function PreviewTaskScreen() {
       ) : null}
 
       <View style={styles.card}>
-        <StatusBadge tone="brand" label={categoryName(task.draft.categoryId)} />
+        <StatusBadge tone="brand" label={nameFor(task.draft.categoryId) ?? "Task"} />
         <Text style={styles.title}>{task.draft.title || "Untitled task"}</Text>
         <Text style={styles.budget}>{formatPhp(task.draft.budgetCentavos || 0)}</Text>
         <Text style={styles.description}>{task.draft.description}</Text>

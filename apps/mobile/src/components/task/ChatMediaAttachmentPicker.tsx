@@ -118,16 +118,16 @@ export function ChatMediaAttachmentPicker({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.devLabel}>Development-only sample attachment picker</Text>
+      <Text style={styles.devLabel}>Attachment preview — upload not yet enabled</Text>
       <View style={styles.pickerRow}>
         <Button
-          label="Add sample photo"
+          label="Attach photo"
           onPress={() => addAttachment(nextSampleImage())}
           variant="secondary"
           disabled={disabled}
         />
         <Button
-          label="Add sample video"
+          label="Attach video"
           onPress={() => addAttachment(nextSampleVideo())}
           variant="secondary"
           disabled={disabled}

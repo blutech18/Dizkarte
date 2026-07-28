@@ -3,7 +3,7 @@ import { Switch } from "react-native";
 import { createTaskSchema } from "@dizkarte/domain";
 import { TextField } from "../ui/TextField";
 import { CategoryPicker } from "./CategoryPicker";
-import { MediaAttachmentPicker } from "./MediaAttachmentPicker";
+
 import { theme, spacing, fontSize, radii } from "../../theme";
 import type { DraftTaskInput, TaskMediaAttachment } from "../../services/marketplace/types";
 
@@ -217,7 +217,12 @@ export function TaskDraftForm({ value, onChange, errors }: TaskDraftFormProps) {
         />
       </View>
 
-      <MediaAttachmentPicker media={value.media} onChange={(media) => set("media", media)} />
+      {/*
+        No photo/video picker yet. Task media requires Supabase Storage upload
+        (signed paths + moderation), which is not wired. Showing a picker that
+        recorded placeholder filenames without uploading anything would look like
+        a working feature and quietly lose the Client's photos.
+      */}
     </View>
   );
 }

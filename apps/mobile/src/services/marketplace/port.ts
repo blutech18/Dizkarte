@@ -15,6 +15,7 @@ import type {
   DisputeRecord,
   DraftTaskInput,
   LedgerSummary,
+  MarketplaceCategory,
   MessageRecord,
   MyOfferHistoryItem,
   MyProfileRecord,
@@ -214,6 +215,13 @@ export interface MobileMarketplacePort {
     evidence: ReadonlyArray<{ kind: "image" | "video" | "note"; fileName?: string; note?: string }>;
   }): Promise<SupportTicketRecord>;
   listMySupportTickets(userId: string): Promise<ReadonlyArray<SupportTicketRecord>>;
+
+  /**
+   * Active service categories, newest catalog state first-ordered by the
+   * platform's display order. Used by task creation and the browse filters, so
+   * the ids returned here are the real `tasks.category_id` references.
+   */
+  listCategories(): Promise<ReadonlyArray<MarketplaceCategory>>;
 
   // Profiles (self-service)
   /** The signed-in user's own editable profile, plus their Tasker section when approved. */

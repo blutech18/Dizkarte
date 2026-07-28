@@ -32,6 +32,7 @@ import type {
   DisputeRecord,
   DraftTaskInput,
   LedgerSummary,
+  MarketplaceCategory,
   MessageMediaAttachment,
   MessageRecord,
   MyOfferHistoryItem,
@@ -57,6 +58,7 @@ import type {
   UpdateProfileOutcome,
   WithdrawalRecord,
 } from "./types";
+import { SYNTHETIC_CATEGORIES } from "./categories";
 import {
   listAllSyntheticTasks,
   getPublicTaskSynthetic,
@@ -1549,6 +1551,13 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
     return (this.supportTickets.get(userId) ?? [])
       .slice()
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  // --- Service catalog ---
+
+  async listCategories(): Promise<ReadonlyArray<MarketplaceCategory>> {
+    await delay();
+    return SYNTHETIC_CATEGORIES;
   }
 
   // --- Profiles (self-service) ---

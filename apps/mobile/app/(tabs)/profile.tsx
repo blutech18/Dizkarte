@@ -42,11 +42,11 @@ export default function ProfileScreen() {
           <Text style={styles.email} numberOfLines={1}>
             {session.email}
           </Text>
-          {session.synthetic ? (
-            <View style={styles.synthRow}>
-              <StatusBadge tone="warning" label="Development account" />
-            </View>
-          ) : null}
+          {/*
+            No development-account badge: identities come from real Supabase
+            Auth, so `session.synthetic` is always false and the badge would be
+            dead UI.
+          */}
         </View>
       </View>
 

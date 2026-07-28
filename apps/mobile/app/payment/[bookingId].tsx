@@ -120,8 +120,15 @@ export default function PaymentScreen() {
   return (
     <Screen>
       <Stack.Screen options={{ headerShown: true, title: "Payment" }} />
+      {/*
+        Kept as an alert: no approved payment provider is configured, so nothing
+        on this screen moves real money. The wording states that plainly rather
+        than implying a live checkout.
+      */}
       <View style={styles.syntheticBanner} accessibilityRole="alert">
-        <Text style={styles.syntheticBannerText}>SYNTHETIC PAYMENT — NO REAL MONEY</Text>
+        <Text style={styles.syntheticBannerText}>
+          Test checkout — no payment is taken and no money moves
+        </Text>
       </View>
 
       <View style={styles.card}>

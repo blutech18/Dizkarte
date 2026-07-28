@@ -13,7 +13,7 @@ import { Icon } from "../../src/components/ui/Icon";
 import {
   TaskFilterPanel,
   DEFAULT_TASK_FILTERS,
-  describeActiveFilters,
+  useActiveFilterChips,
   buildTaskSearchQuery,
   type TaskFilterState,
 } from "../../src/components/task/TaskFilterPanel";
@@ -304,7 +304,7 @@ function TaskerDiscoveryFeed() {
     // `draftKeyword` is intentionally not in this dependency list.
   }, [load, retryTick, appliedKeyword, filters, page]);
 
-  const activeChips = useMemo(() => describeActiveFilters(filters), [filters]);
+  const activeChips = useActiveFilterChips(filters);
 
   function handleSearchSubmit() {
     setAppliedKeyword(draftKeyword);
