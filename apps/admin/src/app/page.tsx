@@ -11,48 +11,89 @@ export const dynamic = "force-dynamic";
 const MODULES: ReadonlyArray<{
   icon: typeof ShieldIcon;
   title: string;
+  badge: string;
   text: string;
 }> = [
   {
     icon: ShieldIcon,
-    title: "Identity & Tasker verification",
-    text: "Review submitted IDs and Tasker applications with an auditable approve/reject/resubmit trail.",
+    title: "Identity & Verification",
+    badge: "Trust & Safety",
+    text: "Review submitted government IDs and Tasker applications with an auditable approve, reject, or resubmit decision trail.",
   },
   {
     icon: GridIcon,
-    title: "Marketplace oversight",
-    text: "Moderate users, tasks, and media with privacy-safe fields and audited actions.",
+    title: "Marketplace Oversight",
+    badge: "Operations",
+    text: "Moderate users, active listings, and media assets with privacy-safe projections and audited admin actions.",
   },
   {
     icon: TagIcon,
-    title: "Categories",
-    text: "Create, reorder, and deactivate service categories without ever deleting history.",
+    title: "Service Categories",
+    badge: "Taxonomy",
+    text: "Create, reorder, and manage service categories dynamically while preserving historical booking integrity.",
   },
   {
     icon: ChatIcon,
-    title: "Support & disputes",
-    text: "Assign reports, tickets, and disputes with full status and evidence history.",
+    title: "Support & Disputes",
+    badge: "Customer Care",
+    text: "Assign reports, support tickets, and booking disputes with full evidence history and assignment locking.",
   },
   {
     icon: WalletIcon,
-    title: "Payments & payouts",
-    text: "Ledger-derived balances, reconciliation, refunds, and Tasker withdrawals in one place.",
+    title: "Payments & Payouts",
+    badge: "Financials",
+    text: "Ledger-derived balances, webhook reconciliation, refund processing, and Tasker withdrawal approvals.",
   },
   {
     icon: ClipboardIcon,
-    title: "Audit log",
-    text: "Every sensitive action recorded with actor, capability, reason, and timestamp.",
+    title: "Immutable Audit Log",
+    badge: "Governance",
+    text: "Every sensitive administrative action is recorded with actor ID, capability, justification, and timestamp.",
   },
 ];
 
-/**
- * Public overview / landing page for the Admin console.
- *
- * Signed-in Admins are sent straight to the dashboard; signed-out visitors see
- * a marketing-style overview of what the console does before signing in —
- * mirroring the "logged-out home + sign in" split of a consumer marketplace
- * app rather than an immediate bare login form.
- */
+const TRUST_PILLARS = [
+  {
+    title: "Role-Based Access Control",
+    desc: "Super Admin, Finance, and Support capabilities strictly isolate access boundaries.",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+      </svg>
+    ),
+  },
+  {
+    title: "Failsafe Data Privacy",
+    desc: "Privacy-safe projections shield raw IDs, exact geolocation coordinates, and private messages.",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      </svg>
+    ),
+  },
+  {
+    title: "Audited Ledger Reconciliation",
+    desc: "Double-entry accounting principles guarantee zero ghost balances or unverified payouts.",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="12" y1="1" x2="12" y2="23" />
+        <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+      </svg>
+    ),
+  },
+  {
+    title: "Assignment Protection",
+    desc: "Case detail narratives and evidence are locked exclusively to assigned team members.",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+      </svg>
+    ),
+  },
+];
+
 export default async function RootPage() {
   const session = await readSession();
   if (session) {
@@ -63,60 +104,88 @@ export default async function RootPage() {
     <div className="dk-landing">
       <PublicHeader variant="landing" />
 
+      {/* Hero Section */}
       <section className="dk-hero">
-        <span className="dk-hero-badge">Dizkarte Admin console</span>
-        <h1 className="dk-hero-title">Run the Dizkarte marketplace, safely.</h1>
+        <h1 className="dk-hero-title">Run the Dizkarte marketplace with total trust & governance.</h1>
         <p className="dk-hero-subtitle">
           Verify identities, moderate tasks, resolve disputes, and manage payouts from one
-          protected console — every sensitive action is gated by capability and recorded in the
-          audit log.
+          protected console — every sensitive action is capability-gated and logged.
         </p>
+
         <div className="dk-hero-actions">
-          <LinkButton href="/login" variant="primary">
-            Admin sign in
-          </LinkButton>
           <LinkButton href="https://www.dizkarte.ph" variant="secondary">
-            Visit Dizkarte
+            Visit Dizkarte Main Site
           </LinkButton>
         </div>
-        <div className="dk-hero-stats">
-          <div>
-            <div className="dk-hero-stat-value">4</div>
-            <div className="dk-hero-stat-label">Admin capabilities</div>
+
+        {/* Formal Unified Metric Banner */}
+        <div className="dk-hero-metrics-bar">
+          <div className="dk-hero-metric-cell">
+            <span className="dk-hero-stat-value">4</span>
+            <span className="dk-hero-stat-label">Admin Capabilities</span>
+            <span className="dk-hero-stat-tag">Role-Based Access Control</span>
           </div>
-          <div>
-            <div className="dk-hero-stat-value">100%</div>
-            <div className="dk-hero-stat-label">Actions audited</div>
+          <div className="dk-hero-metric-cell">
+            <span className="dk-hero-stat-value">100%</span>
+            <span className="dk-hero-stat-label">Audited Operations</span>
+            <span className="dk-hero-stat-tag">Immutable Action Logs</span>
           </div>
-          <div>
-            <div className="dk-hero-stat-value">0</div>
-            <div className="dk-hero-stat-label">Unlogged privileged reads</div>
+          <div className="dk-hero-metric-cell">
+            <span className="dk-hero-stat-value">0</span>
+            <span className="dk-hero-stat-label">Unlogged Privileged Reads</span>
+            <span className="dk-hero-stat-tag">Failsafe Privacy Protection</span>
           </div>
         </div>
       </section>
 
+      {/* Features Section */}
       <section className="dk-section">
-        <h2 className="dk-section-title">Everything the team needs</h2>
-        <p className="dk-section-subtitle">
-          Capability-gated modules for verification, trust & safety, finance, and governance.
-        </p>
+        <div className="dk-section-header">
+          <span className="dk-section-tag">Modular Operations</span>
+          <h2 className="dk-section-title">Everything the team needs to govern</h2>
+          <p className="dk-section-subtitle">
+            Capability-gated modules engineered for verification, safety, compliance, and financial control.
+          </p>
+        </div>
+
         <div className="dk-chip-grid">
           {MODULES.map((module) => (
             <div className="dk-chip-card" key={module.title}>
-              <span className="dk-chip-icon" aria-hidden="true">
-                <module.icon width={24} height={24} />
-              </span>
-              <span className="dk-chip-title">{module.title}</span>
+              <div className="dk-chip-card-header">
+                <div className="dk-chip-icon" aria-hidden="true">
+                  <module.icon width={20} height={20} />
+                </div>
+                <span className="dk-chip-badge">{module.badge}</span>
+              </div>
+              <h3 className="dk-chip-title">{module.title}</h3>
               <p className="dk-chip-text">{module.text}</p>
             </div>
           ))}
         </div>
       </section>
 
+      {/* Security & Governance Trust Banner */}
+      <section className="dk-trust-section">
+        <div className="dk-trust-container">
+          {TRUST_PILLARS.map((pillar) => (
+            <div key={pillar.title} className="dk-trust-item">
+              <div className="dk-trust-icon" aria-hidden="true">
+                {pillar.icon}
+              </div>
+              <div>
+                <h4 className="dk-trust-title">{pillar.title}</h4>
+                <p className="dk-trust-desc">{pillar.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Footer */}
       <footer className="dk-landing-footer">
-        Dizkarte Admin is a protected internal console. Access requires an authorized Admin
-        capability.
+        Dizkarte Admin is a protected internal console. Access requires an authorized Admin capability.
       </footer>
     </div>
   );
 }
+

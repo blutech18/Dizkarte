@@ -12,11 +12,11 @@ export default function ResetPasswordPage() {
       <main id="dk-main-content" className="dk-auth-shell">
         <div className="dk-auth-card">
           <div className="dk-auth-logo">
-            <img src="/brand/text-icon-logo.png" alt="Dizkarte" />
+            <img src="/brand/text-icon-logo.png" alt="Dizkarte" style={{ height: 44, width: "auto" }} />
           </div>
-          <h1 className="dk-auth-title">Reset your password</h1>
+          <h1 className="dk-auth-title">Reset Your Password</h1>
           <p className="dk-auth-subtitle">
-            Enter your Admin email and we will send a link to set a new password.
+            Enter your Admin email address below to receive a secure password reset link.
           </p>
           <ResetPasswordForm />
         </div>
