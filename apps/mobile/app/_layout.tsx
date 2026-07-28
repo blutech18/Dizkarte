@@ -24,7 +24,13 @@ export default function RootLayout() {
           <ConnectivityProvider>
             <SessionProvider>
               <MarketplaceProvider>
-                <StatusBar style="dark" backgroundColor={theme.background} />
+                {/*
+                  `backgroundColor` was removed from expo-status-bar in SDK 57.
+                  The Android status bar colour is now declared once in
+                  `app.json` under `androidStatusBar`, which keeps it consistent
+                  with the light theme's background token.
+                */}
+                <StatusBar style="dark" />
                 <Stack
                   screenOptions={{
                     headerShown: false,
