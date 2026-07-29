@@ -17,6 +17,7 @@ import {
   buildTaskSearchQuery,
   type TaskFilterState,
 } from "../../src/components/task/TaskFilterPanel";
+import { CategoryGrid } from "../../src/components/task/CategoryGrid";
 import { useSession } from "../../src/providers/SessionProvider";
 import { useMarketplace } from "../../src/providers/MarketplaceProvider";
 import { useConnectivity } from "../../src/providers/ConnectivityProvider";
@@ -120,6 +121,13 @@ function ClientHome() {
         </Text>
         <Button label="Post a task" icon="note" onPress={() => router.push("/task/create")} />
       </View>
+
+      {/*
+        Category shortcuts into the same posting flow. Starting from "what do I
+        need done" is a shorter path than opening an empty form and hunting for
+        the category, so the tile carries the choice through.
+      */}
+      <CategoryGrid limit={8} />
 
       {needsAttention > 0 ? (
         <Pressable

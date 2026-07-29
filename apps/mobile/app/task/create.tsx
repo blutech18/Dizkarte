@@ -1,6 +1,6 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, Text } from "react-native";
-import { Stack, router } from "expo-router";
+import { Stack, router, useLocalSearchParams } from "expo-router";
 import { Screen } from "../../src/components/ui/Screen";
 import { Button } from "../../src/components/ui/Button";
 import {
@@ -11,6 +11,7 @@ import {
 } from "../../src/components/task/TaskDraftForm";
 import { useSession } from "../../src/providers/SessionProvider";
 import { useMarketplace } from "../../src/providers/MarketplaceProvider";
+import { useCategories } from "../../src/providers/CategoriesProvider";
 import { theme, fontSize } from "../../src/theme";
 
 /**
@@ -25,9 +26,31 @@ import { theme, fontSize } from "../../src/theme";
 export default function CreateTaskScreen() {
   const { session } = useSession();
   const { repository, notifyChanged } = useMarketplace();
+  const { category } = useLocalSearchParams<{ category?: string }>();
+  const { categories } = useCategories();
+
   const [form, setForm] = useState<TaskDraftFormValue>(EMPTY_TASK_DRAFT_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+
+  /**
+   * Preselect the category a Client tapped on the home grid.
+   *
+   * Validated against the live catalog before being applied, so a stale or
+   * hand-edited deep link cannot seed an id that would fail the
+   * `tasks.category_id` foreign key on save. Applied once, and never over a
+   * choice the user has already made in the picker.
+   */
+  const preselected = useRef(false);
+  useEffect(() => {
+    if (preselected.current) return;
+    if (!category || categories.length === 0) return;
+    if (!categories.some((option) => option.id === category)) return;
+    preselected.current = true;
+    setForm((current) =>
+      current.categoryId === null ? { ...current, categoryId: category } : current,
+    );
+  }, [category, categories]);
 
   const handleContinue = useCallback(async () => {
     const result = validateTaskDraftForm(form);

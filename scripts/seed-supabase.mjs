@@ -80,15 +80,48 @@ const ACCOUNTS = ROSTER.accounts.map((account) => ({
   password: ACCOUNT_PASSWORD,
 }));
 
+/**
+ * Service catalog.
+ *
+ * Slugs match the illustration filenames in
+ * `apps/mobile/assets/icons` and the list in
+ * `apps/mobile/src/components/task/categoryArt.ts`, so every category renders
+ * with its own artwork in the home grid. Renaming a slug here means renaming
+ * the asset and that list too.
+ */
 const CATEGORIES = [
-  { slug: "home-cleaning", name: "Home Cleaning", sort_order: 1 },
-  { slug: "basic-plumbing", name: "Basic Plumbing", sort_order: 2 },
-  { slug: "basic-electrical", name: "Basic Electrical Assistance", sort_order: 3 },
-  { slug: "furniture-assembly", name: "Furniture Assembly", sort_order: 4 },
-  { slug: "handyman", name: "Handyman & Minor Repairs", sort_order: 5 },
-  { slug: "moving-help", name: "Moving Assistance", sort_order: 6 },
-  { slug: "delivery-errands", name: "Local Delivery & Errands", sort_order: 7 },
-  { slug: "yard-outdoor", name: "Yard & Outdoor Help", sort_order: 8 },
+  { slug: "gardening", name: "Gardening", sort_order: 1 },
+  { slug: "painting", name: "Painting", sort_order: 2 },
+  { slug: "cleaning", name: "Cleaning", sort_order: 3 },
+  { slug: "removals", name: "Removals", sort_order: 4 },
+  { slug: "repairs-installations", name: "Repairs & Installations", sort_order: 5 },
+  { slug: "copywriting", name: "Copywriting", sort_order: 6 },
+  { slug: "data-entry", name: "Data Entry", sort_order: 7 },
+  { slug: "furniture-assembly", name: "Furniture Assembly", sort_order: 8 },
+];
+
+/**
+ * Superseded slugs from the previous catalog.
+ *
+ * They are deactivated rather than deleted: `tasks.category_id` references them,
+ * so deleting would either fail the foreign key or orphan existing tasks.
+ * Deactivating hides them from the picker while keeping history intact.
+ */
+/** Sample task title -> the live category slug it should belong to. */
+const SAMPLE_TASK_CATEGORY = {
+  "Pick up and deliver documents same day": "removals",
+  "Move a 2-seater sofa across town": "removals",
+  "Fix leaking kitchen faucet": "repairs-installations",
+};
+
+const RETIRED_CATEGORY_SLUGS = [
+  "home-cleaning",
+  "basic-plumbing",
+  "basic-electrical",
+  "handyman",
+  "moving-help",
+  "delivery-errands",
+  "yard-outdoor",
 ];
 
 /**
@@ -223,6 +256,38 @@ async function seedCategories() {
     .from("categories")
     .upsert(CATEGORIES.map((c) => ({ ...c, active: true })), { onConflict: "slug" });
   if (error) throw new Error(`categories seed failed: ${error.message}`);
+
+  // Retire the previous catalog without breaking tasks that reference it.
+  const { error: retireError } = await admin
+    .from("categories")
+    .update({ active: false })
+    .in("slug", RETIRED_CATEGORY_SLUGS);
+  if (retireError) throw new Error(`category retire failed: ${retireError.message}`);
+}
+
+/**
+ * Re-point sample tasks that still reference a retired category, so the seeded
+ * feed shows a live category name instead of an inactive one.
+ */
+async function repointSampleTasks() {
+  const { data: cats } = await admin.from("categories").select("id,slug,active");
+  const bySlug = new Map((cats ?? []).map((c) => [c.slug, c]));
+  const retiredIds = new Set(
+    (cats ?? []).filter((c) => RETIRED_CATEGORY_SLUGS.includes(c.slug)).map((c) => c.id),
+  );
+  if (retiredIds.size === 0) return;
+
+  const { data: tasks } = await admin.from("tasks").select("id,title,category_id");
+  for (const task of tasks ?? []) {
+    if (!retiredIds.has(task.category_id)) continue;
+    const replacement = bySlug.get(SAMPLE_TASK_CATEGORY[task.title] ?? "repairs-installations");
+    if (!replacement) continue;
+    const { error } = await admin
+      .from("tasks")
+      .update({ category_id: replacement.id })
+      .eq("id", task.id);
+    if (error) throw new Error(`task re-point failed: ${error.message}`);
+  }
 }
 
 async function seedSpecialties() {
@@ -271,7 +336,7 @@ async function seedSampleTasks(clientId) {
   const bySlug = new Map((cats ?? []).map((c) => [c.slug, c.id]));
   const samples = [
     {
-      slug: "delivery-errands",
+      slug: "removals",
       title: "Pick up and deliver documents same day",
       description: "Need someone to pick up sealed documents and deliver across the city today.",
       budget: 40000,
@@ -280,7 +345,7 @@ async function seedSampleTasks(clientId) {
       lat: 14.5509,
     },
     {
-      slug: "moving-help",
+      slug: "removals",
       title: "Move a 2-seater sofa across town",
       description: "Need help moving a sofa and a few boxes to a new unit. Have a pickup truck.",
       budget: 150000,
@@ -289,7 +354,7 @@ async function seedSampleTasks(clientId) {
       lat: 14.6572,
     },
     {
-      slug: "basic-plumbing",
+      slug: "repairs-installations",
       title: "Fix leaking kitchen faucet",
       description: "Faucet has been dripping for a week. Need a plumber with tools for a same-day fix.",
       budget: 80000,
@@ -348,6 +413,9 @@ async function main() {
 
   await seedCategories();
   console.log("✓ Categories");
+
+  await repointSampleTasks();
+  console.log("✓ Sample tasks re-pointed to live categories");
 
   await seedSpecialties();
   console.log("✓ Specialties");
