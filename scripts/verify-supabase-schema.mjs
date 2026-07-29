@@ -81,7 +81,19 @@ const EXPECTED_RPCS = {
   ],
   "0017 offer withdrawal (NEW)": ["withdraw_offer"],
   "0018 profile self-service (NEW)": ["update_tasker_public_profile"],
+  "0019 own ledger balances (NEW)": ["my_ledger_balances"],
 };
+
+/**
+ * Functions that must NOT be reachable through PostgREST.
+ *
+ * `app.derive_user_balances(p_user_id)` is the cautionary case: it was called by
+ * name from the client and always 404'd, because schema `app` is not exposed.
+ * Exposing it would also be a privacy hole — a caller could pass someone else's
+ * id. The caller-scoped `public.my_ledger_balances()` wrapper is the supported
+ * entry point.
+ */
+const FORBIDDEN_RPCS = ["derive_user_balances", "account_balance", "has_active_capability"];
 
 /** Views added alongside the newest migrations. */
 const EXPECTED_NEW_VIEWS = {
@@ -131,6 +143,14 @@ async function main() {
   for (const [label, names] of Object.entries(EXPECTED_RPCS)) {
     failures.push(...report(label, names, rpcs));
   }
+
+  console.log("\nInternal functions that must stay unexposed");
+  const leaked = FORBIDDEN_RPCS.filter((name) => rpcs.has(name));
+  console.log(
+    `  [${leaked.length === 0 ? "OK  " : "FAIL"}] ${FORBIDDEN_RPCS.length} checked`,
+  );
+  for (const name of leaked) console.log(`         unexpectedly exposed: ${name}`);
+  failures.push(...leaked);
 
   console.log(
     `\nExposed by PostgREST: ${relations.size} relations, ${rpcs.size} functions.`,

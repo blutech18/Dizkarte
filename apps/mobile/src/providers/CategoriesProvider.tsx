@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { useMarketplace } from "./MarketplaceProvider";
+import { useSession } from "./SessionProvider";
 import type { MarketplaceCategory } from "../services/marketplace/types";
 
 type CategoriesContextValue = {
@@ -35,11 +36,21 @@ const CategoriesContext = createContext<CategoriesContextValue | null>(null);
  */
 export function CategoriesProvider({ children }: { readonly children: ReactNode }) {
   const { repository } = useMarketplace();
+  const { status } = useSession();
   const [categories, setCategories] = useState<ReadonlyArray<MarketplaceCategory>>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
+    // `categories` is readable by authenticated users only, so fetching before
+    // sign-in would be a guaranteed 401. Wait for a session, and clear the
+    // catalog on sign-out so a signed-out screen never shows stale data.
+    if (status !== "signed-in") {
+      setCategories([]);
+      setLoading(false);
+      return;
+    }
+
     let active = true;
     setLoading(true);
     repository
@@ -58,7 +69,7 @@ export function CategoriesProvider({ children }: { readonly children: ReactNode 
     return () => {
       active = false;
     };
-  }, [repository, reloadToken]);
+  }, [repository, reloadToken, status]);
 
   const nameFor = useCallback(
     (categoryId: string) => categories.find((c) => c.id === categoryId)?.name ?? null,

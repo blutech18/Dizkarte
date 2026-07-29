@@ -163,8 +163,28 @@ export class SupabaseMarketplaceReadAdapter implements MarketplaceRepository {
     return data ? mapBookingRow(data as RawBookingRow) : null;
   }
 
+  /**
+   * The caller's own derived balances.
+   *
+   * Calls `public.my_ledger_balances()`, which takes no arguments and resolves
+   * the subject from `auth.uid()` server-side. The underlying
+   * `app.derive_user_balances(p_user_id)` is not PostgREST-exposed on purpose:
+   * a user-supplied id would let one Tasker read another's earnings.
+   *
+   * `userId` is therefore only used to assert the caller is asking about
+   * themselves, so a mismatched call fails loudly instead of silently returning
+   * the wrong person's money.
+   */
   async getDerivedBalances(userId: UserId): Promise<DerivedBalances> {
-    const { data, error } = await this.client.rpc("derive_user_balances", { p_user_id: userId });
+    const { data: authData } = await this.client.auth.getUser();
+    const callerId = authData.user?.id;
+    if (callerId && callerId !== userId) {
+      throw new Error(
+        "getDerivedBalances: balances can only be read for the signed-in user.",
+      );
+    }
+
+    const { data, error } = await this.client.rpc("my_ledger_balances");
     assertNoError("getDerivedBalances", error);
     const rows = (data ?? []) as ReadonlyArray<RawDerivedBalancesRow>;
     return mapDerivedBalancesRow(rows[0]);

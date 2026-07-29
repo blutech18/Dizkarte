@@ -61,6 +61,8 @@ function makeClient(config: {
   tables?: Record<string, FakeResult>;
   rpcs?: Record<string, FakeResult>;
   builders?: FakeBuilder[];
+  /** Signed-in user id, for the caller-scoped balance read. */
+  authUserId?: string;
 }): DizkarteSupabaseClient {
   const client = {
     from(table: string): FakeBuilder {
@@ -71,6 +73,13 @@ function makeClient(config: {
     },
     rpc(name: string): Promise<FakeResult> {
       return Promise.resolve(config.rpcs?.[name] ?? { data: [], error: null });
+    },
+    auth: {
+      getUser(): Promise<{ data: { user: { id: string } | null } }> {
+        return Promise.resolve({
+          data: { user: config.authUserId ? { id: config.authUserId } : null },
+        });
+      },
     },
   };
   return client as unknown as DizkarteSupabaseClient;
@@ -250,27 +259,39 @@ describe("SupabaseMarketplaceReadAdapter single reads", () => {
 });
 
 describe("SupabaseMarketplaceReadAdapter derived numbers", () => {
-  it("maps the first row of the derive_user_balances RPC", async () => {
-    const client = makeClient({
-      rpcs: {
-        derive_user_balances: {
-          data: [
-            {
-              pending_centavos: 1000,
-              protected_centavos: 2000,
-              available_centavos: 3000,
-              reserved_centavos: 0,
-              withdrawn_centavos: 500,
-            },
-          ],
-          error: null,
-        },
+  const BALANCE_ROWS = {
+    data: [
+      {
+        pending_centavos: 1000,
+        protected_centavos: 2000,
+        available_centavos: 3000,
+        reserved_centavos: 0,
+        withdrawn_centavos: 500,
       },
+    ],
+    error: null,
+  };
+
+  it("maps the first row of the my_ledger_balances RPC", async () => {
+    // Must be `my_ledger_balances`: `app.derive_user_balances` is not exposed
+    // through PostgREST, so calling it by name always 404s.
+    const client = makeClient({
+      authUserId: USER_ID,
+      rpcs: { my_ledger_balances: BALANCE_ROWS },
     });
     const adapter = new SupabaseMarketplaceReadAdapter(client);
     const balances = await adapter.getDerivedBalances(USER_ID);
     expect(balances.availableCentavos).toBe(3000);
     expect(balances.withdrawnCentavos).toBe(500);
+  });
+
+  it("refuses to read balances for anyone other than the signed-in user", async () => {
+    const client = makeClient({
+      authUserId: "99999999-9999-4999-8999-999999999999",
+      rpcs: { my_ledger_balances: BALANCE_ROWS },
+    });
+    const adapter = new SupabaseMarketplaceReadAdapter(client);
+    await expect(adapter.getDerivedBalances(USER_ID)).rejects.toThrow(/signed-in user/);
   });
 
   it("sums RLS-visible ledger entries for an account balance", async () => {
