@@ -2,26 +2,25 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, Text } from "react-native";
 import { Stack, router, useLocalSearchParams } from "expo-router";
 import { Screen } from "../../src/components/ui/Screen";
-import { Button } from "../../src/components/ui/Button";
 import {
   EMPTY_TASK_DRAFT_FORM,
-  TaskDraftForm,
   validateTaskDraftForm,
   type TaskDraftFormValue,
 } from "../../src/components/task/TaskDraftForm";
+import { TaskWizard } from "../../src/components/task/TaskWizard";
 import { useSession } from "../../src/providers/SessionProvider";
 import { useMarketplace } from "../../src/providers/MarketplaceProvider";
 import { useCategories } from "../../src/providers/CategoriesProvider";
 import { theme, fontSize } from "../../src/theme";
 
 /**
- * Create -> preview -> publish flow (new task).
+ * Guided create -> preview -> publish flow for a new task.
  *
- * The in-progress draft lives in this screen's state while being edited. On
- * "Continue to preview" it is saved as a `DRAFT`-status `OwnedTaskRecord` via
- * the shared marketplace repository, so the draft survives navigating to the
- * preview/edit screens and back — the repository, not local component state,
- * is the source of truth once a draft has been saved once.
+ * The draft is collected one question at a time by `TaskWizard`; this screen owns
+ * the in-progress value and the save. On submit it is written as a
+ * `DRAFT`-status `OwnedTaskRecord` through the shared marketplace repository, so
+ * the draft survives navigating to preview/edit and back — the repository, not
+ * local state, is the source of truth once a draft has been saved.
  */
 export default function CreateTaskScreen() {
   const { session } = useSession();
@@ -30,8 +29,8 @@ export default function CreateTaskScreen() {
   const { categories } = useCategories();
 
   const [form, setForm] = useState<TaskDraftFormValue>(EMPTY_TASK_DRAFT_FORM);
-  const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   /**
    * Preselect the category a Client tapped on the home grid.
@@ -39,36 +38,53 @@ export default function CreateTaskScreen() {
    * Validated against the live catalog before being applied, so a stale or
    * hand-edited deep link cannot seed an id that would fail the
    * `tasks.category_id` foreign key on save. Applied once, and never over a
-   * choice the user has already made in the picker.
+   * choice the user has already made.
    */
-  const preselected = useRef(false);
+  const [categoryPreselected, setCategoryPreselected] = useState(false);
+  const preselectApplied = useRef(false);
   useEffect(() => {
-    if (preselected.current) return;
+    if (preselectApplied.current) return;
     if (!category || categories.length === 0) return;
     if (!categories.some((option) => option.id === category)) return;
-    preselected.current = true;
+    preselectApplied.current = true;
+    setCategoryPreselected(true);
     setForm((current) =>
       current.categoryId === null ? { ...current, categoryId: category } : current,
     );
   }, [category, categories]);
 
-  const handleContinue = useCallback(async () => {
+  const handleSubmit = useCallback(async () => {
+    if (!session) return;
+    setSubmitError(null);
+
+    // The wizard already enforced every field, so a failure here means the
+    // shared schema disagrees with a step rule — surface it rather than
+    // silently dropping the user back to the start.
     const result = validateTaskDraftForm(form);
     if (!result.ok) {
-      setErrors(result.errors);
+      setSubmitError(Object.values(result.errors)[0] ?? "Please check your task details.");
       return;
     }
-    setErrors({});
-    if (!session) return;
+
     setSubmitting(true);
     try {
       const saved = await repository.saveDraftTask(session.userId, result.draft);
       notifyChanged();
-      router.push({ pathname: "/task/[id]/preview", params: { id: saved.id } });
+      router.replace({ pathname: "/task/[id]/preview", params: { id: saved.id } });
+    } catch {
+      setSubmitError("Could not save your task. Check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
   }, [form, repository, session, notifyChanged]);
+
+  const handleExit = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace("/(tabs)/home");
+  }, []);
 
   if (!session) {
     return (
@@ -79,10 +95,21 @@ export default function CreateTaskScreen() {
   }
 
   return (
-    <Screen>
-      <Stack.Screen options={{ headerShown: true, title: "Post a task" }} />
-      <TaskDraftForm value={form} onChange={setForm} errors={errors} />
-      <Button label="Continue to preview" onPress={handleContinue} loading={submitting} fullWidth />
+    <Screen scroll={false}>
+      {/*
+        The wizard supplies its own back control and progress bar, so the native
+        header would duplicate both.
+      */}
+      <Stack.Screen options={{ headerShown: false }} />
+      <TaskWizard
+        value={form}
+        onChange={setForm}
+        categoryPreselected={categoryPreselected}
+        onSubmit={handleSubmit}
+        submitting={submitting}
+        onExit={handleExit}
+        submitError={submitError}
+      />
     </Screen>
   );
 }

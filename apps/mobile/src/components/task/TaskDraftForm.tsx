@@ -1,121 +1,18 @@
-import { StyleSheet, Text, View } from "react-native";
-import { Switch } from "react-native";
-import { createTaskSchema } from "@dizkarte/domain";
+import { StyleSheet, Switch, Text, View } from "react-native";
 import { TextField } from "../ui/TextField";
 import { CategoryPicker } from "./CategoryPicker";
-
 import { theme, spacing, fontSize, radii } from "../../theme";
-import type { DraftTaskInput, TaskMediaAttachment } from "../../services/marketplace/types";
+import type { TaskDraftFormValue } from "./taskDraftValue";
 
-export type TaskDraftFormValue = {
-  readonly categoryId: string | null;
-  readonly title: string;
-  readonly description: string;
-  readonly budget: string;
-  readonly scheduledFor: string;
-  readonly sameDay: boolean;
-  readonly landmark: string;
-  readonly exactAddress: string;
-  readonly media: ReadonlyArray<TaskMediaAttachment>;
-};
-
-export const EMPTY_TASK_DRAFT_FORM: TaskDraftFormValue = {
-  categoryId: null,
-  title: "",
-  description: "",
-  budget: "",
-  scheduledFor: "",
-  sameDay: false,
-  landmark: "",
-  exactAddress: "",
-  media: [],
-};
-
-export function draftFormFromInput(draft: DraftTaskInput): TaskDraftFormValue {
-  return {
-    categoryId: draft.categoryId,
-    title: draft.title,
-    description: draft.description,
-    budget: (draft.budgetCentavos / 100).toFixed(2),
-    scheduledFor: draft.scheduledFor ?? "",
-    sameDay: draft.sameDay,
-    landmark: draft.landmark,
-    exactAddress: draft.exactAddress,
-    media: draft.media,
-  };
-}
-
-const DEFAULT_CITY_CODE = "137404";
-const DEFAULT_BARANGAY_CODE = "137404001";
-const DEFAULT_APPROX_LAT = 14.657;
-const DEFAULT_APPROX_LNG = 121.032;
-const DEFAULT_EXACT_LAT = 14.6575;
-const DEFAULT_EXACT_LNG = 121.0322;
-
-/** Validate + normalize a form value into a `DraftTaskInput`, or return field errors. */
-export function validateTaskDraftForm(
-  form: TaskDraftFormValue,
-): { ok: true; draft: DraftTaskInput } | { ok: false; errors: Record<string, string> } {
-  const budgetCentavos = Math.round(Number(form.budget.replace(/[^\d.]/g, "")) * 100);
-  const scheduledForIso = normalizeSchedule(form.scheduledFor);
-  const parsed = createTaskSchema.safeParse({
-    categoryId: form.categoryId ?? "",
-    title: form.title,
-    description: form.description,
-    budgetCentavos: Number.isFinite(budgetCentavos) ? budgetCentavos : -1,
-    scheduledFor: scheduledForIso ?? undefined,
-    sameDay: form.sameDay,
-    publicLocation: {
-      cityCode: DEFAULT_CITY_CODE,
-      barangayCode: DEFAULT_BARANGAY_CODE,
-      landmark: form.landmark,
-      approximateLat: DEFAULT_APPROX_LAT,
-      approximateLng: DEFAULT_APPROX_LNG,
-    },
-    privateLocation: {
-      exactAddress: form.exactAddress,
-      exactLat: DEFAULT_EXACT_LAT,
-      exactLng: DEFAULT_EXACT_LNG,
-    },
-    media: form.media.map((m) => ({ storagePath: `dev/${m.id}/${m.fileName}`, kind: m.kind })),
-  });
-  if (!parsed.success) {
-    const errors: Record<string, string> = {};
-    for (const issue of parsed.error.issues) {
-      const key = String(issue.path[0]);
-      if (!errors[key]) errors[key] = issue.message;
-    }
-    return { ok: false, errors };
-  }
-  return {
-    ok: true,
-    draft: {
-      categoryId: parsed.data.categoryId,
-      title: parsed.data.title,
-      description: parsed.data.description,
-      budgetCentavos: parsed.data.budgetCentavos,
-      scheduledFor: parsed.data.scheduledFor ?? null,
-      sameDay: parsed.data.sameDay,
-      landmark: parsed.data.publicLocation.landmark,
-      cityCode: parsed.data.publicLocation.cityCode,
-      barangayCode: parsed.data.publicLocation.barangayCode,
-      approximateLat: parsed.data.publicLocation.approximateLat,
-      approximateLng: parsed.data.publicLocation.approximateLng,
-      exactAddress: parsed.data.privateLocation.exactAddress,
-      exactLat: parsed.data.privateLocation.exactLat,
-      exactLng: parsed.data.privateLocation.exactLng,
-      media: form.media,
-    },
-  };
-}
-
-function normalizeSchedule(input: string): string | null {
-  const trimmed = input.trim();
-  if (!trimmed) return null;
-  const asDate = new Date(trimmed);
-  if (Number.isNaN(asDate.getTime())) return trimmed; // let schema validation reject it
-  return asDate.toISOString();
-}
+// The form value, its defaults, and its validation live in `taskDraftValue.ts`
+// (no React Native imports) so they can be unit-tested and shared with the
+// guided wizard. Re-exported here so existing callers keep one import site.
+export {
+  EMPTY_TASK_DRAFT_FORM,
+  draftFormFromInput,
+  validateTaskDraftForm,
+  type TaskDraftFormValue,
+} from "./taskDraftValue";
 
 export type TaskDraftFormProps = {
   readonly value: TaskDraftFormValue;
