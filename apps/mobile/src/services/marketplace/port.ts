@@ -191,6 +191,18 @@ export interface MobileMarketplacePort {
     clientNonce: string,
     requesterId: string,
   ): Promise<MessageRecord | null>;
+  /**
+   * Notifies when the conversation gains a message, so the screen can refetch.
+   *
+   * Signals a change rather than delivering the row: a message and its media
+   * commit together but arrive as separate events, and the list read already
+   * applies the privacy projection. Returns the unsubscribe function.
+   */
+  subscribeToConversation(
+    conversationId: ConversationId,
+    viewerId: string,
+    onChange: () => void,
+  ): () => void;
 
   // Reviews
   submitReview(input: ReviewInput, reviewerId: string): Promise<{ ok: boolean; reason?: string }>;
@@ -219,6 +231,8 @@ export interface MobileMarketplacePort {
   listNotifications(userId: string): Promise<ReadonlyArray<NotificationRecord>>;
   markNotificationRead(notificationId: string, userId: string): Promise<void>;
   markAllNotificationsRead(userId: string): Promise<void>;
+  /** Notifies when a notification is created for this user. Returns the unsubscribe function. */
+  subscribeToNotifications(userId: string, onChange: () => void): () => void;
   getNotificationPreferences(userId: string): Promise<NotificationPreferences>;
   setNotificationPreference(
     userId: string,

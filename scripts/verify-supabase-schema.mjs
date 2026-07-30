@@ -89,6 +89,11 @@ const EXPECTED_RPCS = {
   // made up of `app.*` helpers and AFTER triggers, neither of which PostgREST
   // describes. Confirm it applied by causing an event (submit an offer) and
   // checking that a `notifications` row appears for the counterparty.
+  //
+  // 0022 (realtime publication) likewise adds no schema objects — it only makes
+  // `messages` and `notifications` members of `supabase_realtime`. Confirm it in
+  // the dashboard under Database > Publications, or by watching chat update
+  // without a manual refresh.
 };
 
 /**

@@ -1251,6 +1251,37 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     return null;
   }
 
+  /**
+   * Stream new messages for a conversation (migration 0022 publication).
+   *
+   * `postgres_changes` re-applies the table's SELECT policy for each subscriber,
+   * so this cannot deliver a conversation the viewer is not a participant of —
+   * the filter narrows the stream, RLS is still what authorizes it.
+   */
+  subscribeToConversation(
+    conversationId: ConversationId,
+    _viewerId: string,
+    onChange: () => void,
+  ): () => void {
+    const channel = this.client
+      .channel(`conversation:${conversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        () => onChange(),
+      )
+      .subscribe();
+
+    return () => {
+      void this.client.removeChannel(channel);
+    };
+  }
+
   // =========================================================================
   // Reviews
   // =========================================================================
@@ -1406,6 +1437,32 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
       .update({ read_at: new Date().toISOString() })
       .eq("user_id", userId)
       .is("read_at", null);
+  }
+
+  /**
+   * Stream notifications addressed to this user (migration 0022 publication).
+   *
+   * The `notifications` SELECT policy is `user_id = auth.uid()`, so the filter
+   * and the policy agree; a tampered id would just yield an empty stream.
+   */
+  subscribeToNotifications(userId: string, onChange: () => void): () => void {
+    const channel = this.client
+      .channel(`notifications:${userId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => onChange(),
+      )
+      .subscribe();
+
+    return () => {
+      void this.client.removeChannel(channel);
+    };
   }
 
   async getNotificationPreferences(userId: string): Promise<NotificationPreferences> {

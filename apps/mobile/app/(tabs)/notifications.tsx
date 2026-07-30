@@ -85,6 +85,25 @@ export default function NotificationsScreen() {
     load();
   }, [load, revision]);
 
+  /**
+   * Refresh the inbox as notifications are created, so a decision or an incoming
+   * offer appears without the user pulling to reload.
+   *
+   * The background refresh deliberately never sets the error state: losing the
+   * list the user is already reading because one poll failed would be worse than
+   * showing slightly stale rows.
+   */
+  useEffect(() => {
+    if (!session) return;
+    const userId = session.userId;
+    return repository.subscribeToNotifications(userId, () => {
+      void repository
+        .listNotifications(userId)
+        .then(setNotifications)
+        .catch(() => undefined);
+    });
+  }, [repository, session]);
+
   const handleOpen = useCallback(
     async (notification: NotificationRecord) => {
       if (!session) return;

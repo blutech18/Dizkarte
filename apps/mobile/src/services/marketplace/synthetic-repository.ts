@@ -1305,6 +1305,19 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
     );
   }
 
+  /**
+   * No stream to attach to: every write happens in this process, so the screen's
+   * own state update already reflects it. Returns an unsubscribe so callers need
+   * no adapter-specific branch.
+   */
+  subscribeToConversation(
+    _conversationId: ConversationId,
+    _viewerId: string,
+    _onChange: () => void,
+  ): () => void {
+    return () => {};
+  }
+
   // ---------------------------------------------------------------------
   // Reviews (blind bilateral)
   // ---------------------------------------------------------------------
@@ -1551,6 +1564,11 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
       userId,
       list.map((n) => (n.readAt ? n : { ...n, readAt })),
     );
+  }
+
+  /** In-process writes need no stream; see `subscribeToConversation`. */
+  subscribeToNotifications(_userId: string, _onChange: () => void): () => void {
+    return () => {};
   }
 
   async getNotificationPreferences(userId: string): Promise<NotificationPreferences> {

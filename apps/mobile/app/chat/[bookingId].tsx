@@ -75,6 +75,26 @@ export default function ChatScreen() {
     load();
   }, [load]);
 
+  /**
+   * Refetch when the other participant sends something.
+   *
+   * The event only says "there is a new message"; the list read is what applies
+   * the privacy projection, so the incoming row is never rendered directly.
+   */
+  useEffect(() => {
+    if (!session || !conversationId) return;
+    const viewerId = session.userId;
+    const unsubscribe = repository.subscribeToConversation(conversationId, viewerId, () => {
+      void repository
+        .listMessages(conversationId, viewerId)
+        .then(setMessages)
+        // A failed background refresh must not replace a readable conversation
+        // with an error screen; the next event or a manual retry recovers.
+        .catch(() => undefined);
+    });
+    return unsubscribe;
+  }, [conversationId, repository, session]);
+
   const handleSend = useCallback(async () => {
     if (!session || !conversationId) return;
     const trimmedBody = draft.trim();
