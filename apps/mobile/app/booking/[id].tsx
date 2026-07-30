@@ -7,6 +7,7 @@ import { Screen } from "../../src/components/ui/Screen";
 import { Button } from "../../src/components/ui/Button";
 import { StatusBadge } from "../../src/components/ui/StatusBadge";
 import { AttachmentLabel } from "../../src/components/ui/AttachmentLabel";
+import { SignedImage } from "../../src/components/media/SignedImage";
 import { LoadingState, ErrorState, DeniedState } from "../../src/components/ui/AsyncState";
 import { useSession } from "../../src/providers/SessionProvider";
 import { useMarketplace } from "../../src/providers/MarketplaceProvider";
@@ -194,11 +195,19 @@ export default function BookingDetailScreen() {
             <Text style={styles.body}>No evidence submitted.</Text>
           ) : (
             booking.completionEvidence.map((item) => (
-              <AttachmentLabel
-                key={item.id}
-                kind={item.kind}
-                text={item.kind === "note" ? (item.note ?? "") : (item.fileName ?? "")}
-              />
+              <View key={item.id} style={styles.evidenceItem}>
+                {item.kind === "image" && item.storagePath ? (
+                  <SignedImage
+                    bucket="evidence"
+                    path={item.storagePath}
+                    accessibilityLabel={`Completion evidence ${item.fileName ?? ""}`}
+                  />
+                ) : null}
+                <AttachmentLabel
+                  kind={item.kind}
+                  text={item.kind === "note" ? (item.note ?? "") : (item.fileName ?? "")}
+                />
+              </View>
             ))
           )}
           {isClientRole ? (
@@ -315,6 +324,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   sectionTitle: { fontSize: fontSize.md, fontWeight: "700", color: theme.textPrimary },
+  evidenceItem: { gap: spacing.xs, marginTop: spacing.xs },
   body: { fontSize: fontSize.sm, color: theme.textPrimary },
   privacyNote: { fontSize: fontSize.sm, color: theme.textSecondary },
   releaseNote: { fontSize: fontSize.xs, color: theme.textSecondary },

@@ -917,6 +917,7 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
       kind: item.kind,
       note: item.note ?? null,
       fileName: item.fileName ?? null,
+      storagePath: item.storagePath ?? null,
       submittedAt: nowIso(),
     }));
     if (input.note.trim().length > 0) {
@@ -925,6 +926,7 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
         kind: "note",
         note: input.note.trim(),
         fileName: null,
+        storagePath: null,
         submittedAt: nowIso(),
       });
     }

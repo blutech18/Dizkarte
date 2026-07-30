@@ -5,8 +5,9 @@ import { Screen } from "../src/components/ui/Screen";
 import { Button } from "../src/components/ui/Button";
 import { TextField } from "../src/components/ui/TextField";
 import { StatusBadge } from "../src/components/ui/StatusBadge";
-import { AttachmentLabel } from "../src/components/ui/AttachmentLabel";
 import { LoadingState, EmptyState } from "../src/components/ui/AsyncState";
+import { MediaPicker } from "../src/components/media/MediaPicker";
+import type { UploadedObject } from "../src/services/storage/upload";
 import { useSession } from "../src/providers/SessionProvider";
 import { useMarketplace } from "../src/providers/MarketplaceProvider";
 import type { SupportTicketRecord } from "../src/services/marketplace/types";
@@ -26,9 +27,7 @@ export default function SupportScreen() {
   const { repository } = useMarketplace();
   const [narrative, setNarrative] = useState("");
   const [category, setCategory] = useState<Category>("other");
-  const [evidence, setEvidence] = useState<
-    ReadonlyArray<{ id: string; kind: "image" | "video"; fileName: string }>
-  >([]);
+  const [evidence, setEvidence] = useState<ReadonlyArray<UploadedObject>>([]);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<SupportTicketRecord | null>(null);
   const [tickets, setTickets] = useState<ReadonlyArray<SupportTicketRecord>>([]);
@@ -37,22 +36,6 @@ export default function SupportScreen() {
   const subjectType =
     params.subjectType === "task" || params.subjectType === "booking" ? params.subjectType : "task";
   const subjectId = params.subjectId ?? "general";
-
-  function addEvidence(kind: "image" | "video") {
-    const index = evidence.length + 1;
-    setEvidence((prev) => [
-      ...prev,
-      {
-        id: `report-evidence-${Date.now()}-${index}`,
-        kind,
-        fileName: kind === "image" ? `report-photo-${index}.jpg` : `report-clip-${index}.mp4`,
-      },
-    ]);
-  }
-
-  function removeEvidence(id: string) {
-    setEvidence((prev) => prev.filter((item) => item.id !== id));
-  }
 
   const loadHistory = useCallback(() => {
     if (!session) return;
@@ -77,7 +60,11 @@ export default function SupportScreen() {
         subjectId,
         category,
         narrative,
-        evidence: evidence.map((e) => ({ kind: e.kind, fileName: e.fileName })),
+        evidence: evidence.map((item) => ({
+          kind: item.kind === "video" ? ("video" as const) : ("image" as const),
+          fileName: item.fileName,
+          storagePath: item.path,
+        })),
       });
       setSubmitted(ticket);
       setNarrative("");
@@ -144,32 +131,22 @@ export default function SupportScreen() {
                 onChangeText={setNarrative}
                 description={`Regarding ${subjectType} ${subjectId === "general" ? "" : subjectId}`.trim()}
               />
-              <View style={styles.evidenceRow}>
-                <Button
-                  label="Attach photo"
-                  onPress={() => addEvidence("image")}
-                  variant="secondary"
-                />
-                <Button
-                  label="Attach video"
-                  onPress={() => addEvidence("video")}
-                  variant="secondary"
-                />
-              </View>
-              {evidence.length > 0 ? (
-                <View style={styles.evidenceList}>
-                  {evidence.map((item) => (
-                    <View key={item.id} style={styles.evidenceItemRow}>
-                      <AttachmentLabel kind={item.kind} text={item.fileName} />
-                      <Button
-                        label="Remove"
-                        onPress={() => removeEvidence(item.id)}
-                        variant="text"
-                      />
-                    </View>
-                  ))}
-                </View>
-              ) : null}
+              {/*
+                Files upload before the ticket exists, so they are scoped to the
+                task or booking being reported. The bucket policy still requires
+                the path to begin with the reporter's own user id.
+              */}
+              <MediaPicker
+                bucket="evidence"
+                userId={session.userId}
+                scopeId={subjectId}
+                value={evidence}
+                onChange={setEvidence}
+                label="Evidence"
+                hint="Screenshots or photos that show the problem."
+                allowVideo
+                disabled={submitting}
+              />
               <Button
                 label="Submit"
                 onPress={handleSubmit}
@@ -251,16 +228,6 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   successText: { color: theme.successOnSoft, fontSize: fontSize.sm },
-  evidenceRow: { flexDirection: "row", gap: spacing.sm, marginBottom: spacing.sm },
-  evidenceList: { gap: spacing.xs, marginBottom: spacing.md },
-  evidenceItemRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: theme.surfaceSubtle,
-    borderRadius: radii.sm,
-    paddingHorizontal: spacing.md,
-  },
   ticketCard: {
     backgroundColor: theme.surface,
     borderWidth: 1,

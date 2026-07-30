@@ -195,6 +195,25 @@ export type TicketDetail = TicketRow & {
   readonly history: ReadonlyArray<CaseHistoryEvent>;
 };
 
+/**
+ * One message from a booking conversation, as the assigned Admin sees it.
+ *
+ * Attachment bytes are never included — only how many are attached and their
+ * metadata — matching the rule that Admin surfaces do not render underlying
+ * media. Reading a transcript is an audited event, not a passive view.
+ */
+export type ConversationMessage = {
+  readonly id: string;
+  readonly senderDisplayName: string;
+  readonly body: string | null;
+  readonly attachmentCount: number;
+  readonly sentAt: string;
+};
+
+export type ConversationTranscript =
+  | { readonly ok: true; readonly messages: ReadonlyArray<ConversationMessage> }
+  | { readonly ok: false; readonly message: string };
+
 export type CategoryRow = {
   readonly id: string;
   readonly name: string;
@@ -604,6 +623,18 @@ export interface AdminRepository {
   getReport(input: { reportId: string; actor: string }): Promise<ReportDetail | null>;
   listDisputes(input: PageInput & { status?: string }): Promise<Paginated<DisputeRow>>;
   getDispute(input: { disputeId: string; actor: string }): Promise<DisputeDetail | null>;
+  /**
+   * The booking conversation behind a dispute, for the assigned Admin only.
+   *
+   * Backed by `admin_read_conversation_messages`, which writes an audit entry
+   * before returning anything: reading a private transcript is itself a
+   * recorded action. A caller who is not the assigned Admin is refused.
+   */
+  readDisputeConversation(input: {
+    disputeId: string;
+    reason: string;
+    actor: string;
+  }): Promise<ConversationTranscript>;
   listTickets(input: PageInput & { status?: string }): Promise<Paginated<TicketRow>>;
   getTicket(input: { ticketId: string; actor: string }): Promise<TicketDetail | null>;
 

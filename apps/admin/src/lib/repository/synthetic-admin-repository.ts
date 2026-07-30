@@ -29,6 +29,7 @@ import type {
   ReconciliationStatus,
   ReconciliationSummary,
   RefundHistoryEntry,
+  ConversationTranscript,
   ReportDetail,
   ReportRow,
   ReviewRow,
@@ -1468,6 +1469,53 @@ export class SyntheticAdminRepository implements AdminRepository {
     const found = this.state.disputes.find((d) => d.id === input.disputeId);
     if (!found) return null;
     return this.applyCaseAccess(found, input.actor, "dispute");
+  }
+
+  async readDisputeConversation(input: {
+    disputeId: string;
+    reason: string;
+    actor: string;
+  }): Promise<ConversationTranscript> {
+    if (!input.reason.trim()) return { ok: false, message: "A reason is required." };
+    const dispute = this.state.disputes.find((d) => d.id === input.disputeId);
+    if (!dispute) return { ok: false, message: "Dispute not found." };
+
+    // Mirrors app.admin_assigned_conversation: only the assigned Admin may read
+    // a private transcript, regardless of capability.
+    if (dispute.assignee !== input.actor) {
+      return {
+        ok: false,
+        message: "Only the Admin assigned to this dispute may read the conversation.",
+      };
+    }
+
+    this.recordAudit({
+      actor: input.actor,
+      capability: "ADMIN_FINANCE",
+      action: "conversation.read",
+      resource: dispute.bookingId,
+      reason: input.reason.trim(),
+    });
+
+    return {
+      ok: true,
+      messages: [
+        {
+          id: `msg-${dispute.bookingId}-1`,
+          senderDisplayName: "J. Santos",
+          body: "Sending the gate code once you are nearby.",
+          attachmentCount: 0,
+          sentAt: "2026-07-17T01:10:00.000Z",
+        },
+        {
+          id: `msg-${dispute.bookingId}-2`,
+          senderDisplayName: "M. Dela Cruz",
+          body: "On my way, about fifteen minutes out.",
+          attachmentCount: 1,
+          sentAt: "2026-07-17T01:24:00.000Z",
+        },
+      ],
+    };
   }
 
   async listTickets(input: PageInput & { status?: string }) {

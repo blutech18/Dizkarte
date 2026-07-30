@@ -45,6 +45,7 @@ import {
   type ReconciliationSummary,
   type ReportDetail,
   type ReportRow,
+  type ConversationTranscript,
   type ReportStatus,
   type ReviewModerationStatus,
   type ReviewRow,
@@ -1168,6 +1169,77 @@ export class SupabaseAdminRepository implements AdminRepository {
       narrative,
       evidence,
       history,
+    };
+  }
+
+  async readDisputeConversation(input: {
+    disputeId: string;
+    reason: string;
+    actor: string;
+  }): Promise<ConversationTranscript> {
+    if (!input.reason.trim()) return { ok: false, message: MISSING_REASON };
+    const db = await this.db();
+
+    const { data: disputeData } = await db
+      .from("admin_dispute_queue")
+      .select("id,booking_id")
+      .eq("id", input.disputeId)
+      .maybeSingle();
+    const dispute = disputeData as { booking_id: string } | null;
+    if (!dispute) return { ok: false, message: "Dispute not found." };
+
+    const { data: conversationData } = await db
+      .from("conversations")
+      .select("id")
+      .eq("booking_id", dispute.booking_id)
+      .maybeSingle();
+    const conversation = conversationData as { id: string } | null;
+    if (!conversation) {
+      return { ok: false, message: "This booking has no conversation." };
+    }
+
+    // The RPC writes the audit entry and enforces assignment; a refusal here is
+    // authoritative, so no fallback read is attempted.
+    const { data, error } = await db.rpc("admin_read_conversation_messages", {
+      p_conversation_id: conversation.id,
+      p_reason: input.reason.trim(),
+      p_idempotency_key: `conversation_read_${conversation.id}_${Date.now()}`,
+    });
+    if (error) return { ok: false, message: friendlyError(error.message) };
+
+    const rows = (data ?? []) as ReadonlyArray<{
+      id: string;
+      sender_id: string;
+      body: string | null;
+      created_at: string;
+    }>;
+    if (rows.length === 0) return { ok: true, messages: [] };
+
+    const [names, mediaResult] = await Promise.all([
+      this.displayNames(rows.map((row) => row.sender_id)),
+      db.rpc("admin_read_conversation_media", {
+        p_conversation_id: conversation.id,
+        p_reason: input.reason.trim(),
+        p_idempotency_key: `conversation_media_read_${conversation.id}_${Date.now()}`,
+      }),
+    ]);
+
+    // Attachment counts only. The bytes stay behind
+    // admin_authorize_object_read, so nothing is rendered from storage here.
+    const attachmentCounts = new Map<string, number>();
+    for (const item of (mediaResult.data ?? []) as ReadonlyArray<{ message_id: string }>) {
+      attachmentCounts.set(item.message_id, (attachmentCounts.get(item.message_id) ?? 0) + 1);
+    }
+
+    return {
+      ok: true,
+      messages: rows.map((row) => ({
+        id: row.id,
+        senderDisplayName: displayNameFor(names, row.sender_id),
+        body: row.body,
+        attachmentCount: attachmentCounts.get(row.id) ?? 0,
+        sentAt: row.created_at,
+      })),
     };
   }
 

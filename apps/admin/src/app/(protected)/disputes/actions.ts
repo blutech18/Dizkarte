@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdminSession } from "@/lib/session";
 import { getAdminRepository } from "@/lib/repository";
+import type { ConversationTranscript } from "@/lib/repository/types";
 
 export async function assignDisputeAction(input: {
   disputeId: string;
@@ -46,4 +47,27 @@ export async function transitionDisputeStatusAction(input: {
     revalidatePath(`/disputes/${input.disputeId}`);
   }
   return result;
+}
+
+/**
+ * Read the booking conversation behind a dispute.
+ *
+ * No `revalidatePath`: this is a read, and the transcript is returned to the
+ * caller rather than cached into the page. The audit entry is written by
+ * `admin_read_conversation_messages` itself.
+ */
+export async function readDisputeConversationAction(input: {
+  disputeId: string;
+  reason: string;
+}): Promise<ConversationTranscript> {
+  const session = await requireAdminSession(["ADMIN_FINANCE"]);
+  if (input.reason.trim().length === 0) {
+    return { ok: false, message: "A reason is required to read a conversation." };
+  }
+  const repository = getAdminRepository();
+  return repository.readDisputeConversation({
+    disputeId: input.disputeId,
+    reason: input.reason.trim(),
+    actor: session.email,
+  });
 }

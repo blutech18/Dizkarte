@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { RestrictedCaseNotice } from "@/components/ui/AsyncState";
 import { CaseActionsPanel } from "@/components/ui/CaseActionsPanel";
 import { PaymentActionsPanel } from "../../payments/PaymentActionsPanel";
+import { ConversationPanel } from "../ConversationPanel";
 import { disputeStatusLabel, disputeStatusTone, DISPUTE_STATUS_TRANSITIONS } from "../status";
 import { assignDisputeAction, transitionDisputeStatusAction } from "../actions";
 
@@ -143,6 +144,11 @@ export default async function DisputeDetailPage({
                 ))}
               </ul>
             )}
+          </div>
+
+          <div className="dk-card">
+            <h2 style={{ marginTop: 0 }}>Booking conversation</h2>
+            <ConversationPanel disputeId={detail.id} disabled={!isAssignedToMe} />
           </div>
 
           <div className="dk-card">

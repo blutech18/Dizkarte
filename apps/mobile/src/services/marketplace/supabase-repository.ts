@@ -949,6 +949,7 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
         kind: isNote ? "note" : "image",
         note: isNote ? item.storage_path.slice("note:".length) : null,
         fileName: isNote ? null : (item.storage_path.split("/").pop() ?? item.id),
+        storagePath: isNote ? null : item.storage_path,
         submittedAt: item.created_at,
       });
       evidenceByBooking.set(item.resource_id, existing);
@@ -1016,20 +1017,38 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     const authedId = await this.currentUserId();
     if (!authedId || authedId !== taskerId) return { ok: false };
 
+    // `evidence` has no note column, so a text-only item is stored as a
+    // `note:` sentinel in storage_path. A file item stores the real object key.
+    // An item that claims to be a file but has no uploaded object is dropped
+    // rather than recorded as an attachment nobody can open.
     const evidenceRows = [
       ...(input.note.trim().length > 0
-        ? [{ owner_id: authedId, resource_type: "booking", resource_id: input.bookingId, storage_path: `note:${input.note.trim()}` }]
+        ? [
+            {
+              owner_id: authedId,
+              resource_type: "booking",
+              resource_id: input.bookingId,
+              storage_path: `note:${input.note.trim()}`,
+            },
+          ]
         : []),
-      ...input.evidence.map((item) => ({
-        owner_id: authedId,
-        resource_type: "booking",
-        resource_id: input.bookingId,
-        storage_path:
-          item.kind === "note" ? `note:${item.note ?? ""}` : `booking/${input.bookingId}/${item.fileName ?? "attachment"}`,
-      })),
+      ...input.evidence
+        .map((item) =>
+          item.kind === "note"
+            ? `note:${item.note ?? ""}`
+            : (item.storagePath ?? null),
+        )
+        .filter((path): path is string => path !== null)
+        .map((path) => ({
+          owner_id: authedId,
+          resource_type: "booking",
+          resource_id: input.bookingId,
+          storage_path: path,
+        })),
     ];
     if (evidenceRows.length > 0) {
-      await this.client.from("evidence").insert(evidenceRows);
+      const { error: evidenceError } = await this.client.from("evidence").insert(evidenceRows);
+      fail("requestCompletion.evidence", evidenceError);
     }
 
     const { error } = await this.client.rpc("request_completion", {
@@ -1576,6 +1595,7 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
       kind: "image" | "video" | "note";
       fileName?: string;
       note?: string;
+      storagePath?: string;
     }>;
   }): Promise<SupportTicketRecord> {
     // `support_tickets.category` does not have a 'quality' member; it maps onto
@@ -1595,16 +1615,23 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     if (error) throw new MarketplaceRequestError("submitSupportTicket", detailOf(error.message));
     const row = data as RawTicketRow;
 
-    if (input.evidence.length > 0) {
-      await this.client.from("evidence").insert(
-        input.evidence.map((item) => ({
-          owner_id: input.reporterId,
-          resource_type: "ticket",
-          resource_id: row.id,
-          storage_path:
-            item.kind === "note" ? `note:${item.note ?? ""}` : `ticket/${row.id}/${item.fileName ?? "attachment"}`,
-        })),
-      );
+    // Same encoding as completion evidence: a note becomes a `note:` sentinel,
+    // a file records its real object key, and a file with no uploaded object is
+    // dropped rather than stored as an unopenable attachment.
+    const evidenceRows = input.evidence
+      .map((item) =>
+        item.kind === "note" ? `note:${item.note ?? ""}` : (item.storagePath ?? null),
+      )
+      .filter((path): path is string => path !== null)
+      .map((path) => ({
+        owner_id: input.reporterId,
+        resource_type: "ticket",
+        resource_id: row.id,
+        storage_path: path,
+      }));
+    if (evidenceRows.length > 0) {
+      const { error: evidenceError } = await this.client.from("evidence").insert(evidenceRows);
+      fail("submitSupportTicket.evidence", evidenceError);
     }
 
     return this.mapTicket(row, input.subjectType, input.subjectId, input.category);

@@ -5,40 +5,28 @@ import type { BookingId } from "@dizkarte/domain";
 import { Screen } from "../../../src/components/ui/Screen";
 import { Button } from "../../../src/components/ui/Button";
 import { TextField } from "../../../src/components/ui/TextField";
-import { AttachmentLabel } from "../../../src/components/ui/AttachmentLabel";
+import { MediaPicker } from "../../../src/components/media/MediaPicker";
+import type { UploadedObject } from "../../../src/services/storage/upload";
 import { useSession } from "../../../src/providers/SessionProvider";
 import { useMarketplace } from "../../../src/providers/MarketplaceProvider";
 import { theme, spacing, fontSize, radii } from "../../../src/theme";
 
-type EvidenceDraft = {
-  readonly id: string;
-  readonly kind: "image" | "video";
-  readonly fileName: string;
-};
-
-/** Tasker completion request with deterministic evidence metadata attachment. */
+/**
+ * Tasker completion request with photo/video evidence.
+ *
+ * Files upload to the private `evidence` bucket as they are picked, scoped to
+ * the booking. Only an object that actually exists is recorded, so the Client
+ * and any assigned Admin never see an attachment they cannot open.
+ */
 export default function RequestCompletionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session } = useSession();
   const { repository, notifyChanged } = useMarketplace();
   const [note, setNote] = useState("");
-  const [evidence, setEvidence] = useState<ReadonlyArray<EvidenceDraft>>([]);
+  const [evidence, setEvidence] = useState<ReadonlyArray<UploadedObject>>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
-
-  function addEvidence(kind: "image" | "video") {
-    const index = evidence.length + 1;
-    setEvidence((prev) => [
-      ...prev,
-      {
-        id: `evidence-${Date.now()}-${index}`,
-        kind,
-        fileName:
-          kind === "image" ? `completion-photo-${index}.jpg` : `completion-clip-${index}.mp4`,
-      },
-    ]);
-  }
 
   const handleSubmit = useCallback(async () => {
     if (!session) return;
@@ -53,7 +41,11 @@ export default function RequestCompletionScreen() {
         {
           bookingId: id as BookingId,
           note,
-          evidence: evidence.map((e) => ({ kind: e.kind, fileName: e.fileName })),
+          evidence: evidence.map((item) => ({
+            kind: item.kind === "video" ? ("video" as const) : ("image" as const),
+            fileName: item.fileName,
+            storagePath: item.path,
+          })),
         },
         session.userId,
       );
@@ -63,6 +55,8 @@ export default function RequestCompletionScreen() {
       }
       notifyChanged();
       setDone(true);
+    } catch {
+      setError("Your completion request could not be submitted. Try again.");
     } finally {
       setSubmitting(false);
     }
@@ -98,28 +92,17 @@ export default function RequestCompletionScreen() {
         onChangeText={setNote}
         description="Describe what was completed."
       />
-      <View style={styles.evidenceSection}>
-        <Text style={styles.evidenceTitle}>Evidence</Text>
-        <View style={styles.buttonRow}>
-          <Button
-            label="Attach photo"
-            onPress={() => addEvidence("image")}
-            variant="secondary"
-          />
-          <Button
-            label="Attach video"
-            onPress={() => addEvidence("video")}
-            variant="secondary"
-          />
-        </View>
-        {evidence.length === 0 ? (
-          <Text style={styles.emptyText}>No evidence attached yet.</Text>
-        ) : (
-          evidence.map((item) => (
-            <AttachmentLabel key={item.id} kind={item.kind} text={item.fileName} />
-          ))
-        )}
-      </View>
+      <MediaPicker
+        bucket="evidence"
+        userId={session.userId}
+        scopeId={id}
+        value={evidence}
+        onChange={setEvidence}
+        label="Evidence"
+        hint="Photos or a short clip of the finished work."
+        allowVideo
+        disabled={submitting}
+      />
       {error ? (
         <Text style={styles.errorText} accessibilityRole="alert" accessibilityLiveRegion="polite">
           {error}
@@ -127,7 +110,7 @@ export default function RequestCompletionScreen() {
       ) : null}
       <Button
         label="Submit completion request"
-        onPress={handleSubmit}
+        onPress={() => void handleSubmit()}
         loading={submitting}
         fullWidth
       />
@@ -136,17 +119,6 @@ export default function RequestCompletionScreen() {
 }
 
 const styles = StyleSheet.create({
-  evidenceSection: { marginBottom: spacing.lg, gap: spacing.sm },
-  evidenceTitle: { fontSize: fontSize.sm, fontWeight: "700", color: theme.textPrimary },
-  buttonRow: { flexDirection: "row", gap: spacing.sm },
-  emptyText: { fontSize: fontSize.sm, color: theme.textSecondary },
-  evidenceItem: {
-    fontSize: fontSize.sm,
-    color: theme.textPrimary,
-    backgroundColor: theme.surfaceSubtle,
-    borderRadius: radii.sm,
-    padding: spacing.sm,
-  },
   errorText: {
     color: theme.errorOnSoft,
     backgroundColor: theme.errorSoft,

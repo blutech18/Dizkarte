@@ -14,6 +14,7 @@ import type {
   ConversationRecord,
   DisputeRecord,
   DraftTaskInput,
+  EvidenceUploadInput,
   LedgerSummary,
   MarketplaceCategory,
   MessageRecord,
@@ -249,7 +250,7 @@ export interface MobileMarketplacePort {
     subjectId: string;
     category: "payment" | "safety" | "quality" | "other";
     narrative: string;
-    evidence: ReadonlyArray<{ kind: "image" | "video" | "note"; fileName?: string; note?: string }>;
+    evidence: ReadonlyArray<EvidenceUploadInput>;
   }): Promise<SupportTicketRecord>;
   listMySupportTickets(userId: string): Promise<ReadonlyArray<SupportTicketRecord>>;
 

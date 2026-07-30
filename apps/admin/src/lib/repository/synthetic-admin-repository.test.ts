@@ -856,6 +856,63 @@ describe("SyntheticAdminRepository", () => {
     });
   });
 
+  describe("assignment-gated conversation read", () => {
+    it("refuses an Admin who is not the assignee, and writes no audit entry", async () => {
+      const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
+      const repo = new SyntheticAdminRepository();
+
+      const beforeAudit = await repo.listAuditLogs({ page: 1, pageSize: 50 });
+      const result = await repo.readDisputeConversation({
+        disputeId: "dsp-4001",
+        reason: "Checking the timeline.",
+        actor: "someone-else@dev.dizkarte.invalid",
+      });
+
+      expect(result.ok).toBe(false);
+      const afterAudit = await repo.listAuditLogs({ page: 1, pageSize: 50 });
+      expect(afterAudit.items).toEqual(beforeAudit.items);
+    });
+
+    it("returns the transcript to the assigned Admin and records the reason", async () => {
+      const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
+      const repo = new SyntheticAdminRepository();
+      const actor = "finance-admin@dev.dizkarte.invalid";
+
+      await repo.assignCase({
+        resourceType: "dispute",
+        resourceId: "dsp-4001",
+        assignee: actor,
+        actor,
+        capability: "ADMIN_FINANCE",
+      });
+
+      const result = await repo.readDisputeConversation({
+        disputeId: "dsp-4001",
+        reason: "Verifying who cancelled the visit.",
+        actor,
+      });
+
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.messages.length).toBeGreaterThan(0);
+
+      // Reading a private transcript is itself an auditable action.
+      const audit = await repo.listAuditLogs({ page: 1, pageSize: 50 });
+      expect(audit.items[0]?.action).toBe("conversation.read");
+      expect(audit.items[0]?.reason).toBe("Verifying who cancelled the visit.");
+    });
+
+    it("requires a reason", async () => {
+      const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
+      const repo = new SyntheticAdminRepository();
+      const result = await repo.readDisputeConversation({
+        disputeId: "dsp-4001",
+        reason: "  ",
+        actor: "finance-admin@dev.dizkarte.invalid",
+      });
+      expect(result.ok).toBe(false);
+    });
+  });
+
   describe("review moderation", () => {
     it("filters the queue by moderation status", async () => {
       const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");

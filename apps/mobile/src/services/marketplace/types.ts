@@ -150,6 +150,8 @@ export type CompletionEvidenceItem = {
   readonly kind: "image" | "video" | "note";
   readonly note: string | null;
   readonly fileName: string | null;
+  /** Object key in the private `evidence` bucket; `null` for a note-only item. */
+  readonly storagePath: string | null;
   readonly submittedAt: string;
 };
 
@@ -261,11 +263,23 @@ export type PushDeliveryOutcome = {
 export type RequestCompletionInput = {
   readonly bookingId: BookingId;
   readonly note: string;
-  readonly evidence: ReadonlyArray<{
-    kind: "image" | "video" | "note";
-    fileName?: string;
-    note?: string;
-  }>;
+  readonly evidence: ReadonlyArray<EvidenceUploadInput>;
+};
+
+/**
+ * One evidence item being submitted.
+ *
+ * A file item carries the key of an object already uploaded to the private
+ * `evidence` bucket; a note item carries text and no object. The union is kept
+ * loose (both fields optional) because the same shape is used for completion
+ * evidence and support-ticket evidence, and the repository decides which
+ * representation to store.
+ */
+export type EvidenceUploadInput = {
+  readonly kind: "image" | "video" | "note";
+  readonly fileName?: string;
+  readonly note?: string;
+  readonly storagePath?: string;
 };
 
 export type OpenDisputeInput = {
@@ -347,6 +361,8 @@ export type SubmitVerificationOutcome =
 export type ReportEvidenceItem = {
   readonly id: string;
   readonly kind: "image" | "video" | "note";
+  /** Object key in the private `evidence` bucket; `null` for a note-only item. */
+  readonly storagePath?: string | null;
   readonly note: string | null;
   readonly fileName: string | null;
 };
