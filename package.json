@@ -36,6 +36,7 @@
     "typecheck:all": "npm run typecheck && npm run admin:typecheck && npm run mobile:typecheck",
     "seed:supabase": "node scripts/seed-supabase.mjs",
     "migrations:bundle": "node scripts/build-migration-bundle.mjs",
+    "migrations:apply": "node scripts/apply-migrations.mjs",
     "verify:supabase": "node scripts/verify-supabase-schema.mjs"
   },
   "devDependencies": {
