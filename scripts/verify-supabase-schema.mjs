@@ -82,6 +82,9 @@ const EXPECTED_RPCS = {
   "0017 offer withdrawal (NEW)": ["withdraw_offer"],
   "0018 profile self-service (NEW)": ["update_tasker_public_profile"],
   "0019 own ledger balances (NEW)": ["my_ledger_balances"],
+  "0021 verification submission + review reveal (NEW)": [
+    "start_verification", "submit_verification", "get_review_pair",
+  ],
   // 0020 (notification emission) intentionally contributes nothing here: it is
   // made up of `app.*` helpers and AFTER triggers, neither of which PostgREST
   // describes. Confirm it applied by causing an event (submit an offer) and
@@ -106,6 +109,8 @@ const FORBIDDEN_RPCS = [
   // addressed to any user.
   "notify",
   "notification_category",
+  // 0021: the reveal window is read inside get_review_pair, not by callers.
+  "review_reveal_days",
 ];
 
 /** Views added alongside the newest migrations. */

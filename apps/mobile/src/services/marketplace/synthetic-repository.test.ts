@@ -1497,6 +1497,67 @@ describe("SyntheticMarketplaceRepository", () => {
       expect(messages.filter((m) => m.clientNonce === "media-nonce-3").length).toBe(1);
     });
   });
+
+  describe("identity verification submission", () => {
+    it("opens one reusable case rather than a new one per call", async () => {
+      const first = await repo.startVerification();
+      const second = await repo.startVerification();
+
+      // The database permits a single non-terminal case per user
+      // (uq_verification_active_case), so the development path must match.
+      expect(second.id).toBe(first.id);
+      expect(first.status).toBe("DRAFT");
+      expect(first.documents).toEqual([]);
+    });
+
+    it("refuses to submit until both required documents are attached", async () => {
+      const openCase = await repo.startVerification();
+
+      const empty = await repo.submitVerification();
+      expect(empty.ok).toBe(false);
+
+      await repo.addVerificationDocument({
+        caseId: openCase.id,
+        kind: "government_id_front",
+        storagePath: `${CLIENT_ID}/${openCase.id}/id-front.jpg`,
+        mimeType: "image/jpeg",
+        sizeBytes: 120_000,
+      });
+
+      const missingSelfie = await repo.submitVerification();
+      expect(missingSelfie.ok).toBe(false);
+
+      await repo.addVerificationDocument({
+        caseId: openCase.id,
+        kind: "selfie",
+        storagePath: `${CLIENT_ID}/${openCase.id}/selfie.jpg`,
+        mimeType: "image/jpeg",
+        sizeBytes: 90_000,
+      });
+
+      const submitted = await repo.submitVerification();
+      expect(submitted.ok).toBe(true);
+      if (submitted.ok) {
+        expect(submitted.case.status).toBe("SUBMITTED");
+        expect(submitted.case.submittedAt).not.toBeNull();
+        expect(submitted.case.documents).toHaveLength(2);
+      }
+    });
+
+    it("rejects a document aimed at a case the caller does not have open", async () => {
+      await repo.startVerification();
+
+      const outcome = await repo.addVerificationDocument({
+        caseId: "40000000-0000-4000-8000-0000000000ff",
+        kind: "selfie",
+        storagePath: `${CLIENT_ID}/other/selfie.jpg`,
+        mimeType: "image/jpeg",
+        sizeBytes: 90_000,
+      });
+
+      expect(outcome.ok).toBe(false);
+    });
+  });
 });
 
 describe("SyntheticMarketplaceRepository — profiles", () => {

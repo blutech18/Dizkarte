@@ -18,6 +18,7 @@ import type {
   TaskQuestionId,
   TaskStatus,
   UserId,
+  VerificationStatus,
 } from "@dizkarte/domain";
 
 /**
@@ -304,6 +305,38 @@ export type ReviewPairView = {
   readonly bothSubmitted: boolean;
   readonly revealDeadline: string | null;
 };
+
+// --- Identity verification ---
+
+export type VerificationDocumentKind = "government_id_front" | "government_id_back" | "selfie";
+
+export type VerificationDocumentRecord = {
+  readonly id: string;
+  readonly kind: VerificationDocumentKind;
+  readonly storagePath: string;
+  readonly createdAt: string;
+};
+
+/**
+ * The caller's own verification case.
+ *
+ * `documents` lists only what has been attached since the last decision, which
+ * is the set `submit_verification` actually validates — showing older files
+ * would make a resubmission look complete when the server will reject it.
+ */
+export type VerificationCaseRecord = {
+  readonly id: string;
+  readonly status: VerificationStatus;
+  readonly version: number;
+  readonly submittedAt: string | null;
+  readonly decidedAt: string | null;
+  readonly decisionReason: string | null;
+  readonly documents: ReadonlyArray<VerificationDocumentRecord>;
+};
+
+export type SubmitVerificationOutcome =
+  | { readonly ok: true; readonly case: VerificationCaseRecord }
+  | { readonly ok: false; readonly reason: string };
 
 // --- Support / reports ---
 

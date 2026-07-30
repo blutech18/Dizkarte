@@ -40,6 +40,9 @@ import type {
   MyProfileUpdateInput,
   NotificationPreferenceCategory,
   NotificationPreferences,
+  SubmitVerificationOutcome,
+  VerificationCaseRecord,
+  VerificationDocumentKind,
   NotificationRecord,
   NotificationType,
   OfferRecord,
@@ -285,6 +288,8 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
   private readonly preferences = new Map<string, NotificationPreferences>();
   private readonly disputes = new Map<string, DisputeRecord>();
   private readonly reviews = new Map<string, ReviewRecord[]>(); // keyed by bookingId
+  /** Single active case: the database allows only one non-terminal case per user. */
+  private verificationCase: VerificationCaseRecord | null = null;
   private readonly supportTickets = new Map<string, SupportTicketRecord[]>();
   private readonly profiles = new Map<string, MyProfileRecord>(); // keyed by userId
   private readonly withdrawals = new Map<string, WithdrawalRecord[]>(); // keyed by userId
@@ -1383,6 +1388,68 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
       bothSubmitted,
       revealDeadline,
     };
+  }
+
+  // ---------------------------------------------------------------------
+  // Identity verification
+  // ---------------------------------------------------------------------
+
+  async startVerification(): Promise<VerificationCaseRecord> {
+    await delay();
+    this.verificationCase ??= {
+      id: nextId("G0"),
+      status: "DRAFT",
+      version: 1,
+      submittedAt: null,
+      decidedAt: null,
+      decisionReason: null,
+      documents: [],
+    };
+    return this.verificationCase;
+  }
+
+  async addVerificationDocument(input: {
+    caseId: string;
+    kind: VerificationDocumentKind;
+    storagePath: string;
+    mimeType: string;
+    sizeBytes: number;
+  }): Promise<{ ok: boolean; reason?: string }> {
+    await delay();
+    const current = this.verificationCase;
+    if (!current || current.id !== input.caseId) {
+      return { ok: false, reason: "No verification case is open." };
+    }
+    this.verificationCase = {
+      ...current,
+      documents: [
+        ...current.documents,
+        {
+          id: nextId("G1"),
+          kind: input.kind,
+          storagePath: input.storagePath,
+          createdAt: nowIso(),
+        },
+      ],
+    };
+    return { ok: true };
+  }
+
+  async submitVerification(): Promise<SubmitVerificationOutcome> {
+    await delay();
+    const current = this.verificationCase;
+    if (!current) return { ok: false, reason: "No verification case is open." };
+    // Mirrors submit_verification: the same two documents are mandatory, so the
+    // development path cannot reach a state the real backend would reject.
+    const kinds = new Set(current.documents.map((doc) => doc.kind));
+    if (!kinds.has("government_id_front")) {
+      return { ok: false, reason: "A photo of your government ID is required." };
+    }
+    if (!kinds.has("selfie")) {
+      return { ok: false, reason: "A selfie is required." };
+    }
+    this.verificationCase = { ...current, status: "SUBMITTED", submittedAt: nowIso() };
+    return { ok: true, case: this.verificationCase };
   }
 
   // ---------------------------------------------------------------------

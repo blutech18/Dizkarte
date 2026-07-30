@@ -5,7 +5,7 @@ import { Button } from "../ui/Button";
 import { Icon } from "../ui/Icon";
 import { canAddTaskMedia, MAX_TASK_MEDIA_COUNT } from "../../services/storage/object-paths";
 import { removeObject, uploadFile, type UploadedObject } from "../../services/storage/upload";
-import type { StorageBucket } from "../../services/storage/object-paths";
+import type { StorageBucket, UploadKind } from "../../services/storage/object-paths";
 import { theme, spacing, fontSize, radii, MIN_TOUCH_TARGET } from "../../theme";
 
 export type MediaPickerProps = {
@@ -20,6 +20,15 @@ export type MediaPickerProps = {
   readonly allowVideo?: boolean;
   readonly maxCount?: number;
   readonly disabled?: boolean;
+  /**
+   * Which allow-list a picked photo is checked against.
+   *
+   * Defaults to `"image"`. Use `"document"` for identity documents: the
+   * `verification_documents` table only accepts JPEG, PNG, or PDF, so a WebP
+   * would pass the looser image check and then be rejected by the database with
+   * a message the user cannot act on.
+   */
+  readonly photoUploadKind?: Extract<UploadKind, "image" | "document">;
 };
 
 /**
@@ -45,6 +54,7 @@ export function MediaPicker({
   allowVideo = false,
   maxCount = MAX_TASK_MEDIA_COUNT,
   disabled = false,
+  photoUploadKind = "image",
 }: MediaPickerProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,8 +92,10 @@ export function MediaPicker({
           // The picker does not always report a MIME type; fall back to the
           // format the upload was requested as.
           mimeType: asset.mimeType ?? (kind === "video" ? "video/mp4" : "image/jpeg"),
+          // The picker does not always report a size either; uploadFile reads
+          // the real one off disk.
           sizeBytes: asset.fileSize ?? 0,
-          kind,
+          kind: kind === "video" ? "video" : photoUploadKind,
         },
       });
       if (!outcome.ok) {

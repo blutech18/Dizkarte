@@ -32,10 +32,13 @@ import type {
   ReviewPairView,
   SelectOfferOutcome,
   SpecialtyOption,
+  SubmitVerificationOutcome,
   SupportTicketRecord,
   TaskerDashboardSnapshot,
   TaskQuestionRecord,
   UpdateProfileOutcome,
+  VerificationCaseRecord,
+  VerificationDocumentKind,
   WithdrawalRecord,
 } from "./types";
 
@@ -192,6 +195,25 @@ export interface MobileMarketplacePort {
   // Reviews
   submitReview(input: ReviewInput, reviewerId: string): Promise<{ ok: boolean; reason?: string }>;
   getReviewPair(bookingId: BookingId, viewerId: string): Promise<ReviewPairView | null>;
+
+  // Identity verification (self-service)
+  /**
+   * The caller's active verification case, created as a DRAFT if none exists.
+   *
+   * Returns the case id, which doubles as the storage scope for document
+   * uploads, so this must be called before any document is attached.
+   */
+  startVerification(): Promise<VerificationCaseRecord>;
+  /** Records an uploaded document against the caller's active case. */
+  addVerificationDocument(input: {
+    caseId: string;
+    kind: VerificationDocumentKind;
+    storagePath: string;
+    mimeType: string;
+    sizeBytes: number;
+  }): Promise<{ ok: boolean; reason?: string }>;
+  /** Hands the case to the Admin review queue. Fails closed if documents are missing. */
+  submitVerification(): Promise<SubmitVerificationOutcome>;
 
   // Notifications
   listNotifications(userId: string): Promise<ReadonlyArray<NotificationRecord>>;

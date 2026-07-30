@@ -1,4 +1,4 @@
-import * as FileSystem from "expo-file-system";
+import { File } from "expo-file-system";
 import { getSupabaseClient } from "../../lib/supabase";
 import {
   buildObjectPath,
@@ -25,6 +25,11 @@ export type PickedFile = {
   readonly uri: string;
   readonly fileName: string;
   readonly mimeType: string;
+  /**
+   * Size the picker reported. Pass `0` when it reported nothing: the real size
+   * is read off disk before validation, because pickers are inconsistent about
+   * this field and a missing value would otherwise read as "empty file".
+   */
   readonly sizeBytes: number;
   readonly kind: UploadKind;
 };
@@ -43,16 +48,15 @@ export type UploadOutcome =
   | { readonly ok: true; readonly object: UploadedObject }
   | { readonly ok: false; readonly message: string };
 
-/** Read a local file as bytes. Supabase needs a body, not a file handle. */
-async function readFileBytes(uri: string): Promise<Uint8Array> {
-  const base64 = await FileSystem.readAsStringAsync(uri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-  // `atob` is available in Hermes and on web; avoids pulling in a Buffer polyfill.
-  const binary = globalThis.atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  return bytes;
+/**
+ * Read a local file's bytes and true size. Supabase needs a body, not a handle.
+ *
+ * Uses the SDK 54+ `File` object API. The legacy `readAsStringAsync` helpers
+ * still typecheck but throw at runtime in this SDK, and going through base64
+ * also allocated the payload three times over.
+ */
+function localFile(uri: string): File {
+  return new File(uri);
 }
 
 /**
@@ -69,10 +73,21 @@ export async function uploadFile(input: {
   readonly scopeId: string;
   readonly file: PickedFile;
 }): Promise<UploadOutcome> {
+  let bytes: Uint8Array;
+  let sizeBytes: number;
+  try {
+    const handle = localFile(input.file.uri);
+    // Trust the filesystem over the picker's optional metadata.
+    sizeBytes = handle.size > 0 ? handle.size : input.file.sizeBytes;
+    bytes = await handle.bytes();
+  } catch {
+    return { ok: false, message: "Could not read that file. Try choosing it again." };
+  }
+
   const validation = validateUpload({
     kind: input.file.kind,
     mimeType: input.file.mimeType,
-    sizeBytes: input.file.sizeBytes,
+    sizeBytes,
   });
   if (!validation.ok) return { ok: false, message: validation.message };
 
@@ -82,13 +97,6 @@ export async function uploadFile(input: {
     fileName: input.file.fileName,
     unique: String(Date.now()),
   });
-
-  let bytes: Uint8Array;
-  try {
-    bytes = await readFileBytes(input.file.uri);
-  } catch {
-    return { ok: false, message: "Could not read that file. Try choosing it again." };
-  }
 
   const { error } = await getSupabaseClient()
     .storage.from(input.bucket)
@@ -113,7 +121,7 @@ export async function uploadFile(input: {
       path,
       fileName: input.file.fileName,
       mimeType: input.file.mimeType,
-      sizeBytes: input.file.sizeBytes,
+      sizeBytes,
       kind: input.file.kind,
     },
   };

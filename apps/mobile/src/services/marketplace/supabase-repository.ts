@@ -63,12 +63,25 @@ import type {
   ReviewPairView,
   SelectOfferOutcome,
   SpecialtyOption,
+  SubmitVerificationOutcome,
   SupportTicketRecord,
   TaskerDashboardSnapshot,
   TaskQuestionRecord,
   UpdateProfileOutcome,
+  VerificationCaseRecord,
+  VerificationDocumentKind,
   WithdrawalRecord,
 } from "./types";
+
+/** `public.verification_cases` row as returned by the self-service RPCs. */
+type VerificationCaseRow = {
+  readonly id: string;
+  readonly status: VerificationCaseRecord["status"];
+  readonly version: number;
+  readonly submitted_at: string | null;
+  readonly decided_at: string | null;
+  readonly decision_reason: string | null;
+};
 
 /**
  * Real Supabase-backed implementation of `MobileMarketplacePort`.
@@ -1255,26 +1268,110 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     return { ok: true };
   }
 
-  async getReviewPair(bookingId: BookingId, viewerId: string): Promise<ReviewPairView | null> {
-    const { data } = await this.client
-      .from("reviews")
-      .select("id,booking_id,reviewer_id,reviewee_id,score,comment,status,submitted_at,revealed_at")
-      .eq("booking_id", bookingId);
-    const rows = ((data ?? []) as ReadonlyArray<Parameters<typeof mapReview>[0]>).map(mapReview);
-    if (rows.length === 0) {
+  /**
+   * Reading the `reviews` rows directly cannot honour the reveal deadline: RLS
+   * lets a participant select both rows, so blindness would depend on this
+   * client choosing not to show one. `get_review_pair` (migration 0021) decides
+   * instead — it reveals anything now due and withholds the counterpart row
+   * entirely until it is revealed, so the hidden text never reaches the device.
+   */
+  async getReviewPair(bookingId: BookingId, _viewerId: string): Promise<ReviewPairView | null> {
+    const { data, error } = await this.client.rpc("get_review_pair", {
+      p_booking_id: bookingId,
+    });
+    if (error || data === null) {
       return { bookingId, myReview: null, counterpartReview: null, bothSubmitted: false, revealDeadline: null };
     }
-    const mine = rows.find((review) => review.reviewerId === viewerId) ?? null;
-    const other = rows.find((review) => review.reviewerId !== viewerId) ?? null;
-    const bothSubmitted = mine !== null && other !== null;
+    const payload = data as {
+      reveal_deadline: string | null;
+      both_submitted: boolean;
+      my_review: Parameters<typeof mapReview>[0] | null;
+      counterpart_review: Parameters<typeof mapReview>[0] | null;
+    };
     return {
       bookingId,
-      myReview: mine,
-      // Double-blind: the counterpart review is only visible once both exist or
-      // it has been revealed by the backend.
-      counterpartReview: bothSubmitted || other?.status === "REVEALED" ? other : null,
-      bothSubmitted,
-      revealDeadline: null,
+      myReview: payload.my_review ? mapReview(payload.my_review) : null,
+      counterpartReview: payload.counterpart_review ? mapReview(payload.counterpart_review) : null,
+      bothSubmitted: payload.both_submitted === true,
+      revealDeadline: payload.reveal_deadline ?? null,
+    };
+  }
+
+  // =========================================================================
+  // Identity verification
+  // =========================================================================
+
+  async startVerification(): Promise<VerificationCaseRecord> {
+    const { data, error } = await this.client.rpc("start_verification");
+    fail("startVerification", error);
+    const row = (Array.isArray(data) ? data[0] : data) as VerificationCaseRow | null;
+    if (!row) throw new MarketplaceRequestError("startVerification", "No verification case returned.");
+    return this.hydrateVerificationCase(row);
+  }
+
+  async addVerificationDocument(input: {
+    caseId: string;
+    kind: VerificationDocumentKind;
+    storagePath: string;
+    mimeType: string;
+    sizeBytes: number;
+  }): Promise<{ ok: boolean; reason?: string }> {
+    const { error } = await this.client.from("verification_documents").insert({
+      case_id: input.caseId,
+      kind: input.kind,
+      storage_path: input.storagePath,
+      mime_type: input.mimeType,
+      size_bytes: input.sizeBytes,
+    });
+    if (error) return { ok: false, reason: detailOf(error.message) };
+    return { ok: true };
+  }
+
+  async submitVerification(): Promise<SubmitVerificationOutcome> {
+    const { data, error } = await this.client.rpc("submit_verification");
+    if (error) return { ok: false, reason: detailOf(error.message) };
+    const row = (Array.isArray(data) ? data[0] : data) as VerificationCaseRow | null;
+    if (!row) return { ok: false, reason: "Verification could not be submitted." };
+    return { ok: true, case: await this.hydrateVerificationCase(row) };
+  }
+
+  /**
+   * Attach the documents that count toward the current attempt.
+   *
+   * Files added before the last decision are excluded because
+   * `submit_verification` ignores them too; listing them would let a
+   * resubmission look ready when the server will refuse it.
+   */
+  private async hydrateVerificationCase(row: VerificationCaseRow): Promise<VerificationCaseRecord> {
+    const { data } = await this.client
+      .from("verification_documents")
+      .select("id,kind,storage_path,created_at")
+      .eq("case_id", row.id)
+      .order("created_at", { ascending: true });
+
+    const since = row.decided_at ? new Date(row.decided_at).getTime() : Number.NEGATIVE_INFINITY;
+    const documents = ((data ?? []) as ReadonlyArray<{
+      id: string;
+      kind: string;
+      storage_path: string;
+      created_at: string;
+    }>)
+      .filter((doc) => new Date(doc.created_at).getTime() > since)
+      .map((doc) => ({
+        id: doc.id,
+        kind: doc.kind as VerificationDocumentKind,
+        storagePath: doc.storage_path,
+        createdAt: doc.created_at,
+      }));
+
+    return {
+      id: row.id,
+      status: row.status,
+      version: row.version,
+      submittedAt: row.submitted_at,
+      decidedAt: row.decided_at,
+      decisionReason: row.decision_reason,
+      documents,
     };
   }
 
