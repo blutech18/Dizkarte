@@ -855,4 +855,71 @@ describe("SyntheticAdminRepository", () => {
       expect(repo.getFinanceProviderAvailability().payoutProviderAvailable).toBe(false);
     });
   });
+
+  describe("review moderation", () => {
+    it("filters the queue by moderation status", async () => {
+      const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
+      const repo = new SyntheticAdminRepository();
+
+      const all = await repo.listReviews({ page: 1, pageSize: 50 });
+      const hidden = await repo.listReviews({ page: 1, pageSize: 50, status: "MODERATED" });
+
+      expect(all.items.length).toBeGreaterThan(hidden.items.length);
+      expect(hidden.items.every((row) => row.status === "MODERATED")).toBe(true);
+    });
+
+    it("hides a review and records an attributable audit entry", async () => {
+      const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
+      const repo = new SyntheticAdminRepository();
+
+      const result = await repo.moderateReview({
+        reviewId: "rev-8002",
+        action: "hide",
+        reason: "Contains abusive language.",
+        actor: "support-admin@dev.dizkarte.invalid",
+      });
+      expect(result.ok).toBe(true);
+
+      const reviews = await repo.listReviews({ page: 1, pageSize: 50 });
+      expect(reviews.items.find((row) => row.id === "rev-8002")?.status).toBe("MODERATED");
+
+      const audit = await repo.listAuditLogs({ page: 1, pageSize: 50 });
+      expect(audit.items[0]?.action).toBe("review.hide");
+      expect(audit.items[0]?.resource).toBe("rev-8002");
+      expect(audit.items[0]?.reason).toBe("Contains abusive language.");
+    });
+
+    it("restores a hidden review", async () => {
+      const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
+      const repo = new SyntheticAdminRepository();
+
+      const result = await repo.moderateReview({
+        reviewId: "rev-8003",
+        action: "restore",
+        reason: "Hidden in error.",
+        actor: "support-admin@dev.dizkarte.invalid",
+      });
+      expect(result.ok).toBe(true);
+
+      const reviews = await repo.listReviews({ page: 1, pageSize: 50 });
+      expect(reviews.items.find((row) => row.id === "rev-8003")?.status).toBe("REVEALED");
+    });
+
+    it("refuses to moderate without a reason and leaves the review untouched", async () => {
+      const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
+      const repo = new SyntheticAdminRepository();
+
+      const before = await repo.listReviews({ page: 1, pageSize: 50 });
+      const result = await repo.moderateReview({
+        reviewId: "rev-8002",
+        action: "hide",
+        reason: "   ",
+        actor: "support-admin@dev.dizkarte.invalid",
+      });
+
+      expect(result.ok).toBe(false);
+      const after = await repo.listReviews({ page: 1, pageSize: 50 });
+      expect(after.items).toEqual(before.items);
+    });
+  });
 });

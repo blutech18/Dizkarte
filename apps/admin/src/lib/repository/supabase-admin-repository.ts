@@ -46,6 +46,8 @@ import {
   type ReportDetail,
   type ReportRow,
   type ReportStatus,
+  type ReviewModerationStatus,
+  type ReviewRow,
   type TaskRow,
   type TaskerApplicationDetail,
   type TaskerApplicationRow,
@@ -792,6 +794,68 @@ export class SupabaseAdminRepository implements AdminRepository {
       p_action: input.action,
       p_reason: input.reason,
       p_idempotency_key: `task_${input.taskId}_${input.action}_${Date.now()}`,
+    });
+  }
+
+  // =========================================================================
+  // Review moderation
+  // =========================================================================
+
+  async listReviews(input: PageInput & { status?: string }): Promise<Paginated<ReviewRow>> {
+    const db = await this.db();
+    const { from, to } = pageRange(input.page, input.pageSize);
+    let query = db
+      .from("admin_review_queue")
+      .select(
+        "id,booking_id,task_title,reviewer_id,reviewee_id,score,comment,status,submitted_at",
+        { count: "exact" },
+      );
+    if (input.status) query = query.eq("status", input.status);
+    const { data, count, error } = await query
+      .order("submitted_at", { ascending: false })
+      .range(from, to);
+    if (error) return paginate<ReviewRow>([], input.page, input.pageSize, 0);
+
+    const rows = (data ?? []) as ReadonlyArray<{
+      id: string;
+      booking_id: string;
+      task_title: string;
+      reviewer_id: string;
+      reviewee_id: string;
+      score: number;
+      comment: string | null;
+      status: string;
+      submitted_at: string;
+    }>;
+    const names = await this.displayNames(
+      rows.flatMap((row) => [row.reviewer_id, row.reviewee_id]),
+    );
+    const items = rows.map((row) => ({
+      id: row.id,
+      bookingId: row.booking_id,
+      taskTitle: row.task_title,
+      reviewerDisplayName: displayNameFor(names, row.reviewer_id),
+      revieweeDisplayName: displayNameFor(names, row.reviewee_id),
+      score: Number(row.score),
+      comment: row.comment ?? "",
+      status: row.status as ReviewModerationStatus,
+      submittedAt: row.submitted_at,
+    }));
+    return paginate(items, input.page, input.pageSize, count ?? items.length);
+  }
+
+  async moderateReview(input: {
+    reviewId: string;
+    action: "hide" | "restore";
+    reason: string;
+    actor: string;
+  }): Promise<MutationResult> {
+    if (!input.reason.trim()) return { ok: false, message: MISSING_REASON };
+    return this.call("admin_moderate_review", {
+      p_review_id: input.reviewId,
+      p_action: input.action,
+      p_reason: input.reason,
+      p_idempotency_key: `review_${input.reviewId}_${input.action}_${Date.now()}`,
     });
   }
 

@@ -103,6 +103,27 @@ export type DisputeRow = {
   readonly assignee: string | null;
 };
 
+export type ReviewModerationStatus = "HIDDEN" | "REVEALED" | "MODERATED";
+
+/**
+ * A review as the moderation queue shows it.
+ *
+ * The comment text is included because moderating a review is impossible without
+ * reading it — unlike evidence and chat, where the Admin surfaces deliberately
+ * show metadata only.
+ */
+export type ReviewRow = {
+  readonly id: string;
+  readonly bookingId: string;
+  readonly taskTitle: string;
+  readonly reviewerDisplayName: string;
+  readonly revieweeDisplayName: string;
+  readonly score: number;
+  readonly comment: string;
+  readonly status: ReviewModerationStatus;
+  readonly submittedAt: string;
+};
+
 export type TicketStatus = "OPEN" | "PENDING" | "RESOLVED" | "CLOSED";
 
 export type TicketRow = {
@@ -560,6 +581,21 @@ export interface AdminRepository {
   moderateTask(input: {
     taskId: string;
     action: "remove" | "restore";
+    reason: string;
+    actor: string;
+  }): Promise<{ ok: boolean; message?: string }>;
+
+  /** Reviews for moderation, newest first. Filterable by moderation status. */
+  listReviews(input: PageInput & { status?: string }): Promise<Paginated<ReviewRow>>;
+  /**
+   * Hide an abusive review, or restore one that was hidden in error.
+   *
+   * Hiding also withdraws the score from the reviewee's rating aggregate, so a
+   * retracted review stops affecting their average as well as disappearing.
+   */
+  moderateReview(input: {
+    reviewId: string;
+    action: "hide" | "restore";
     reason: string;
     actor: string;
   }): Promise<{ ok: boolean; message?: string }>;

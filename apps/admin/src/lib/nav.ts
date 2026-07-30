@@ -52,6 +52,12 @@ export const NAV_SECTIONS: ReadonlyArray<NavSection> = [
       { href: "/reports", label: "Reports", icon: ChatIcon },
       { href: "/disputes", label: "Disputes", icon: ChatIcon },
       { href: "/support", label: "Support tickets", icon: ChatIcon },
+      {
+        href: "/reviews",
+        label: "Reviews",
+        capabilities: ["ADMIN_SUPPORT", "ADMIN_SUPER"],
+        icon: ChatIcon,
+      },
     ],
   },
   {

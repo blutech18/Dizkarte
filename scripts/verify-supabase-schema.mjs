@@ -85,6 +85,7 @@ const EXPECTED_RPCS = {
   "0021 verification submission + review reveal (NEW)": [
     "start_verification", "submit_verification", "get_review_pair",
   ],
+  "0023 review moderation (NEW)": ["admin_moderate_review"],
   // 0020 (notification emission) intentionally contributes nothing here: it is
   // made up of `app.*` helpers and AFTER triggers, neither of which PostgREST
   // describes. Confirm it applied by causing an event (submit an offer) and
@@ -122,6 +123,7 @@ const FORBIDDEN_RPCS = [
 const EXPECTED_NEW_VIEWS = {
   "0016 admin ops (NEW)": ["admin_category_history"],
   "0017 offer withdrawal (NEW)": ["task_locations_readable", "task_private_locations_readable"],
+  "0023 review moderation (NEW)": ["admin_review_queue"],
 };
 
 async function fetchOpenApi() {

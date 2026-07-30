@@ -31,6 +31,7 @@ import type {
   RefundHistoryEntry,
   ReportDetail,
   ReportRow,
+  ReviewRow,
   TaskerApplicationDetail,
   TaskerApplicationRow,
   TaskRow,
@@ -86,6 +87,7 @@ type SeedState = {
   reports: ReportDetail[];
   disputes: DisputeDetail[];
   tickets: TicketDetail[];
+  reviews: ReviewRow[];
   categories: CategoryDetail[];
   paymentEvents: PaymentEventRow[];
   providerEvents: ProviderEventRow[];
@@ -1028,6 +1030,42 @@ function createSeedState(): SeedState {
     },
   ];
 
+  const reviews: ReviewRow[] = [
+    {
+      id: "rev-8001",
+      bookingId: "bkg-6001",
+      taskTitle: "Deep clean two-bedroom condo",
+      reviewerDisplayName: "J. Santos",
+      revieweeDisplayName: "M. Dela Cruz",
+      score: 5,
+      comment: "Arrived on time and left the place spotless.",
+      status: "REVEALED",
+      submittedAt: "2026-07-18T09:15:00.000Z",
+    },
+    {
+      id: "rev-8002",
+      bookingId: "bkg-6002",
+      taskTitle: "Assemble flat-pack wardrobe",
+      reviewerDisplayName: "R. Lim",
+      revieweeDisplayName: "A. Reyes",
+      score: 1,
+      comment: "Reported for abusive language, pending moderator review.",
+      status: "REVEALED",
+      submittedAt: "2026-07-19T13:40:00.000Z",
+    },
+    {
+      id: "rev-8003",
+      bookingId: "bkg-6003",
+      taskTitle: "Repaint kitchen wall",
+      reviewerDisplayName: "A. Reyes",
+      revieweeDisplayName: "R. Lim",
+      score: 2,
+      comment: "Already hidden by a moderator.",
+      status: "MODERATED",
+      submittedAt: "2026-07-15T02:20:00.000Z",
+    },
+  ];
+
   return {
     verificationCases,
     taskerApplications,
@@ -1036,6 +1074,7 @@ function createSeedState(): SeedState {
     reports,
     disputes,
     tickets,
+    reviews,
     categories,
     paymentEvents,
     providerEvents,
@@ -1369,6 +1408,39 @@ export class SyntheticAdminRepository implements AdminRepository {
       ...current,
       status: input.action === "remove" ? "REMOVED" : "OPEN",
     };
+    return { ok: true };
+  }
+
+  async listReviews(input: PageInput & { status?: string }) {
+    const filtered = input.status
+      ? this.state.reviews.filter((r) => r.status === input.status)
+      : this.state.reviews;
+    return paged<ReviewRow>(filtered, input);
+  }
+
+  async moderateReview(input: {
+    reviewId: string;
+    action: "hide" | "restore";
+    reason: string;
+    actor: string;
+  }) {
+    if (!input.reason.trim()) return { ok: false, message: "A reason is required." };
+    const index = this.state.reviews.findIndex((r) => r.id === input.reviewId);
+    if (index === -1) return { ok: false, message: "Review not found." };
+    const current = this.state.reviews[index];
+    if (!current) return { ok: false, message: "Review not found." };
+
+    // Mirrors admin_moderate_review: hiding an already-hidden review, or
+    // restoring one that is not hidden, succeeds as a no-op.
+    const next = input.action === "hide" ? "MODERATED" : "REVEALED";
+    this.state.reviews[index] = { ...current, status: next };
+    this.recordAudit({
+      actor: input.actor,
+      capability: "ADMIN_SUPPORT",
+      action: `review.${input.action}`,
+      resource: input.reviewId,
+      reason: input.reason,
+    });
     return { ok: true };
   }
 
