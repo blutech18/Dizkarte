@@ -53,6 +53,7 @@ export const notificationPreferenceSchema = z.object({
     "payments",
     "messages",
     "disputes",
+    "reviews",
     "system",
   ]),
   inApp: z.boolean(),

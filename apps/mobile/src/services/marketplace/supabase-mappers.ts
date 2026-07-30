@@ -150,10 +150,31 @@ const NOTIFICATION_TYPES: ReadonlyArray<NotificationType> = [
   "VERIFICATION_DECISION",
 ];
 
+/**
+ * Legacy `notifications.type` values.
+ *
+ * Migration 0020 standardised the column on the event-type union above, but two
+ * inserts predate it: `process_payment_event` and
+ * `confirm_completion_and_release` write the coarse preference category instead.
+ * Those are long, finance-critical functions that move money through the
+ * balanced ledger, so they are left alone until the payment integration touches
+ * them; their rows are mapped here instead of being shown as the wrong event.
+ */
+const LEGACY_NOTIFICATION_TYPES: Readonly<Record<string, NotificationType>> = {
+  payments: "PAYMENT_CONFIRMED",
+  bookings: "BOOKING_STARTED",
+  offers: "OFFER_RECEIVED",
+  messages: "MESSAGE_RECEIVED",
+  disputes: "DISPUTE_OPENED",
+  reviews: "REVIEW_RECEIVED",
+  verification: "VERIFICATION_DECISION",
+};
+
 export function toNotificationType(value: string | null | undefined): NotificationType {
-  return (NOTIFICATION_TYPES as ReadonlyArray<string>).includes(value ?? "")
-    ? (value as NotificationType)
-    : "MESSAGE_RECEIVED";
+  if ((NOTIFICATION_TYPES as ReadonlyArray<string>).includes(value ?? "")) {
+    return value as NotificationType;
+  }
+  return LEGACY_NOTIFICATION_TYPES[value ?? ""] ?? "MESSAGE_RECEIVED";
 }
 
 const NOTIFICATION_RESOURCE_TYPES = [

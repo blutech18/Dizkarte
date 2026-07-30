@@ -1333,7 +1333,7 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
       ...current[category],
       [channel === "inApp" ? "inApp" : "push"]: value,
     };
-    await this.client.from("notification_preferences").upsert(
+    const { error } = await this.client.from("notification_preferences").upsert(
       {
         user_id: userId,
         category,
@@ -1342,6 +1342,9 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
       },
       { onConflict: "user_id,category" },
     );
+    // Swallowing this used to hide a real defect: the table's CHECK constraint
+    // rejected the 'reviews' category, so the toggle silently reverted.
+    fail("setNotificationPreference", error);
     return this.getNotificationPreferences(userId);
   }
 
