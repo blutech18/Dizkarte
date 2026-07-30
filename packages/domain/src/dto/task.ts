@@ -26,6 +26,15 @@ export type PublicTaskFeedItem = {
   readonly approximateLng: number;
   readonly publishedAt: string | null;
   readonly offerCount: number;
+  /**
+   * Metres from the search origin, or `null` when the search had no origin.
+   *
+   * Derived from the same approximate point this projection already publishes
+   * and rounded to 100 m by `search_task_feed`, so it cannot be combined across
+   * queries to recover a sharper position than `approximateLat`/`approximateLng`
+   * already give.
+   */
+  readonly distanceMeters: number | null;
 };
 
 /**
@@ -101,6 +110,9 @@ export function toPublicTaskFeedItem(source: TaskProjectionSource): PublicTaskFe
     approximateLng: source.publicLocation.approximateLng,
     publishedAt: source.publishedAt,
     offerCount: source.offerCount,
+    // Distance is a property of a search, not of a task, so a plain projection
+    // has none. Only `search_task_feed` can supply it.
+    distanceMeters: null,
   };
   assertNoPrivateTaskFields(item as unknown as Record<string, unknown>);
   return item;

@@ -188,12 +188,24 @@ function SchematicMapSurface({ items }: { readonly items: ReadonlyArray<PublicTa
   );
 }
 
+/**
+ * Distance to the approximate area, not to the exact address.
+ *
+ * `search_task_feed` rounds to 100 m, so sub-kilometre values are shown in
+ * hundreds of metres and anything further in one decimal of a kilometre. Never
+ * presented as a precise travel distance, because the origin point is fuzzed.
+ */
+function formatDistance(meters: number): string {
+  return meters < 1000 ? `${meters} m away` : `${(meters / 1000).toFixed(1)} km away`;
+}
+
 function MarkerCard({ task }: { readonly task: PublicTaskFeedItem }) {
+  const distance = task.distanceMeters === null ? null : formatDistance(task.distanceMeters);
   return (
     <View
       style={styles.markerCard}
       accessibilityRole="summary"
-      accessibilityLabel={`${task.title}, approximate area ${task.landmark}, budget ${formatPhp(task.budgetCentavos)}`}
+      accessibilityLabel={`${task.title}, approximate area ${task.landmark}${distance ? `, ${distance}` : ""}, budget ${formatPhp(task.budgetCentavos)}`}
     >
       <View style={styles.markerHeader}>
         <Icon name="map-pin" size={16} color={theme.primary} />
@@ -204,6 +216,7 @@ function MarkerCard({ task }: { readonly task: PublicTaskFeedItem }) {
         {task.landmark} · {task.approximateLat.toFixed(3)}, {task.approximateLng.toFixed(3)}{" "}
         (approximate)
       </Text>
+      {distance ? <Text style={styles.markerMeta}>{distance}</Text> : null}
       <View style={styles.markerFooter}>
         <Text style={styles.markerBudget}>{formatPhp(task.budgetCentavos)}</Text>
         <Button label="View task" onPress={() => router.push(`/task/${task.id}`)} variant="text" />

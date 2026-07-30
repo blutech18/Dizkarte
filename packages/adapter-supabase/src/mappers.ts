@@ -34,6 +34,8 @@ export type RawTaskFeedRow = {
   readonly approximate_lat: number | string;
   readonly approximate_lng: number | string;
   readonly offer_count: number | string;
+  /** Only present when the row came from `search_task_feed` with an origin. */
+  readonly distance_m?: number | string | null;
 };
 
 export type RawTaskerProfileRow = {
@@ -104,6 +106,7 @@ export function mapTaskFeedRow(row: RawTaskFeedRow): PublicTaskFeedItem {
     approximateLng: toNumber(row.approximate_lng),
     publishedAt: row.published_at,
     offerCount: toNumber(row.offer_count),
+    distanceMeters: toNullableNumber(row.distance_m),
   };
   assertNoPrivateTaskFields(item as unknown as Record<string, unknown>);
   return item;

@@ -1794,6 +1794,7 @@ function toPublicProjection(task: OwnedTaskRecord): PublicTaskFeedItem {
     approximateLng: task.draft.approximateLng,
     publishedAt: task.publishedAt,
     offerCount: task.offerCount,
+    distanceMeters: null,
   };
 }
 

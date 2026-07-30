@@ -120,6 +120,38 @@ describe("synthetic task feed", () => {
     }
   });
 
+  it("reports distance in metres rounded to 100, matching search_task_feed", async () => {
+    const mapProvider = new SyntheticMapProvider("development");
+    const near = { lat: 14.657, lng: 121.032 };
+    const page = await searchOpenTasksSynthetic(
+      { page: 1, pageSize: 20, nearLat: near.lat, nearLng: near.lng, sort: "nearby" },
+      mapProvider,
+    );
+
+    expect(page.items.length).toBeGreaterThan(0);
+    for (const item of page.items) {
+      // Rounding to 100 m is a privacy property, not cosmetic: it stops a set of
+      // readings being trilaterated past the published coordinate precision.
+      expect(item.distanceMeters).not.toBeNull();
+      expect(item.distanceMeters! % 100).toBe(0);
+    }
+
+    // Ascending, using the reported value rather than recomputing it.
+    for (let i = 1; i < page.items.length; i += 1) {
+      expect(page.items[i - 1]!.distanceMeters!).toBeLessThanOrEqual(
+        page.items[i]!.distanceMeters!,
+      );
+    }
+  });
+
+  it("reports a null distance when the search has no origin", async () => {
+    const page = await searchOpenTasksSynthetic({ page: 1, pageSize: 20 });
+    expect(page.items.length).toBeGreaterThan(0);
+    for (const item of page.items) {
+      expect(item.distanceMeters).toBeNull();
+    }
+  });
+
   it("without a distance filter/sort, a distance-only radius has no effect on non-distance queries", async () => {
     // Confirms radius/sort=nearby without nearLat/nearLng never silently
     // filters everything out (a common off-by-default bug).

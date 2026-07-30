@@ -498,10 +498,15 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
   /**
    * Open-task search over the `public_task_feed` view.
    *
-   * Implemented here rather than delegated because the mobile filter set is
-   * wider than the shared domain input (schedule window, radius, "nearby").
-   * Distance sorting needs a configured map provider, so it falls back to
-   * newest instead of inventing an ordering.
+   * Goes through `search_task_feed` (migration 0024) rather than selecting from
+   * the view, because radius filtering needs `st_dwithin` and PostgREST's filter
+   * grammar cannot express it. The function is `security invoker`, so the same
+   * RLS still decides which rows are visible; it only adds filtering, distance,
+   * and ordering.
+   *
+   * Distance ordering does NOT depend on the map provider — the coordinates come
+   * from `task_public_locations`. A search with no origin simply returns a null
+   * distance and orders by recency.
    */
   async searchOpenTasks(input: {
     page: number;
@@ -522,39 +527,36 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
   }): Promise<Paginated<PublicTaskFeedItem>> {
     const pageSize = Math.min(Math.max(1, Math.trunc(input.pageSize)), 100);
     const page = Math.max(1, Math.trunc(input.page));
-    const from = (page - 1) * pageSize;
 
-    let query = this.client.from("public_task_feed").select("*", { count: "exact" });
+    // Keyword still goes through the shared sanitizer: it is interpolated into
+    // an ilike pattern server-side, so `%` and `_` must not survive as wildcards.
+    const keyword = input.keyword ? sanitizeKeyword(input.keyword) : "";
 
-    if (input.keyword) {
-      const safe = sanitizeKeyword(input.keyword);
-      if (safe.length > 0) {
-        query = query.or(`title.ilike.*${safe}*,description.ilike.*${safe}*`);
-      }
-    }
-    if (input.categoryId) query = query.eq("category_id", input.categoryId);
-    if (input.cityCode) query = query.eq("city_code", input.cityCode);
-    if (input.barangayCode) query = query.eq("barangay_code", input.barangayCode);
-    if (input.minBudgetCentavos !== undefined) {
-      query = query.gte("budget_centavos", input.minBudgetCentavos);
-    }
-    if (input.maxBudgetCentavos !== undefined) {
-      query = query.lte("budget_centavos", input.maxBudgetCentavos);
-    }
-    if (input.scheduledFrom) query = query.gte("scheduled_for", input.scheduledFrom);
-    if (input.scheduledTo) query = query.lte("scheduled_for", input.scheduledTo);
-    if (input.sameDayOnly === true) query = query.eq("same_day", true);
-
-    if (input.sort === "highest_budget") {
-      query = query.order("budget_centavos", { ascending: false, nullsFirst: false });
-    } else {
-      query = query.order("published_at", { ascending: false, nullsFirst: false });
-    }
-
-    const { data, count, error } = await query.range(from, from + pageSize - 1);
+    const { data, error } = await this.client.rpc("search_task_feed", {
+      p_keyword: keyword.length > 0 ? keyword : null,
+      p_category_id: input.categoryId ?? null,
+      p_city_code: input.cityCode ?? null,
+      p_barangay_code: input.barangayCode ?? null,
+      p_min_budget: input.minBudgetCentavos ?? null,
+      p_max_budget: input.maxBudgetCentavos ?? null,
+      p_scheduled_from: input.scheduledFrom ?? null,
+      p_scheduled_to: input.scheduledTo ?? null,
+      p_same_day_only: input.sameDayOnly === true,
+      p_near_lat: input.nearLat ?? null,
+      p_near_lng: input.nearLng ?? null,
+      p_radius_km: input.radiusKm ?? null,
+      p_sort: input.sort ?? "newest",
+      p_page: page,
+      p_page_size: pageSize,
+    });
     fail("searchOpenTasks", error);
-    const items = ((data ?? []) as ReadonlyArray<RawTaskFeedRow>).map(mapTaskFeedRow);
-    return paginate(items, page, pageSize, count ?? items.length);
+
+    const rows = (data ?? []) as ReadonlyArray<RawTaskFeedRow & { total_count: number | string }>;
+    const items = rows.map(mapTaskFeedRow);
+    // `total_count` is a window count over the filtered set, repeated on every
+    // row. An empty page legitimately has no total, which is zero.
+    const total = rows.length > 0 ? Number(rows[0]?.total_count ?? 0) : 0;
+    return paginate(items, page, pageSize, total);
   }
 
   async getPublicTask(taskId: TaskId): Promise<PublicTaskFeedItem | null> {

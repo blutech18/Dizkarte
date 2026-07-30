@@ -1016,15 +1016,23 @@ export class SupabaseAdminRepository implements AdminRepository {
       p_reason: `Admin console ${resourceType} evidence review.`,
       p_idempotency_key: `evidence_${resourceType}_${resourceId}`,
     });
-    const rows = (data ?? []) as ReadonlyArray<{ id: string; storage_path: string }>;
-    return rows.map((row, index) => ({
-      kind: "attachment",
-      // Only the final path segment is shown, never the full storage path.
-      fileName: row.storage_path.split("/").pop() ?? `evidence-${index + 1}`,
-      mimeType: "application/octet-stream",
-      sizeBytes: 0,
-      reviewState: "pending" as const,
-    }));
+    const rows = (data ?? []) as ReadonlyArray<{
+      id: string;
+      storage_path: string;
+      created_at: string;
+    }>;
+    return rows.map((row, index) => {
+      // A note is stored as a `note:` sentinel because `evidence` has no note
+      // column; a file row's storage_path is a real object key.
+      const isNote = row.storage_path.startsWith("note:");
+      return {
+        kind: isNote ? ("note" as const) : ("attachment" as const),
+        // Only the final path segment is shown, never the full storage path.
+        fileName: isNote ? null : (row.storage_path.split("/").pop() ?? `evidence-${index + 1}`),
+        note: isNote ? row.storage_path.slice("note:".length) : null,
+        submittedAt: row.created_at,
+      };
+    });
   }
 
   /** Case history from the immutable moderation trail. */

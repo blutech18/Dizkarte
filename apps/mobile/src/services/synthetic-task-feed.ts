@@ -38,6 +38,7 @@ const SYNTHETIC_TASKS: PublicTaskFeedItem[] = [
     approximateLng: 121.032,
     publishedAt: "2026-07-20T02:00:00.000Z",
     offerCount: 3,
+    distanceMeters: null,
   },
   {
     id: id("20000000-0000-4000-8000-000000000002"),
@@ -56,6 +57,7 @@ const SYNTHETIC_TASKS: PublicTaskFeedItem[] = [
     approximateLng: 121.049,
     publishedAt: "2026-07-19T02:00:00.000Z",
     offerCount: 1,
+    distanceMeters: null,
   },
   {
     id: id("20000000-0000-4000-8000-000000000003"),
@@ -75,6 +77,7 @@ const SYNTHETIC_TASKS: PublicTaskFeedItem[] = [
     approximateLng: 121.032,
     publishedAt: "2026-07-18T02:00:00.000Z",
     offerCount: 0,
+    distanceMeters: null,
   },
   {
     id: id("20000000-0000-4000-8000-000000000004"),
@@ -93,6 +96,7 @@ const SYNTHETIC_TASKS: PublicTaskFeedItem[] = [
     approximateLng: 121.028,
     publishedAt: "2026-07-21T00:30:00.000Z",
     offerCount: 2,
+    distanceMeters: null,
   },
   {
     id: id("20000000-0000-4000-8000-000000000005"),
@@ -111,6 +115,7 @@ const SYNTHETIC_TASKS: PublicTaskFeedItem[] = [
     approximateLng: 121.055,
     publishedAt: "2026-07-17T05:00:00.000Z",
     offerCount: 4,
+    distanceMeters: null,
   },
   {
     id: id("20000000-0000-4000-8000-000000000006"),
@@ -129,6 +134,7 @@ const SYNTHETIC_TASKS: PublicTaskFeedItem[] = [
     approximateLng: 121.0,
     publishedAt: "2026-07-16T04:00:00.000Z",
     offerCount: 0,
+    distanceMeters: null,
   },
   {
     id: id("20000000-0000-4000-8000-000000000007"),
@@ -147,6 +153,7 @@ const SYNTHETIC_TASKS: PublicTaskFeedItem[] = [
     approximateLng: 121.047,
     publishedAt: "2026-07-21T05:00:00.000Z",
     offerCount: 1,
+    distanceMeters: null,
   },
   {
     id: id("20000000-0000-4000-8000-000000000008"),
@@ -165,6 +172,7 @@ const SYNTHETIC_TASKS: PublicTaskFeedItem[] = [
     approximateLng: 121.079,
     publishedAt: "2026-07-15T03:00:00.000Z",
     offerCount: 2,
+    distanceMeters: null,
   },
 ];
 
@@ -293,7 +301,22 @@ export function filterAndSortTasks(
     );
   }
 
-  return filtered;
+  if (!hasDistanceFilter) return filtered;
+
+  // Publish the distance the same way `search_task_feed` does — metres, rounded
+  // to the nearest 100 — so a screen renders identically against either adapter.
+  return filtered.map((task) => ({
+    ...task,
+    distanceMeters:
+      Math.round(
+        (mapProvider!.distanceKm(
+          { lat: query.nearLat!, lng: query.nearLng! },
+          { lat: task.approximateLat, lng: task.approximateLng },
+        ) *
+          1000) /
+          100,
+      ) * 100,
+  }));
 }
 
 export async function searchOpenTasksSynthetic(

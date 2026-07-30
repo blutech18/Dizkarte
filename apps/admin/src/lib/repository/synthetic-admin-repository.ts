@@ -314,11 +314,10 @@ function createSeedState(): SeedState {
         "Reporter states the task listing repeats the same offer across multiple cities and appears to be spam.",
       evidence: [
         {
-          kind: "screenshot",
+          kind: "attachment",
           fileName: "report-rpt-3001-screenshot-1.png",
-          mimeType: "image/png",
-          sizeBytes: 245_760,
-          reviewState: "pending",
+          note: null,
+          submittedAt: "2026-07-16T08:12:00.000Z",
         },
       ],
       history: [
@@ -347,11 +346,10 @@ function createSeedState(): SeedState {
         "Reporter states a chat message from the other party used abusive language during booking negotiation.",
       evidence: [
         {
-          kind: "chat_excerpt_metadata",
+          kind: "attachment",
           fileName: "report-rpt-3002-chat-metadata.json",
-          mimeType: "application/json",
-          sizeBytes: 1_024,
-          reviewState: "reviewed",
+          note: null,
+          submittedAt: "2026-07-16T09:40:00.000Z",
         },
       ],
       history: [
@@ -400,18 +398,16 @@ function createSeedState(): SeedState {
         "Client states the Tasker did not complete the agreed scope of work before marking the booking done.",
       evidence: [
         {
-          kind: "photo",
+          kind: "attachment",
           fileName: "dispute-dsp-4001-before.jpg",
-          mimeType: "image/jpeg",
-          sizeBytes: 512_000,
-          reviewState: "pending",
+          note: null,
+          submittedAt: "2026-07-17T01:05:00.000Z",
         },
         {
-          kind: "photo",
+          kind: "attachment",
           fileName: "dispute-dsp-4001-after.jpg",
-          mimeType: "image/jpeg",
-          sizeBytes: 498_176,
-          reviewState: "pending",
+          note: null,
+          submittedAt: "2026-07-17T01:35:00.000Z",
         },
       ],
       history: [
@@ -439,11 +435,10 @@ function createSeedState(): SeedState {
         "Tasker states the client cancelled after work began and is disputing the cancellation fee.",
       evidence: [
         {
-          kind: "receipt_metadata",
+          kind: "attachment",
           fileName: "dispute-dsp-4002-receipt.pdf",
-          mimeType: "application/pdf",
-          sizeBytes: 88_320,
-          reviewState: "reviewed",
+          note: null,
+          submittedAt: "2026-07-18T04:22:00.000Z",
         },
       ],
       history: [
@@ -493,11 +488,10 @@ function createSeedState(): SeedState {
         "Requester reports the selfie upload step fails repeatedly on the verification flow.",
       evidence: [
         {
-          kind: "app_log_metadata",
+          kind: "attachment",
           fileName: "ticket-tkt-6001-log.txt",
-          mimeType: "text/plain",
-          sizeBytes: 4_096,
-          reviewState: "pending",
+          note: null,
+          submittedAt: "2026-07-19T06:50:00.000Z",
         },
       ],
       history: [

@@ -137,17 +137,24 @@ export type TicketRow = {
 };
 
 /**
- * Privacy-safe fake evidence metadata. Never a raw storage path, exact
- * location, chat body, government ID, or provider payload — kind/name/MIME/
- * size/review state only, matching the requirement that Admin evidence views
- * never render sensitive underlying content.
+ * Privacy-safe evidence metadata.
+ *
+ * Never a raw storage path, exact location, chat body, government ID, or
+ * provider payload: an attachment is identified by its file name only, and the
+ * bytes stay behind `admin_authorize_object_read`.
+ *
+ * MIME type, size, and a review state were previously carried here and filled
+ * with constants, because `public.evidence` stores none of them. Fields that can
+ * only ever be invented are worse than absent — a reviewer reading
+ * "application/octet-stream, 0 bytes, pending" would reasonably believe it.
  */
 export type EvidenceMetadata = {
-  readonly kind: string;
-  readonly fileName: string;
-  readonly mimeType: string;
-  readonly sizeBytes: number;
-  readonly reviewState: "pending" | "reviewed" | "flagged";
+  readonly kind: "attachment" | "note";
+  /** Final path segment of the stored object; `null` for a note. */
+  readonly fileName: string | null;
+  /** Text the submitter typed; `null` for an attachment. */
+  readonly note: string | null;
+  readonly submittedAt: string;
 };
 
 export type CaseHistoryEvent = {

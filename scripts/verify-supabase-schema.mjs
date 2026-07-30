@@ -86,6 +86,7 @@ const EXPECTED_RPCS = {
     "start_verification", "submit_verification", "get_review_pair",
   ],
   "0023 review moderation (NEW)": ["admin_moderate_review"],
+  "0024 geospatial feed search (NEW)": ["search_task_feed"],
   // 0020 (notification emission) intentionally contributes nothing here: it is
   // made up of `app.*` helpers and AFTER triggers, neither of which PostgREST
   // describes. Confirm it applied by causing an event (submit an offer) and

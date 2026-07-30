@@ -48,7 +48,12 @@ export default tseslint.config(
     // Node CLI scripts (seeders, tooling) run under Node with console output.
     files: ["scripts/**/*.mjs"],
     languageOptions: {
-      globals: { process: "readonly", console: "readonly", fetch: "readonly" },
+      globals: {
+        process: "readonly",
+        console: "readonly",
+        fetch: "readonly",
+        URL: "readonly",
+      },
     },
     rules: {
       "no-console": "off",
