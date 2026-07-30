@@ -178,6 +178,7 @@ export interface MobileMarketplacePort {
       fileName: string;
       sizeBytes: number;
       mimeType: string;
+      storagePath: string;
     }>,
   ): Promise<MessageRecord>;
   /**

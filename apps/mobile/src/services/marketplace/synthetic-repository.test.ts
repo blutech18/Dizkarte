@@ -648,6 +648,7 @@ describe("SyntheticMarketplaceRepository", () => {
         fileName: `photo-${i}.jpg`,
         sizeBytes: 100_000,
         mimeType: "image/jpeg",
+        storagePath: `${CLIENT_ID}/conversation/photo-${i}.jpg`,
       }));
       await expect(
         repo.sendMessage(conversationId, CLIENT_ID, null, "too-many-nonce", media),
@@ -660,7 +661,13 @@ describe("SyntheticMarketplaceRepository", () => {
       const conversationId = await confirmedBooking();
       await expect(
         repo.sendMessage(conversationId, CLIENT_ID, null, "blank-name-nonce", [
-          { kind: "image", fileName: "   ", sizeBytes: 100_000, mimeType: "image/jpeg" },
+          {
+            kind: "image",
+            fileName: "   ",
+            sizeBytes: 100_000,
+            mimeType: "image/jpeg",
+            storagePath: `${CLIENT_ID}/conversation/blank.jpg`,
+          },
         ]),
       ).rejects.toThrow();
     });
@@ -669,7 +676,13 @@ describe("SyntheticMarketplaceRepository", () => {
       const conversationId = await confirmedBooking();
       await expect(
         repo.sendMessage(conversationId, CLIENT_ID, null, "zero-size-nonce", [
-          { kind: "image", fileName: "photo.jpg", sizeBytes: 0, mimeType: "image/jpeg" },
+          {
+            kind: "image",
+            fileName: "photo.jpg",
+            sizeBytes: 0,
+            mimeType: "image/jpeg",
+            storagePath: `${CLIENT_ID}/conversation/photo.jpg`,
+          },
         ]),
       ).rejects.toThrow();
     });
@@ -678,7 +691,13 @@ describe("SyntheticMarketplaceRepository", () => {
       const conversationId = await confirmedBooking();
       await expect(
         repo.sendMessage(conversationId, CLIENT_ID, null, "mismatch-nonce", [
-          { kind: "image", fileName: "clip.mp4", sizeBytes: 100_000, mimeType: "video/mp4" },
+          {
+            kind: "image",
+            fileName: "clip.mp4",
+            sizeBytes: 100_000,
+            mimeType: "video/mp4",
+            storagePath: `${CLIENT_ID}/conversation/clip.mp4`,
+          },
         ]),
       ).rejects.toThrow();
     });
@@ -692,6 +711,7 @@ describe("SyntheticMarketplaceRepository", () => {
             fileName: "malware.exe",
             sizeBytes: 100_000,
             mimeType: "application/x-msdownload",
+            storagePath: `${CLIENT_ID}/conversation/malware.exe`,
           },
         ]),
       ).rejects.toThrow();
@@ -706,6 +726,7 @@ describe("SyntheticMarketplaceRepository", () => {
             fileName: "huge.jpg",
             sizeBytes: 10 * 1024 * 1024 + 1,
             mimeType: "image/jpeg",
+            storagePath: `${CLIENT_ID}/conversation/huge.jpg`,
           },
         ]),
       ).rejects.toThrow();
@@ -720,6 +741,7 @@ describe("SyntheticMarketplaceRepository", () => {
             fileName: "huge.mp4",
             sizeBytes: 100 * 1024 * 1024 + 1,
             mimeType: "video/mp4",
+            storagePath: `${CLIENT_ID}/conversation/huge.mp4`,
           },
         ]),
       ).rejects.toThrow();
@@ -1460,7 +1482,13 @@ describe("SyntheticMarketplaceRepository", () => {
     it("sends a message with a media attachment and preserves its metadata", async () => {
       const conversationId = await confirmedConversation();
       const sent = await repo.sendMessage(conversationId, CLIENT_ID, null, "media-nonce-1", [
-        { kind: "image", fileName: "photo.jpg", sizeBytes: 500_000, mimeType: "image/jpeg" },
+        {
+          kind: "image",
+          fileName: "photo.jpg",
+          sizeBytes: 500_000,
+          mimeType: "image/jpeg",
+          storagePath: `${CLIENT_ID}/conversation/photo.jpg`,
+        },
       ]);
       expect(sent.deliveryStatus).toBe("sent");
       expect(sent.media.length).toBe(1);
@@ -1471,7 +1499,13 @@ describe("SyntheticMarketplaceRepository", () => {
     it("allows a body-less message when at least one attachment is present", async () => {
       const conversationId = await confirmedConversation();
       const sent = await repo.sendMessage(conversationId, CLIENT_ID, null, "media-nonce-2", [
-        { kind: "video", fileName: "clip.mp4", sizeBytes: 8_000_000, mimeType: "video/mp4" },
+        {
+          kind: "video",
+          fileName: "clip.mp4",
+          sizeBytes: 8_000_000,
+          mimeType: "video/mp4",
+          storagePath: `${CLIENT_ID}/conversation/clip.mp4`,
+        },
       ]);
       expect(sent.body).toBeNull();
       expect(sent.media.length).toBe(1);
@@ -1484,7 +1518,15 @@ describe("SyntheticMarketplaceRepository", () => {
         CLIENT_ID,
         "__force_fail__",
         "media-nonce-3",
-        [{ kind: "image", fileName: "photo.jpg", sizeBytes: 500_000, mimeType: "image/jpeg" }],
+        [
+          {
+            kind: "image",
+            fileName: "photo.jpg",
+            sizeBytes: 500_000,
+            mimeType: "image/jpeg",
+            storagePath: `${CLIENT_ID}/conversation/photo.jpg`,
+          },
+        ],
       );
       expect(failed.deliveryStatus).toBe("failed");
       const retried = await repo.retryMessage(conversationId, "media-nonce-3", CLIENT_ID);

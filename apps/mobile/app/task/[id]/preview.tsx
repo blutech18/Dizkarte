@@ -7,6 +7,7 @@ import { Screen } from "../../../src/components/ui/Screen";
 import { Button } from "../../../src/components/ui/Button";
 import { StatusBadge } from "../../../src/components/ui/StatusBadge";
 import { AttachmentLabel } from "../../../src/components/ui/AttachmentLabel";
+import { SignedImage } from "../../../src/components/media/SignedImage";
 import { LoadingState, ErrorState, DeniedState } from "../../../src/components/ui/AsyncState";
 import { useSession } from "../../../src/providers/SessionProvider";
 import { useMarketplace } from "../../../src/providers/MarketplaceProvider";
@@ -145,8 +146,16 @@ export default function PreviewTaskScreen() {
             <Text style={styles.sectionBody}>No attachments.</Text>
           ) : (
             task.draft.media.map((m) => (
-              <AttachmentLabel key={m.id} kind={m.kind} text={m.fileName} />
-
+              <View key={m.id} style={styles.mediaItem}>
+                {m.kind === "image" ? (
+                  <SignedImage
+                    bucket="task-media"
+                    path={m.storagePath}
+                    accessibilityLabel={`Task photo ${m.fileName}`}
+                  />
+                ) : null}
+                <AttachmentLabel kind={m.kind} text={m.fileName} />
+              </View>
             ))
           )}
         </View>
@@ -198,6 +207,7 @@ const styles = StyleSheet.create({
   privateSection: { backgroundColor: theme.warningSoft },
   sectionLabel: { fontSize: fontSize.xs, fontWeight: "700", color: theme.textPrimary },
   sectionBody: { fontSize: fontSize.sm, color: theme.textPrimary },
+  mediaItem: { gap: spacing.xs, marginTop: spacing.xs },
   denialBanner: {
     backgroundColor: theme.warningSoft,
     borderRadius: radii.md,

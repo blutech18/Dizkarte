@@ -87,7 +87,7 @@ export function validateTaskDraftForm(
       exactLat: DEFAULT_EXACT_LAT,
       exactLng: DEFAULT_EXACT_LNG,
     },
-    media: form.media.map((m) => ({ storagePath: `dev/${m.id}/${m.fileName}`, kind: m.kind })),
+    media: form.media.map((m) => ({ storagePath: m.storagePath, kind: m.kind })),
   });
   if (!parsed.success) {
     const errors: Record<string, string> = {};

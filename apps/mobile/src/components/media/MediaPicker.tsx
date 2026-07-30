@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { Button } from "../ui/Button";
 import { Icon } from "../ui/Icon";
-import { canAddTaskMedia, MAX_TASK_MEDIA_COUNT } from "../../services/storage/object-paths";
+import { MAX_TASK_MEDIA_COUNT } from "../../services/storage/object-paths";
 import { removeObject, uploadFile, type UploadedObject } from "../../services/storage/upload";
 import type { StorageBucket, UploadKind } from "../../services/storage/object-paths";
 import { theme, spacing, fontSize, radii, MIN_TOUCH_TARGET } from "../../theme";
@@ -59,7 +59,9 @@ export function MediaPicker({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const atLimit = value.length >= maxCount || !canAddTaskMedia(value.length);
+  // `maxCount` defaults to the shared task-media ceiling, so callers with a
+  // tighter limit (chat, single-document uploads) bind first.
+  const atLimit = value.length >= maxCount;
 
   async function pick(kind: "image" | "video") {
     setError(null);

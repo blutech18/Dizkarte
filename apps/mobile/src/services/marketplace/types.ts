@@ -62,6 +62,8 @@ export type TaskMediaAttachment = {
   readonly fileName: string;
   readonly sizeBytes: number;
   readonly mimeType: string;
+  /** Object key in the private `task-media` bucket; rendered through a signed URL. */
+  readonly storagePath: string;
 };
 
 export type VerificationDenialReason =
@@ -191,6 +193,8 @@ export type MessageMediaAttachment = {
   readonly fileName: string;
   readonly sizeBytes: number;
   readonly mimeType: string;
+  /** Object key in the private `chat-media` bucket; rendered through a signed URL. */
+  readonly storagePath: string;
 };
 
 export type MessageDeliveryStatus = "sending" | "sent" | "failed";

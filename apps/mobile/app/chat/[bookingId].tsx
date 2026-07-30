@@ -15,11 +15,13 @@ import { useSession } from "../../src/providers/SessionProvider";
 import { useMarketplace } from "../../src/providers/MarketplaceProvider";
 import { useConnectivity } from "../../src/providers/ConnectivityProvider";
 import type { MessageRecord } from "../../src/services/marketplace/types";
+import { MediaPicker } from "../../src/components/media/MediaPicker";
+import { SignedImage } from "../../src/components/media/SignedImage";
+import type { UploadedObject } from "../../src/services/storage/upload";
 import {
-  ChatMediaAttachmentPicker,
-  validateAttachments,
-  type PendingAttachment,
-} from "../../src/components/task/ChatMediaAttachmentPicker";
+  MAX_CHAT_ATTACHMENTS,
+  validateChatMessageInput,
+} from "../../src/services/marketplace/chat-message-validation";
 import { AttachmentLabel } from "../../src/components/ui/AttachmentLabel";
 import { theme, spacing, fontSize, radii, MIN_TOUCH_TARGET } from "../../src/theme";
 
@@ -48,7 +50,7 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<ReadonlyArray<MessageRecord>>([]);
   const [state, setState] = useState<LoadState>("loading");
   const [draft, setDraft] = useState("");
-  const [attachments, setAttachments] = useState<ReadonlyArray<PendingAttachment>>([]);
+  const [attachments, setAttachments] = useState<ReadonlyArray<UploadedObject>>([]);
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const nonceCounter = useRef(0);
@@ -99,9 +101,18 @@ export default function ChatScreen() {
     if (!session || !conversationId) return;
     const trimmedBody = draft.trim();
     if (trimmedBody.length === 0 && attachments.length === 0) return;
-    const attachmentError = validateAttachments(attachments);
-    if (attachmentError) {
-      setSendError(attachmentError);
+    const mediaToSend = attachments.map((a) => ({
+      kind: a.kind === "video" ? ("video" as const) : ("image" as const),
+      fileName: a.fileName,
+      sizeBytes: a.sizeBytes,
+      mimeType: a.mimeType,
+      storagePath: a.path,
+    }));
+    // Same rules the repository re-applies, so the composer reports the problem
+    // instead of the send failing opaquely.
+    const validation = validateChatMessageInput({ body: trimmedBody, media: mediaToSend });
+    if (!validation.ok) {
+      setSendError(validation.reason);
       return;
     }
     if (!isAppActive) return;
@@ -110,12 +121,6 @@ export default function ChatScreen() {
     nonceCounter.current += 1;
     const clientNonce = `${session.userId}-${Date.now()}-${nonceCounter.current}`;
     const bodyToSend = trimmedBody.length > 0 ? trimmedBody : null;
-    const mediaToSend = attachments.map((a) => ({
-      kind: a.kind,
-      fileName: a.fileName,
-      sizeBytes: a.sizeBytes,
-      mimeType: a.mimeType,
-    }));
     // The draft/attachments are only cleared once the send is accepted by
     // the repository — a thrown error (validation or access denial) leaves
     // the unsent draft and attachments intact so nothing is silently lost.
@@ -200,11 +205,19 @@ export default function ChatScreen() {
         />
       )}
       <View style={styles.composer}>
-        <ChatMediaAttachmentPicker
-          attachments={attachments}
-          onChange={setAttachments}
-          disabled={sending}
-        />
+        {conversationId ? (
+          <MediaPicker
+            bucket="chat-media"
+            userId={session.userId}
+            scopeId={conversationId}
+            value={attachments}
+            onChange={setAttachments}
+            label="Attachments"
+            allowVideo
+            maxCount={MAX_CHAT_ATTACHMENTS}
+            disabled={sending}
+          />
+        ) : null}
         {sendError ? (
           <Text
             style={styles.composerError}
@@ -248,13 +261,21 @@ function MessageBubble({
         {message.media.length > 0 ? (
           <View style={styles.mediaList} accessibilityRole="list">
             {message.media.map((item) => (
-              <AttachmentLabel
-                key={item.id}
-                kind={item.kind}
-                text={`${item.fileName} (${Math.round(item.sizeBytes / 1000)} KB)`}
-                color={mine ? theme.onPrimary : theme.textPrimary}
-                accessibilityLabel={`${item.kind === "image" ? "Image" : "Video"} attachment ${item.fileName}, ${item.mimeType}, ${Math.round(item.sizeBytes / 1000)} kilobytes`}
-              />
+              <View key={item.id} style={styles.mediaItem}>
+                {item.kind === "image" ? (
+                  <SignedImage
+                    bucket="chat-media"
+                    path={item.storagePath}
+                    accessibilityLabel={`Image attachment ${item.fileName}`}
+                  />
+                ) : null}
+                <AttachmentLabel
+                  kind={item.kind}
+                  text={`${item.fileName} (${Math.round(item.sizeBytes / 1000)} KB)`}
+                  color={mine ? theme.onPrimary : theme.textPrimary}
+                  accessibilityLabel={`${item.kind === "image" ? "Image" : "Video"} attachment ${item.fileName}, ${item.mimeType}, ${Math.round(item.sizeBytes / 1000)} kilobytes`}
+                />
+              </View>
             ))}
           </View>
         ) : null}
@@ -295,7 +316,8 @@ const styles = StyleSheet.create({
   bubbleTextMine: { color: theme.onPrimary, fontSize: fontSize.md },
   bubbleTextTheirs: { color: theme.textPrimary, fontSize: fontSize.md },
   bubbleStatus: { fontSize: fontSize.xs, color: theme.textSecondary, marginTop: spacing.xs },
-  mediaList: { gap: spacing.xs, marginTop: spacing.xs },
+  mediaList: { gap: spacing.sm, marginTop: spacing.xs },
+  mediaItem: { gap: spacing.xs },
   composer: {
     gap: spacing.sm,
     paddingTop: spacing.sm,

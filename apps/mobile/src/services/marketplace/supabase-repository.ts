@@ -264,10 +264,12 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
       }>).map((item) => ({
         id: item.id,
         kind: item.kind === "video" ? ("video" as const) : ("image" as const),
-        // Only the final path segment is surfaced, never the full storage path.
         fileName: item.storage_path.split("/").pop() ?? item.id,
+        // `task_media` stores neither size nor MIME type; the owner UI shows the
+        // file name and a thumbnail, so nothing here is invented to fill them.
         sizeBytes: 0,
         mimeType: item.kind === "video" ? "video/mp4" : "image/jpeg",
+        storagePath: item.storage_path,
       })),
     };
 
@@ -400,11 +402,60 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     fail("saveDraftTask.publicLocation", pubResult.error);
     fail("saveDraftTask.privateLocation", privResult.error);
 
+    await this.syncTaskMedia(taskId, draft.media);
+
     const saved = await this.getOwnedTask(taskId as TaskId, authedId);
     if (!saved) {
       throw new MarketplaceRequestError("saveDraftTask", "Saved task could not be read back.");
     }
     return saved;
+  }
+
+  /**
+   * Bring `task_media` in line with the draft's attachment list.
+   *
+   * Rows are matched on `storage_path` and only the difference is written. A
+   * delete-all-then-reinsert would be simpler but would reset
+   * `moderation_status`, silently un-reviewing photos an Admin had already
+   * cleared every time the owner edited an unrelated field.
+   */
+  private async syncTaskMedia(
+    taskId: string,
+    media: ReadonlyArray<{ readonly storagePath: string; readonly kind: "image" | "video" }>,
+  ): Promise<void> {
+    const { data, error } = await this.client
+      .from("task_media")
+      .select("id,storage_path")
+      .eq("task_id", taskId);
+    fail("saveDraftTask.media", error);
+
+    const existing = (data ?? []) as ReadonlyArray<{ id: string; storage_path: string }>;
+    const keep = new Set(media.map((item) => item.storagePath));
+    const known = new Set(existing.map((row) => row.storage_path));
+
+    const removedIds = existing.filter((row) => !keep.has(row.storage_path)).map((row) => row.id);
+    if (removedIds.length > 0) {
+      const { error: deleteError } = await this.client
+        .from("task_media")
+        .delete()
+        .in("id", removedIds);
+      fail("saveDraftTask.media.remove", deleteError);
+    }
+
+    const added = media
+      .map((item, index) => ({ item, index }))
+      .filter(({ item }) => !known.has(item.storagePath));
+    if (added.length > 0) {
+      const { error: insertError } = await this.client.from("task_media").insert(
+        added.map(({ item, index }) => ({
+          task_id: taskId,
+          storage_path: item.storagePath,
+          kind: item.kind,
+          sort_order: index,
+        })),
+      );
+      fail("saveDraftTask.media.add", insertError);
+    }
   }
 
   /**
@@ -1163,6 +1214,7 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
         fileName: item.storage_path.split("/").pop() ?? item.id,
         sizeBytes: Number(item.size_bytes),
         mimeType: item.mime_type,
+        storagePath: item.storage_path,
       });
       mediaByMessage.set(item.message_id, existing);
     }
@@ -1191,6 +1243,7 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
       fileName: string;
       sizeBytes: number;
       mimeType: string;
+      storagePath: string;
     }>,
   ): Promise<MessageRecord> {
     const { data, error } = await this.client
@@ -1209,15 +1262,21 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
 
     const attachments = media ?? [];
     if (attachments.length > 0) {
-      await this.client.from("message_media").insert(
+      // Records the key of the object already uploaded to `chat-media`. The
+      // previous synthesised path pointed at nothing, so an attachment could
+      // never be opened.
+      const { error: mediaError } = await this.client.from("message_media").insert(
         attachments.map((item) => ({
           message_id: row.id,
-          storage_path: `chat/${conversationId}/${item.fileName}`,
+          storage_path: item.storagePath,
           kind: item.kind,
           mime_type: item.mimeType,
           size_bytes: item.sizeBytes,
         })),
       );
+      if (mediaError) {
+        throw new MarketplaceRequestError("sendMessage.media", detailOf(mediaError.message));
+      }
     }
 
     return {
@@ -1231,6 +1290,7 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
         fileName: item.fileName,
         sizeBytes: item.sizeBytes,
         mimeType: item.mimeType,
+        storagePath: item.storagePath,
       })),
       createdAt: row.created_at,
       deliveryStatus: persistedDeliveryStatus(),

@@ -1186,12 +1186,7 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
     senderId: string,
     body: string | null,
     clientNonce: string,
-    media: ReadonlyArray<{
-      kind: "image" | "video";
-      fileName: string;
-      sizeBytes: number;
-      mimeType: string;
-    }> = [],
+    media: ReadonlyArray<ChatMediaAttachmentInput> = [],
   ): Promise<MessageRecord> {
     const key = conversationId as unknown as string;
     const conversation = this.conversations.get(key);
@@ -1227,6 +1222,7 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
       fileName: item.fileName.trim(),
       sizeBytes: item.sizeBytes,
       mimeType: item.mimeType,
+      storagePath: item.storagePath,
     }));
 
     // Optimistic "sending" record: update the existing record for this nonce
@@ -1301,6 +1297,7 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
         fileName: m.fileName,
         sizeBytes: m.sizeBytes,
         mimeType: m.mimeType,
+        storagePath: m.storagePath,
       })),
     );
   }

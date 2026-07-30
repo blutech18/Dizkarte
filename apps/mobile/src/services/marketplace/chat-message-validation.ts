@@ -6,9 +6,8 @@ import { MEDIA_LIMITS, TEXT_LIMITS } from "@dizkarte/config";
  * This mirrors `sendMessageSchema` (`@dizkarte/domain`) — same body bound,
  * same body-or-media requirement, same attachment count ceiling, same
  * kind-to-MIME allow-list, and the same per-kind byte ceiling from
- * `MEDIA_LIMITS` — but is shaped for the mobile port's metadata-only
- * attachment contract (`kind`/`fileName`/`sizeBytes`/`mimeType`, no
- * `storagePath`; there is no real upload in this pass).
+ * `MEDIA_LIMITS` — shaped for the mobile port's attachment contract
+ * (`kind`/`fileName`/`sizeBytes`/`mimeType`/`storagePath`).
  *
  * `SyntheticMarketplaceRepository.sendMessage` must call this and reject
  * invalid input *before* writing any message record, delivery-status
@@ -22,6 +21,14 @@ export type ChatMediaAttachmentInput = {
   readonly fileName: string;
   readonly sizeBytes: number;
   readonly mimeType: string;
+  /**
+   * Key of the already-uploaded object in the private `chat-media` bucket.
+   *
+   * The upload happened first, and the bucket policy required the path to start
+   * with the uploader's own user id, so this is a reference to a real object
+   * rather than caller-declared metadata.
+   */
+  readonly storagePath: string;
 };
 
 export type ChatMessageValidationResult =
@@ -39,6 +46,14 @@ function isValidAttachment(item: ChatMediaAttachmentInput): string | null {
   }
   if (!Number.isInteger(item.sizeBytes) || item.sizeBytes <= 0) {
     return "Attachment size must be a positive integer.";
+  }
+  const path = typeof item.storagePath === "string" ? item.storagePath.trim() : "";
+  if (path.length === 0) {
+    return "Attachment is missing its uploaded file reference.";
+  }
+  // Traversal in an object key would let a row point outside its own prefix.
+  if (path.includes("..") || path.startsWith("/")) {
+    return "Attachment file reference is not valid.";
   }
   const allowedMimeTypes: ReadonlyArray<string> =
     item.kind === "image"
