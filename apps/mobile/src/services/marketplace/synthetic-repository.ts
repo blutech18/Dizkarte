@@ -1570,6 +1570,22 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
     return () => {};
   }
 
+  private readonly devices = new Set<string>();
+
+  async registerPushDevice(input: {
+    userId: string;
+    platform: "ios" | "android";
+    tokenReference: string;
+  }): Promise<void> {
+    await delay();
+    this.devices.add(`${input.userId}:${input.tokenReference}`);
+  }
+
+  async disablePushDevice(userId: string, tokenReference: string): Promise<void> {
+    await delay();
+    this.devices.delete(`${userId}:${tokenReference}`);
+  }
+
   async getNotificationPreferences(userId: string): Promise<NotificationPreferences> {
     await delay();
     return this.preferences.get(userId) ?? this.defaultPreferences();

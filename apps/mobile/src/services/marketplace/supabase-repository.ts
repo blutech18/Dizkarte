@@ -1526,6 +1526,34 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
    * The `notifications` SELECT policy is `user_id = auth.uid()`, so the filter
    * and the policy agree; a tampered id would just yield an empty stream.
    */
+  async registerPushDevice(input: {
+    userId: string;
+    platform: "ios" | "android";
+    tokenReference: string;
+  }): Promise<void> {
+    // RLS (`devices_own`) already restricts writes to the caller's own rows;
+    // the userId is used for the upsert key, not as the authorization decision.
+    const { error } = await this.client.from("devices").upsert(
+      {
+        user_id: input.userId,
+        platform: input.platform,
+        token_reference: input.tokenReference,
+        enabled: true,
+      },
+      { onConflict: "user_id,token_reference" },
+    );
+    fail("registerPushDevice", error);
+  }
+
+  async disablePushDevice(userId: string, tokenReference: string): Promise<void> {
+    const { error } = await this.client
+      .from("devices")
+      .update({ enabled: false })
+      .eq("user_id", userId)
+      .eq("token_reference", tokenReference);
+    fail("disablePushDevice", error);
+  }
+
   subscribeToNotifications(userId: string, onChange: () => void): () => void {
     const channel = this.client
       .channel(`notifications:${userId}`)

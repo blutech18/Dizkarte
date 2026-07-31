@@ -235,6 +235,22 @@ export interface MobileMarketplacePort {
   markAllNotificationsRead(userId: string): Promise<void>;
   /** Notifies when a notification is created for this user. Returns the unsubscribe function. */
   subscribeToNotifications(userId: string, onChange: () => void): () => void;
+
+  /**
+   * Register (or re-enable) a device push token for the signed-in user.
+   *
+   * The token is what the push-dispatch function delivers to. Idempotent on
+   * (user, token): re-registering the same token re-enables it rather than
+   * duplicating. The token itself is acquired by the native layer once a
+   * development/production build with push entitlements exists.
+   */
+  registerPushDevice(input: {
+    userId: string;
+    platform: "ios" | "android";
+    tokenReference: string;
+  }): Promise<void>;
+  /** Disable a device token, e.g. on sign-out or when permission is revoked. */
+  disablePushDevice(userId: string, tokenReference: string): Promise<void>;
   getNotificationPreferences(userId: string): Promise<NotificationPreferences>;
   setNotificationPreference(
     userId: string,
