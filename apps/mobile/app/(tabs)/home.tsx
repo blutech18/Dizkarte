@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import type { PublicTaskFeedItem } from "@dizkarte/domain";
 import { formatPhp } from "@dizkarte/domain";
@@ -158,25 +158,16 @@ function ClientHome() {
   return (
     <Screen>
       {/*
-        Full-bleed brand hero: greeting, headline, search-to-post, and quick
-        category chips. Bleeds past the Screen's own padding the same way
-        AppHeader's top navbar does (negative margin matching that padding),
-        so this is the established full-bleed technique, not a new one.
+        Every top-level screen uses the same AppHeader navbar (logo + profile
+        icon); Home keeps it too rather than swapping in a one-off bar, so the
+        chrome stays consistent across tabs. The greeting lives in its title.
+      */}
+      <AppHeader title={`${greeting}, ${firstName}`} subtitle="What do you need done today?" />
+
+      {/*
+        Brand hero: headline, search-to-post, and quick category chips.
       */}
       <View style={clientStyles.hero}>
-        <View style={clientStyles.heroTopRow}>
-          <Text style={clientStyles.heroGreeting}>
-            {greeting}, {firstName}
-          </Text>
-          <Pressable
-            onPress={() => router.push("/(tabs)/notifications")}
-            accessibilityRole="button"
-            accessibilityLabel="Notifications"
-            hitSlop={8}
-          >
-            <Icon name="bell" size={22} color={theme.onPrimary} />
-          </Pressable>
-        </View>
         <Text style={clientStyles.heroTitle}>Post a Task.{"\n"}Get it Done.</Text>
 
         <View style={clientStyles.searchInputWrapper}>
@@ -195,7 +186,11 @@ function ClientHome() {
         <Button label="Get offers" icon="arrow-right" onPress={goToPostFlow} fullWidth />
 
         {suggestedCategories.length > 0 ? (
-          <View style={clientStyles.suggestionRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={clientStyles.suggestionRow}
+          >
             {suggestedCategories.map((category) => (
               <Pressable
                 key={category.id}
@@ -212,7 +207,7 @@ function ClientHome() {
                 <Text style={clientStyles.suggestionChipText}>{category.name}</Text>
               </Pressable>
             ))}
-          </View>
+          </ScrollView>
         ) : null}
       </View>
 
@@ -345,25 +340,10 @@ function ClientHome() {
 const clientStyles = StyleSheet.create({
   hero: {
     backgroundColor: theme.primary,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xl,
-    borderBottomLeftRadius: radii.lg,
-    borderBottomRightRadius: radii.lg,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
     gap: spacing.md,
-    marginHorizontal: -spacing.lg,
-    marginTop: -spacing.lg,
     marginBottom: spacing.xl,
-  },
-  heroTopRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  heroGreeting: {
-    fontSize: fontSize.sm,
-    fontWeight: "600",
-    color: theme.onPrimary,
   },
   heroTitle: {
     fontSize: fontSize.xxl,
@@ -389,9 +369,11 @@ const clientStyles = StyleSheet.create({
   },
   suggestionRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: spacing.sm,
     marginTop: spacing.xs,
+    // Lets the last chip clear the edge of the scroll viewport instead of
+    // being flush against it.
+    paddingRight: spacing.sm,
   },
   suggestionChip: {
     minHeight: MIN_TOUCH_TARGET - 8,
