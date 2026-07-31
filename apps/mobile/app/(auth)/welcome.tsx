@@ -101,9 +101,7 @@ export default function WelcomeScreen() {
         <View style={styles.valueSection}>
           {VALUE_PROPS.map((prop) => (
             <View key={prop.title} style={styles.valueRow}>
-              <View style={styles.valueIcon}>
-                <Icon name={prop.icon} size={22} color={theme.primary} />
-              </View>
+              <Icon name={prop.icon} size={32} color={theme.primary} />
               <View style={styles.valueText}>
                 <Text style={styles.valueTitle}>{prop.title}</Text>
                 <Text style={styles.valueBody}>{prop.body}</Text>
@@ -198,14 +196,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: spacing.md,
-  },
-  valueIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: radii.md,
-    backgroundColor: theme.primarySoft,
-    alignItems: "center",
-    justifyContent: "center",
   },
   valueText: {
     flex: 1,
