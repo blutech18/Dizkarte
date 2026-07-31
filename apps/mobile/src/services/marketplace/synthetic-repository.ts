@@ -976,6 +976,33 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
     return { ok: true };
   }
 
+  async cancelUnpaidBooking(bookingId: BookingId, clientId: string): Promise<{ ok: boolean }> {
+    await delay();
+    const key = bookingId as unknown as string;
+    const booking = this.bookings.get(key);
+    if (!booking || booking.clientId !== clientId) return { ok: false };
+    if (booking.status === "CANCELLED") return { ok: true }; // idempotent
+    if (booking.status !== "PAYMENT_PENDING") return { ok: false };
+
+    this.bookings.set(key, { ...booking, status: "CANCELLED", updatedAt: nowIso() });
+    this.appendBookingEvent(bookingId, "PAYMENT_PENDING", "CANCELLED", clientId, "client");
+    // Reopen the task and return the chosen offer to the pool, mirroring
+    // app.release_unpaid_booking so both adapters behave the same.
+    const taskKey = booking.taskId as unknown as string;
+    const task = this.tasks.get(taskKey);
+    if (task && task.status === "BOOKING_PENDING") {
+      this.tasks.set(taskKey, { ...task, status: "OPEN", updatedAt: nowIso() });
+    }
+    const offers = this.offers.get(taskKey) ?? [];
+    this.offers.set(
+      taskKey,
+      offers.map((offer) =>
+        offer.status === "SELECTED" ? { ...offer, status: "SUBMITTED" } : offer,
+      ),
+    );
+    return { ok: true };
+  }
+
   async openDispute(input: OpenDisputeInput, actorId: string): Promise<DisputeRecord | null> {
     await delay();
     const key = input.bookingId as unknown as string;

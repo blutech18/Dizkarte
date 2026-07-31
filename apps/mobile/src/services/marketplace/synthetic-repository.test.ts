@@ -256,6 +256,46 @@ describe("SyntheticMarketplaceRepository", () => {
       const booking = await repo.getBooking(bookingId, CLIENT_ID);
       expect(booking?.status).toBe("PAYMENT_PENDING");
     });
+
+    it("cancelling an unpaid booking reopens the task and frees the offer", async () => {
+      const saved = await repo.saveDraftTask(CLIENT_ID, draft());
+      const published = await repo.publishTask(saved.id, CLIENT_ID, true);
+      if (!published.ok) throw new Error("publish failed");
+      const taskId = published.task.id;
+      const offer = await repo.submitOffer(taskId, TASKER_ID, "Ramon Bautista", {
+        amountCentavos: 45000,
+        message: "Offer",
+        etaText: "2 hours",
+        availabilityText: "Today",
+        experienceText: "Experienced.",
+      });
+      const selected = await repo.selectOffer(taskId, offer.id, CLIENT_ID, "abandon-key");
+      if (!selected.ok) throw new Error("selection failed");
+
+      // Only the owning client may cancel.
+      expect((await repo.cancelUnpaidBooking(selected.bookingId, OTHER_CLIENT_ID)).ok).toBe(false);
+
+      const cancelled = await repo.cancelUnpaidBooking(selected.bookingId, CLIENT_ID);
+      expect(cancelled.ok).toBe(true);
+
+      const booking = await repo.getBooking(selected.bookingId, CLIENT_ID);
+      expect(booking?.status).toBe("CANCELLED");
+
+      // The task is selectable again, so the same offer can be re-chosen —
+      // the whole point of recovering an abandoned checkout.
+      const reSelected = await repo.selectOffer(taskId, offer.id, CLIENT_ID, "abandon-key-2");
+      expect(reSelected.ok).toBe(true);
+    });
+
+    it("cancelling is idempotent and refuses a booking that is not unpaid", async () => {
+      const bookingId = await confirmedBookingSetup();
+      const checkout = await repo.createCheckoutSession(bookingId, CLIENT_ID);
+      await repo.simulateCheckout(checkout.providerReference, "success");
+      await repo.processAuthoritativeWebhook(checkout.providerReference);
+
+      // Confirmed booking cannot be cancelled through the unpaid path.
+      expect((await repo.cancelUnpaidBooking(bookingId, CLIENT_ID)).ok).toBe(false);
+    });
   });
 
   describe("privacy projection and chat gating", () => {

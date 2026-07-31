@@ -1068,6 +1068,15 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     return { ok: !error };
   }
 
+  async cancelUnpaidBooking(bookingId: BookingId, _clientId: string): Promise<{ ok: boolean }> {
+    // Authorization is the RPC's job (it checks the booking's client against
+    // auth.uid()); the clientId argument is only for the caller's own filtering.
+    const { error } = await this.client.rpc("cancel_unpaid_booking", {
+      p_booking_id: bookingId,
+    });
+    return { ok: !error };
+  }
+
   async openDispute(input: OpenDisputeInput, _actorId: string): Promise<DisputeRecord | null> {
     const { data, error } = await this.client.rpc("open_dispute", {
       p_booking_id: input.bookingId,

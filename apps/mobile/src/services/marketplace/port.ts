@@ -148,6 +148,12 @@ export interface MobileMarketplacePort {
   requestCompletion(input: RequestCompletionInput, taskerId: string): Promise<{ ok: boolean }>;
   confirmCompletion(bookingId: BookingId, clientId: string): Promise<{ ok: boolean }>;
   openDispute(input: OpenDisputeInput, actorId: string): Promise<DisputeRecord | null>;
+  /**
+   * Abandon an unpaid booking: cancels it, reopens the task, and returns the
+   * chosen offer to the pool so the Client can re-pay or pick another Tasker.
+   * Only the booking's Client, and only while it is still PAYMENT_PENDING.
+   */
+  cancelUnpaidBooking(bookingId: BookingId, clientId: string): Promise<{ ok: boolean }>;
 
   // Ledger-derived summary
   getLedgerSummary(userId: string): Promise<LedgerSummary>;
