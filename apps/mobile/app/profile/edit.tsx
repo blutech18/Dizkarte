@@ -9,7 +9,7 @@ import { Icon } from "../../src/components/ui/Icon";
 import { useSession } from "../../src/providers/SessionProvider";
 import { useMarketplace } from "../../src/providers/MarketplaceProvider";
 import type { MyProfileRecord, SpecialtyOption } from "../../src/services/marketplace";
-import { theme, spacing, fontSize, radii } from "../../src/theme";
+import { theme, spacing, fontSize, lineHeight, radii } from "../../src/theme";
 
 /**
  * Profile editor.
@@ -252,6 +252,7 @@ const styles = StyleSheet.create({
   },
   sectionHint: {
     fontSize: fontSize.sm,
+    lineHeight: lineHeight.sm,
     color: theme.textSecondary,
     marginBottom: spacing.md,
   },

@@ -5,7 +5,7 @@ import { Screen } from "../src/components/ui/Screen";
 import { TextField } from "../src/components/ui/TextField";
 import { Button } from "../src/components/ui/Button";
 import { StatusBadge } from "../src/components/ui/StatusBadge";
-import { theme, spacing, fontSize, radii } from "../src/theme";
+import { theme, spacing, fontSize, lineHeight, radii } from "../src/theme";
 
 const SPECIALTY_OPTIONS = [
   "Home cleaning",
@@ -174,7 +174,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   caption: {
-    fontSize: fontSize.xs,
+    fontSize: fontSize.sm,
+    lineHeight: lineHeight.sm,
     color: theme.textSecondary,
     marginBottom: spacing.md,
   },

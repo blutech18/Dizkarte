@@ -23,7 +23,7 @@ import {
   validateChatMessageInput,
 } from "../../src/services/marketplace/chat-message-validation";
 import { AttachmentLabel } from "../../src/components/ui/AttachmentLabel";
-import { theme, spacing, fontSize, radii, MIN_TOUCH_TARGET } from "../../src/theme";
+import { theme, spacing, fontSize, lineHeight, radii, MIN_TOUCH_TARGET } from "../../src/theme";
 
 type LoadState = "loading" | "loaded" | "denied" | "error";
 
@@ -313,8 +313,8 @@ const styles = StyleSheet.create({
   },
   bubbleMine: { backgroundColor: theme.primary },
   bubbleTheirs: { backgroundColor: theme.surfaceSubtle },
-  bubbleTextMine: { color: theme.onPrimary, fontSize: fontSize.md },
-  bubbleTextTheirs: { color: theme.textPrimary, fontSize: fontSize.md },
+  bubbleTextMine: { color: theme.onPrimary, fontSize: fontSize.md, lineHeight: lineHeight.md },
+  bubbleTextTheirs: { color: theme.textPrimary, fontSize: fontSize.md, lineHeight: lineHeight.md },
   bubbleStatus: { fontSize: fontSize.xs, color: theme.textSecondary, marginTop: spacing.xs },
   mediaList: { gap: spacing.sm, marginTop: spacing.xs },
   mediaItem: { gap: spacing.xs },

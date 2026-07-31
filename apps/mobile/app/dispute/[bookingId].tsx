@@ -8,7 +8,7 @@ import { TextField } from "../../src/components/ui/TextField";
 import { StatusBadge } from "../../src/components/ui/StatusBadge";
 import { useSession } from "../../src/providers/SessionProvider";
 import { useMarketplace } from "../../src/providers/MarketplaceProvider";
-import { theme, spacing, fontSize, radii } from "../../src/theme";
+import { theme, spacing, fontSize, lineHeight, radii } from "../../src/theme";
 
 /** Open a dispute on a live/completed booking. Freezes financial activity; never rewrites ledger history. */
 export default function DisputeScreen() {
@@ -93,7 +93,12 @@ export default function DisputeScreen() {
 }
 
 const styles = StyleSheet.create({
-  intro: { fontSize: fontSize.sm, color: theme.textSecondary, marginBottom: spacing.lg },
+  intro: {
+    fontSize: fontSize.sm,
+    lineHeight: lineHeight.sm,
+    color: theme.textSecondary,
+    marginBottom: spacing.lg,
+  },
   card: {
     backgroundColor: theme.errorSoft,
     borderRadius: radii.md,
@@ -101,5 +106,5 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     gap: spacing.sm,
   },
-  cardText: { color: theme.errorOnSoft, fontSize: fontSize.sm },
+  cardText: { color: theme.errorOnSoft, fontSize: fontSize.sm, lineHeight: lineHeight.sm },
 });

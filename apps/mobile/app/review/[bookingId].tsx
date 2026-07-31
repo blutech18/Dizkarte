@@ -10,7 +10,7 @@ import { LoadingState, ErrorState, DeniedState } from "../../src/components/ui/A
 import { useSession } from "../../src/providers/SessionProvider";
 import { useMarketplace } from "../../src/providers/MarketplaceProvider";
 import type { ReviewPairView } from "../../src/services/marketplace/types";
-import { theme, spacing, fontSize, radii } from "../../src/theme";
+import { theme, spacing, fontSize, lineHeight, radii } from "../../src/theme";
 
 type LoadState = "loading" | "loaded" | "denied" | "error";
 
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   sectionTitle: { fontSize: fontSize.md, fontWeight: "700", color: theme.textPrimary },
-  body: { fontSize: fontSize.sm, color: theme.textPrimary },
+  body: { fontSize: fontSize.sm, lineHeight: lineHeight.sm, color: theme.textPrimary },
   scoreRow: { flexDirection: "row", gap: spacing.sm },
   scoreButton: {
     width: 44,

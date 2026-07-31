@@ -12,7 +12,7 @@ import { LoadingState, ErrorState, DeniedState } from "../../src/components/ui/A
 import { useSession } from "../../src/providers/SessionProvider";
 import { useMarketplace } from "../../src/providers/MarketplaceProvider";
 import type { BookingRecord } from "../../src/services/marketplace/types";
-import { theme, spacing, fontSize, radii } from "../../src/theme";
+import { theme, spacing, fontSize, lineHeight, radii } from "../../src/theme";
 
 type LoadState = "loading" | "loaded" | "denied" | "error";
 
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     gap: spacing.sm,
   },
-  pendingText: { color: theme.warningOnSoft, fontSize: fontSize.sm },
+  pendingText: { color: theme.warningOnSoft, fontSize: fontSize.sm, lineHeight: lineHeight.sm },
   failedCard: {
     backgroundColor: theme.errorSoft,
     borderRadius: radii.md,
@@ -325,9 +325,9 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: fontSize.md, fontWeight: "700", color: theme.textPrimary },
   evidenceItem: { gap: spacing.xs, marginTop: spacing.xs },
-  body: { fontSize: fontSize.sm, color: theme.textPrimary },
-  privacyNote: { fontSize: fontSize.sm, color: theme.textSecondary },
-  releaseNote: { fontSize: fontSize.xs, color: theme.textSecondary },
+  body: { fontSize: fontSize.sm, lineHeight: lineHeight.sm, color: theme.textPrimary },
+  privacyNote: { fontSize: fontSize.sm, lineHeight: lineHeight.sm, color: theme.textSecondary },
+  releaseNote: { fontSize: fontSize.sm, lineHeight: lineHeight.sm, color: theme.textSecondary },
   disputedCard: {
     backgroundColor: theme.errorSoft,
     borderRadius: radii.md,

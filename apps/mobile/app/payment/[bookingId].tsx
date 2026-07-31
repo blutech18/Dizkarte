@@ -14,7 +14,7 @@ import type {
   CheckoutSimulationChoice,
 } from "../../src/services/marketplace/types";
 import { getAppConfig } from "../../src/lib/config";
-import { theme, spacing, fontSize, radii } from "../../src/theme";
+import { theme, spacing, fontSize, lineHeight, radii } from "../../src/theme";
 
 type Phase =
   | { readonly step: "loading" }
@@ -225,19 +225,24 @@ const styles = StyleSheet.create({
   reference: { fontSize: fontSize.xs, color: theme.textSecondary },
   section: { gap: spacing.sm },
   sectionTitle: { fontSize: fontSize.md, fontWeight: "700", color: theme.textPrimary },
-  caption: { fontSize: fontSize.xs, color: theme.textSecondary, marginBottom: spacing.sm },
+  caption: {
+    fontSize: fontSize.sm,
+    lineHeight: lineHeight.sm,
+    color: theme.textSecondary,
+    marginBottom: spacing.sm,
+  },
   successCard: {
     backgroundColor: theme.successSoft,
     borderRadius: radii.md,
     padding: spacing.lg,
     gap: spacing.sm,
   },
-  successText: { color: theme.successOnSoft, fontSize: fontSize.sm },
+  successText: { color: theme.successOnSoft, fontSize: fontSize.sm, lineHeight: lineHeight.sm },
   failedCard: {
     backgroundColor: theme.errorSoft,
     borderRadius: radii.md,
     padding: spacing.lg,
     gap: spacing.sm,
   },
-  failedText: { color: theme.errorOnSoft, fontSize: fontSize.sm },
+  failedText: { color: theme.errorOnSoft, fontSize: fontSize.sm, lineHeight: lineHeight.sm },
 });
