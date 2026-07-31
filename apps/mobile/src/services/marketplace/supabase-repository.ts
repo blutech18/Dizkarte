@@ -190,7 +190,88 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
       .order("created_at", { ascending: false });
     fail("listMyTasks", error);
     const rows = (data ?? []) as ReadonlyArray<RawTaskRow>;
-    return Promise.all(rows.map((row) => this.buildOwnedTask(row)));
+    if (rows.length === 0) return [];
+
+    // Batch every dependent table into a single `.in(task_id, ids)` request so
+    // a page of N tasks costs ~6 requests total instead of N×7. Firing N×7
+    // parallel requests trips Supabase's HTTP/2 concurrent-stream limit
+    // (ERR_HTTP2_SERVER_REFUSED_STREAM) once a Client has several tasks.
+    const ids = rows.map((row) => row.id);
+    const [pubLocs, privLocs, mediaRes, questionRes, offerRes, bookingRes] = await Promise.all([
+      this.client
+        .from("task_locations_readable")
+        .select("task_id,city_code,barangay_code,landmark,approximate_lat,approximate_lng")
+        .in("task_id", ids),
+      this.client
+        .from("task_private_locations_readable")
+        .select("task_id,exact_address,exact_lat,exact_lng")
+        .in("task_id", ids),
+      this.client
+        .from("task_media")
+        .select("task_id,id,kind,storage_path,sort_order")
+        .in("task_id", ids)
+        .order("sort_order", { ascending: true }),
+      this.client.from("task_questions").select("task_id").in("task_id", ids),
+      this.client.from("offers").select("task_id,id,status").in("task_id", ids),
+      this.client
+        .from("bookings")
+        .select("task_id,id,accepted_offer_id,status,created_at")
+        .in("task_id", ids)
+        .order("created_at", { ascending: false }),
+    ]);
+    fail("listMyTasks:publicLocations", pubLocs.error);
+    fail("listMyTasks:privateLocations", privLocs.error);
+    fail("listMyTasks:media", mediaRes.error);
+    fail("listMyTasks:questions", questionRes.error);
+    fail("listMyTasks:offers", offerRes.error);
+    fail("listMyTasks:bookings", bookingRes.error);
+
+    const pubById = new Map<string, RawPublicLocRow>();
+    for (const r of (pubLocs.data ?? []) as ReadonlyArray<RawPublicLocRow>) pubById.set(r.task_id, r);
+    const privById = new Map<string, RawPrivateLocRow>();
+    for (const r of (privLocs.data ?? []) as ReadonlyArray<RawPrivateLocRow>) privById.set(r.task_id, r);
+
+    const mediaByTask = new Map<string, RawTaskMediaRow[]>();
+    for (const r of (mediaRes.data ?? []) as ReadonlyArray<RawTaskMediaRow>) {
+      const bucket = mediaByTask.get(r.task_id) ?? [];
+      bucket.push(r);
+      mediaByTask.set(r.task_id, bucket);
+    }
+    const questionCountByTask = new Map<string, number>();
+    for (const r of (questionRes.data ?? []) as ReadonlyArray<{ task_id: string }>) {
+      questionCountByTask.set(r.task_id, (questionCountByTask.get(r.task_id) ?? 0) + 1);
+    }
+    const offersByTask = new Map<string, { id: string; status: string }[]>();
+    for (const r of (offerRes.data ?? []) as ReadonlyArray<{ task_id: string; id: string; status: string }>) {
+      const bucket = offersByTask.get(r.task_id) ?? [];
+      bucket.push({ id: r.id, status: r.status });
+      offersByTask.set(r.task_id, bucket);
+    }
+    // Ordered created_at desc, so the first booking seen per task is the latest.
+    const latestBookingByTask = new Map<string, RawLatestBookingRow>();
+    for (const r of (bookingRes.data ?? []) as ReadonlyArray<RawLatestBookingRow & { task_id: string }>) {
+      if (!latestBookingByTask.has(r.task_id)) {
+        latestBookingByTask.set(r.task_id, {
+          id: r.id,
+          accepted_offer_id: r.accepted_offer_id,
+          status: r.status,
+        });
+      }
+    }
+
+    return rows.map((row) =>
+      assembleOwnedTask(
+        row,
+        pubById.get(row.id) ?? null,
+        privById.get(row.id) ?? null,
+        mediaByTask.get(row.id) ?? [],
+        deriveOwnedTaskCounts(
+          questionCountByTask.get(row.id) ?? 0,
+          offersByTask.get(row.id) ?? [],
+          latestBookingByTask.get(row.id) ?? null,
+        ),
+      ),
+    );
   }
 
   async getOwnedTask(taskId: TaskId, clientId: string): Promise<OwnedTaskRecord | null> {
@@ -213,87 +294,32 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     const [publicLoc, privateLoc, media, counts] = await Promise.all([
       this.client
         .from("task_locations_readable")
-        .select("city_code,barangay_code,landmark,approximate_lat,approximate_lng")
+        .select("task_id,city_code,barangay_code,landmark,approximate_lat,approximate_lng")
         .eq("task_id", row.id)
         .maybeSingle(),
       this.client
         .from("task_private_locations_readable")
-        .select("exact_address,exact_lat,exact_lng")
+        .select("task_id,exact_address,exact_lat,exact_lng")
         .eq("task_id", row.id)
         .maybeSingle(),
       this.client
         .from("task_media")
-        .select("id,kind,storage_path,sort_order")
+        .select("task_id,id,kind,storage_path,sort_order")
         .eq("task_id", row.id)
         .order("sort_order", { ascending: true }),
       this.ownedTaskCounts(row.id),
     ]);
 
-    const pub = publicLoc.data as {
-      city_code: string;
-      barangay_code: string;
-      landmark: string;
-      approximate_lat: number;
-      approximate_lng: number;
-    } | null;
-    const priv = privateLoc.data as {
-      exact_address: string;
-      exact_lat: number;
-      exact_lng: number;
-    } | null;
-
-    const draft: DraftTaskInput = {
-      categoryId: row.category_id,
-      title: row.title,
-      description: row.description,
-      budgetCentavos: Number(row.budget_centavos),
-      scheduledFor: row.scheduled_for,
-      sameDay: row.same_day,
-      landmark: pub?.landmark ?? "",
-      cityCode: pub?.city_code ?? "",
-      barangayCode: pub?.barangay_code ?? "",
-      approximateLat: Number(pub?.approximate_lat ?? 0),
-      approximateLng: Number(pub?.approximate_lng ?? 0),
-      exactAddress: priv?.exact_address ?? "",
-      exactLat: Number(priv?.exact_lat ?? 0),
-      exactLng: Number(priv?.exact_lng ?? 0),
-      media: ((media.data ?? []) as ReadonlyArray<{
-        id: string;
-        kind: string;
-        storage_path: string;
-      }>).map((item) => ({
-        id: item.id,
-        kind: item.kind === "video" ? ("video" as const) : ("image" as const),
-        fileName: item.storage_path.split("/").pop() ?? item.id,
-        // `task_media` stores neither size nor MIME type; the owner UI shows the
-        // file name and a thumbnail, so nothing here is invented to fill them.
-        sizeBytes: 0,
-        mimeType: item.kind === "video" ? "video/mp4" : "image/jpeg",
-        storagePath: item.storage_path,
-      })),
-    };
-
-    return {
-      id: row.id as TaskId,
-      clientId: row.client_id as UserId,
-      status: toTaskStatus(row.status),
-      draft,
-      publishedAt: row.published_at,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      questionCount: counts.questionCount,
-      offerCount: counts.offerCount,
-      assignedOfferId: counts.assignedOfferId,
-      activeBookingId: counts.activeBookingId,
-    };
+    return assembleOwnedTask(
+      row,
+      (publicLoc.data as RawPublicLocRow | null) ?? null,
+      (privateLoc.data as RawPrivateLocRow | null) ?? null,
+      (media.data ?? []) as ReadonlyArray<RawTaskMediaRow>,
+      counts,
+    );
   }
 
-  private async ownedTaskCounts(taskId: string): Promise<{
-    questionCount: number;
-    offerCount: number;
-    assignedOfferId: OfferId | null;
-    activeBookingId: BookingId | null;
-  }> {
+  private async ownedTaskCounts(taskId: string): Promise<OwnedTaskCounts> {
     const [questions, offers, booking] = await Promise.all([
       this.client
         .from("task_questions")
@@ -309,19 +335,8 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
         .maybeSingle(),
     ]);
     const offerRows = (offers.data ?? []) as ReadonlyArray<{ id: string; status: string }>;
-    const bookingRow = booking.data as {
-      id: string;
-      accepted_offer_id: string | null;
-      status: string;
-    } | null;
-    const selected = offerRows.find((offer) => offer.status === "SELECTED");
-    return {
-      questionCount: questions.count ?? 0,
-      // Withdrawn/rejected offers are not live competition for the Client.
-      offerCount: offerRows.filter((offer) => offer.status === "SUBMITTED").length,
-      assignedOfferId: (selected?.id ?? bookingRow?.accepted_offer_id ?? null) as OfferId | null,
-      activeBookingId: (bookingRow?.id ?? null) as BookingId | null,
-    };
+    const bookingRow = booking.data as RawLatestBookingRow | null;
+    return deriveOwnedTaskCounts(questions.count ?? 0, offerRows, bookingRow);
   }
 
   /**
@@ -1950,6 +1965,113 @@ type RawTaskRow = {
   readonly created_at: string;
   readonly updated_at: string;
 };
+
+type RawPublicLocRow = {
+  readonly task_id: string;
+  readonly city_code: string;
+  readonly barangay_code: string;
+  readonly landmark: string;
+  readonly approximate_lat: number;
+  readonly approximate_lng: number;
+};
+
+type RawPrivateLocRow = {
+  readonly task_id: string;
+  readonly exact_address: string;
+  readonly exact_lat: number;
+  readonly exact_lng: number;
+};
+
+type RawTaskMediaRow = {
+  readonly task_id: string;
+  readonly id: string;
+  readonly kind: string;
+  readonly storage_path: string;
+  readonly sort_order: number;
+};
+
+type RawLatestBookingRow = {
+  readonly id: string;
+  readonly accepted_offer_id: string | null;
+  readonly status: string;
+};
+
+type OwnedTaskCounts = {
+  readonly questionCount: number;
+  readonly offerCount: number;
+  readonly assignedOfferId: OfferId | null;
+  readonly activeBookingId: BookingId | null;
+};
+
+/** Derive the owner-view counts from already-fetched offer/booking rows. */
+function deriveOwnedTaskCounts(
+  questionCount: number,
+  offerRows: ReadonlyArray<{ id: string; status: string }>,
+  bookingRow: RawLatestBookingRow | null,
+): OwnedTaskCounts {
+  const selected = offerRows.find((offer) => offer.status === "SELECTED");
+  return {
+    questionCount,
+    // Withdrawn/rejected offers are not live competition for the Client.
+    offerCount: offerRows.filter((offer) => offer.status === "SUBMITTED").length,
+    assignedOfferId: (selected?.id ?? bookingRow?.accepted_offer_id ?? null) as OfferId | null,
+    activeBookingId: (bookingRow?.id ?? null) as BookingId | null,
+  };
+}
+
+/**
+ * Assemble the owner view from a task row plus its already-fetched location,
+ * media, and count data. Shared by the single-task path (`buildOwnedTask`) and
+ * the batched list path (`listMyTasks`) so both produce identical records.
+ */
+function assembleOwnedTask(
+  row: RawTaskRow,
+  pub: RawPublicLocRow | null,
+  priv: RawPrivateLocRow | null,
+  mediaRows: ReadonlyArray<RawTaskMediaRow>,
+  counts: OwnedTaskCounts,
+): OwnedTaskRecord {
+  const draft: DraftTaskInput = {
+    categoryId: row.category_id,
+    title: row.title,
+    description: row.description,
+    budgetCentavos: Number(row.budget_centavos),
+    scheduledFor: row.scheduled_for,
+    sameDay: row.same_day,
+    landmark: pub?.landmark ?? "",
+    cityCode: pub?.city_code ?? "",
+    barangayCode: pub?.barangay_code ?? "",
+    approximateLat: Number(pub?.approximate_lat ?? 0),
+    approximateLng: Number(pub?.approximate_lng ?? 0),
+    exactAddress: priv?.exact_address ?? "",
+    exactLat: Number(priv?.exact_lat ?? 0),
+    exactLng: Number(priv?.exact_lng ?? 0),
+    media: mediaRows.map((item) => ({
+      id: item.id,
+      kind: item.kind === "video" ? ("video" as const) : ("image" as const),
+      fileName: item.storage_path.split("/").pop() ?? item.id,
+      // `task_media` stores neither size nor MIME type; the owner UI shows the
+      // file name and a thumbnail, so nothing here is invented to fill them.
+      sizeBytes: 0,
+      mimeType: item.kind === "video" ? "video/mp4" : "image/jpeg",
+      storagePath: item.storage_path,
+    })),
+  };
+
+  return {
+    id: row.id as TaskId,
+    clientId: row.client_id as UserId,
+    status: toTaskStatus(row.status),
+    draft,
+    publishedAt: row.published_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    questionCount: counts.questionCount,
+    offerCount: counts.offerCount,
+    assignedOfferId: counts.assignedOfferId,
+    activeBookingId: counts.activeBookingId,
+  };
+}
 
 type RawTicketRow = {
   readonly id: string;
