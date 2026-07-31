@@ -359,10 +359,15 @@ function ClientHome() {
 const clientStyles = StyleSheet.create({
   hero: {
     backgroundColor: theme.primary,
-    borderRadius: radii.lg,
-    padding: spacing.lg,
+    // Fill the available content width while keeping the page gutters visible,
+    // matching the reference's distinct rounded purple section.
+    alignSelf: "stretch",
+    borderRadius: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xl,
     gap: spacing.md,
-    marginBottom: spacing.xl,
+    marginBottom: spacing.xxl,
+    overflow: "hidden",
   },
   heroTitle: {
     fontSize: fontSize.xxl,
