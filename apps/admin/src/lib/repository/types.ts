@@ -103,6 +103,37 @@ export type DisputeRow = {
   readonly assignee: string | null;
 };
 
+export type MediaModerationStatus = "PENDING" | "APPROVED" | "REJECTED" | "HIDDEN";
+
+/**
+ * One task photo or clip awaiting or holding a moderation decision.
+ *
+ * `storagePath` is present because deciding on an image means looking at it, and
+ * the bucket is private: the Admin UI exchanges this key for a short-lived
+ * signed URL. It is never rendered as text.
+ */
+export type TaskMediaRow = {
+  readonly id: string;
+  readonly taskId: string;
+  readonly taskTitle: string;
+  readonly kind: "image" | "video";
+  readonly storagePath: string;
+  readonly moderationStatus: MediaModerationStatus;
+  readonly createdAt: string;
+};
+
+/** A refund record. Requesting one is a payment-detail action; this is oversight. */
+export type RefundRow = {
+  readonly id: string;
+  readonly paymentIntentId: string;
+  readonly bookingId: string | null;
+  readonly amountCentavos: number;
+  readonly status: "REQUESTED" | "PROCESSING" | "SUCCEEDED" | "FAILED";
+  readonly reason: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+};
+
 export type ReviewModerationStatus = "HIDDEN" | "REVEALED" | "MODERATED";
 
 /**
@@ -586,7 +617,13 @@ export interface AdminRepository {
     actor: string;
   }): Promise<{ ok: boolean; message?: string }>;
 
-  listUsers(input: PageInput & { query?: string }): Promise<Paginated<UserRow>>;
+  /**
+   * Users, optionally narrowed by display name and account status.
+   *
+   * The status filter is what makes suspended and banned accounts reviewable as a
+   * set; without it, finding them meant paging the whole directory.
+   */
+  listUsers(input: PageInput & { query?: string; status?: string }): Promise<Paginated<UserRow>>;
   /** Consolidated user record for the detail page. */
   getUser(userId: string): Promise<UserDetail | null>;
   setUserAccountStatus(input: {
@@ -610,6 +647,31 @@ export interface AdminRepository {
     reason: string;
     actor: string;
   }): Promise<{ ok: boolean; message?: string }>;
+
+  /** Task photos and clips for moderation, newest first. Filterable by status. */
+  listTaskMedia(input: PageInput & { status?: string }): Promise<Paginated<TaskMediaRow>>;
+  /**
+   * Approve or hide a single attachment.
+   *
+   * Distinct from `moderateTask`, which flips every attachment on a task at once.
+   * One bad photo should not require removing the Client's whole listing.
+   */
+  moderateTaskMedia(input: {
+    mediaId: string;
+    action: "approve" | "hide";
+    reason: string;
+    actor: string;
+  }): Promise<{ ok: boolean; message?: string }>;
+  /**
+   * Short-lived signed URL for one moderation-queue attachment.
+   *
+   * Returns `null` when the caller is not authorized or the object is gone, so
+   * the queue shows an unavailable placeholder rather than failing the page.
+   */
+  getMediaPreviewUrl(input: { storagePath: string; actor: string }): Promise<string | null>;
+
+  /** Refund records across all payments, newest first. Filterable by status. */
+  listRefunds(input: PageInput & { status?: string }): Promise<Paginated<RefundRow>>;
 
   /** Reviews for moderation, newest first. Filterable by moderation status. */
   listReviews(input: PageInput & { status?: string }): Promise<Paginated<ReviewRow>>;

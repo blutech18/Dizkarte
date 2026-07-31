@@ -7,6 +7,7 @@ import { PageSection, Pagination } from "@/components/ui/Pagination";
 import { EmptyState } from "@/components/ui/AsyncState";
 import { RecordList, type ColumnDef } from "@/components/ui/RecordList";
 import { StatusBadge, type BadgeTone } from "@/components/ui/StatusBadge";
+import { StatusFilterBar } from "@/components/ui/StatusFilterBar";
 import type { UserRow } from "@/lib/repository/types";
 import { UserRowActions } from "./UserRowActions";
 
@@ -27,19 +28,40 @@ function tone(status: string): BadgeTone {
   }
 }
 
+const STATUS_OPTIONS = ["active", "suspended", "banned", "deactivated"] as const;
+
+function statusLabel(status: string): string {
+  switch (status) {
+    case "active":
+      return "Active";
+    case "suspended":
+      return "Suspended";
+    case "banned":
+      return "Banned";
+    case "deactivated":
+      return "Deactivated";
+    default:
+      return status;
+  }
+}
+
 export default async function UsersPage({
   searchParams,
 }: {
-  readonly searchParams: Promise<{ q?: string; page?: string }>;
+  readonly searchParams: Promise<{ q?: string; page?: string; status?: string }>;
 }) {
   await requirePageCapability(["ADMIN_SUPPORT"]);
-  const { q, page: pageParam } = await searchParams;
+  const { q, page: pageParam, status } = await searchParams;
   const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
+  const active = (STATUS_OPTIONS as ReadonlyArray<string>).includes(status ?? "")
+    ? status
+    : undefined;
   const repository = getAdminRepository();
   const result = await repository.listUsers({
     page,
     pageSize: PAGE_SIZE,
     ...(q ? { query: q } : {}),
+    ...(active ? { status: active } : {}),
   });
 
   const columns: ReadonlyArray<ColumnDef<UserRow>> = [
@@ -61,7 +83,9 @@ export default async function UsersPage({
     {
       key: "status",
       header: "Account status",
-      render: (row) => <StatusBadge tone={tone(row.accountStatus)} label={row.accountStatus} />,
+      render: (row) => (
+        <StatusBadge tone={tone(row.accountStatus)} label={statusLabel(row.accountStatus)} />
+      ),
     },
     {
       key: "actions",
@@ -74,6 +98,7 @@ export default async function UsersPage({
   function hrefFor(nextPage: number): string {
     const params = new URLSearchParams();
     if (q) params.set("q", q);
+    if (active) params.set("status", active);
     params.set("page", String(nextPage));
     return `/users?${params.toString()}`;
   }
@@ -100,6 +125,19 @@ export default async function UsersPage({
             Search
           </button>
         </form>
+
+        {/*
+          Suspend and ban already live on the user detail page with their own
+          moderation history. What was missing was reviewing frozen accounts as a
+          set, which is a filter, not a separate module.
+        */}
+        <StatusFilterBar
+          basePath="/users"
+          options={STATUS_OPTIONS}
+          active={active}
+          label={statusLabel}
+          allLabel="All accounts"
+        />
 
         {result.items.length === 0 ? (
           <EmptyState title="No users found" description="Try a different search term." />

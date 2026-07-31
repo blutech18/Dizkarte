@@ -9,7 +9,12 @@ import { EmptyState } from "@/components/ui/AsyncState";
 import { RecordList, type ColumnDef } from "@/components/ui/RecordList";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import type { BookingRow } from "@/lib/repository/types";
-import { BOOKING_STATUS_OPTIONS as STATUS_OPTIONS, bookingTone } from "./status";
+import { StatusFilterBar } from "@/components/ui/StatusFilterBar";
+import {
+  BOOKING_STATUS_OPTIONS as STATUS_OPTIONS,
+  bookingStatusLabel,
+  bookingTone,
+} from "./status";
 
 export const metadata: Metadata = { title: "Bookings" };
 
@@ -46,7 +51,9 @@ export default async function BookingsPage({
     {
       key: "status",
       header: "Status",
-      render: (row) => <StatusBadge tone={bookingTone(row.status)} label={row.status} />,
+      render: (row) => (
+        <StatusBadge tone={bookingTone(row.status)} label={bookingStatusLabel(row.status)} />
+      ),
     },
     {
       key: "updated",
@@ -69,21 +76,18 @@ export default async function BookingsPage({
         title="Bookings"
         subtitle="Marketplace workflow oversight. Agreed amounts and participant names only — never contact details, the exact address, or chat contents."
       >
-        <nav aria-label="Filter by status" className="dk-row" style={{ marginBottom: 16 }}>
-          <Link className="dk-btn dk-btn-secondary dk-btn-sm" href="/bookings">
-            All
-          </Link>
-          {STATUS_OPTIONS.map((option) => (
-            <Link
-              key={option}
-              className="dk-btn dk-btn-secondary dk-btn-sm"
-              href={`/bookings?status=${option}`}
-              aria-current={status === option ? "page" : undefined}
-            >
-              {option}
-            </Link>
-          ))}
-        </nav>
+        {/*
+          "Completed work" is this page filtered to COMPLETED rather than a
+          separate route. A second screen over the same table would duplicate the
+          columns and split the agent's attention for no gain.
+        */}
+        <StatusFilterBar
+          basePath="/bookings"
+          options={STATUS_OPTIONS}
+          active={isValidStatus ? status : undefined}
+          label={bookingStatusLabel}
+          allLabel="All bookings"
+        />
 
         {result.items.length === 0 ? (
           <EmptyState

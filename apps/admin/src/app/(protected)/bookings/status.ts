@@ -35,3 +35,35 @@ export function bookingTone(status: string): BadgeTone {
       return "brand";
   }
 }
+
+/**
+ * Plain-language label for a booking status.
+ *
+ * The filter tabs previously rendered the raw enum, so an agent chose between
+ * `COMPLETION_REQUESTED` and `PAYMENT_PENDING`. These say who is waiting on whom,
+ * which is the question the agent is actually answering.
+ */
+export function bookingStatusLabel(status: string): string {
+  switch (status) {
+    case "PAYMENT_PENDING":
+      return "Awaiting payment";
+    case "CONFIRMED":
+      return "Paid, not started";
+    case "IN_PROGRESS":
+      return "In progress";
+    case "COMPLETION_REQUESTED":
+      return "Awaiting client confirmation";
+    case "COMPLETED":
+      return "Completed work";
+    case "PAYMENT_FAILED":
+      return "Payment failed";
+    case "CANCELLED":
+      return "Cancelled";
+    case "DISPUTED":
+      return "In dispute";
+    case "REFUNDED":
+      return "Refunded";
+    default:
+      return status;
+  }
+}

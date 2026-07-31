@@ -30,9 +30,11 @@ import type {
   ReconciliationSummary,
   RefundHistoryEntry,
   ConversationTranscript,
+  RefundRow,
   ReportDetail,
   ReportRow,
   ReviewRow,
+  TaskMediaRow,
   TaskerApplicationDetail,
   TaskerApplicationRow,
   TaskRow,
@@ -89,6 +91,8 @@ type SeedState = {
   disputes: DisputeDetail[];
   tickets: TicketDetail[];
   reviews: ReviewRow[];
+  taskMedia: TaskMediaRow[];
+  refunds: RefundRow[];
   categories: CategoryDetail[];
   paymentEvents: PaymentEventRow[];
   providerEvents: ProviderEventRow[];
@@ -1061,6 +1065,59 @@ function createSeedState(): SeedState {
     },
   ];
 
+  const taskMedia: TaskMediaRow[] = [
+    {
+      id: "tmd-7001",
+      taskId: "tsk-5001",
+      taskTitle: "Deep clean two-bedroom condo",
+      kind: "image",
+      storagePath: "usr-1001/tsk-5001/living-room.jpg",
+      moderationStatus: "PENDING",
+      createdAt: "2026-07-19T02:15:00.000Z",
+    },
+    {
+      id: "tmd-7002",
+      taskId: "tsk-5001",
+      taskTitle: "Deep clean two-bedroom condo",
+      kind: "image",
+      storagePath: "usr-1001/tsk-5001/kitchen.jpg",
+      moderationStatus: "APPROVED",
+      createdAt: "2026-07-19T02:16:00.000Z",
+    },
+    {
+      id: "tmd-7003",
+      taskId: "tsk-5002",
+      taskTitle: "Assemble flat-pack wardrobe",
+      kind: "video",
+      storagePath: "usr-1002/tsk-5002/walkthrough.mp4",
+      moderationStatus: "HIDDEN",
+      createdAt: "2026-07-18T11:40:00.000Z",
+    },
+  ];
+
+  const refunds: RefundRow[] = [
+    {
+      id: "rfd-9101",
+      paymentIntentId: "pit-7001",
+      bookingId: "bkg-6001",
+      amountCentavos: 150_000,
+      status: "REQUESTED",
+      reason: "Client cancelled before the Tasker travelled.",
+      createdAt: "2026-07-19T05:00:00.000Z",
+      updatedAt: "2026-07-19T05:00:00.000Z",
+    },
+    {
+      id: "rfd-9102",
+      paymentIntentId: "pit-7002",
+      bookingId: "bkg-6002",
+      amountCentavos: 80_000,
+      status: "FAILED",
+      reason: "Provider integration unavailable.",
+      createdAt: "2026-07-18T09:30:00.000Z",
+      updatedAt: "2026-07-18T09:31:00.000Z",
+    },
+  ];
+
   return {
     verificationCases,
     taskerApplications,
@@ -1070,6 +1127,8 @@ function createSeedState(): SeedState {
     disputes,
     tickets,
     reviews,
+    taskMedia,
+    refunds,
     categories,
     paymentEvents,
     providerEvents,
@@ -1273,12 +1332,15 @@ export class SyntheticAdminRepository implements AdminRepository {
     return { ok: true };
   }
 
-  async listUsers(input: PageInput & { query?: string }) {
-    const filtered = input.query
+  async listUsers(input: PageInput & { query?: string; status?: string }) {
+    let filtered = input.query
       ? this.state.users.filter((u) =>
           `${u.displayName} ${u.email}`.toLowerCase().includes(input.query!.toLowerCase()),
         )
       : this.state.users;
+    if (input.status) {
+      filtered = filtered.filter((u) => u.accountStatus === input.status);
+    }
     return paged<UserRow>(filtered, input);
   }
 
@@ -1404,6 +1466,55 @@ export class SyntheticAdminRepository implements AdminRepository {
       status: input.action === "remove" ? "REMOVED" : "OPEN",
     };
     return { ok: true };
+  }
+
+  async listTaskMedia(input: PageInput & { status?: string }) {
+    const filtered = input.status
+      ? this.state.taskMedia.filter((m) => m.moderationStatus === input.status)
+      : this.state.taskMedia;
+    return paged<TaskMediaRow>(filtered, input);
+  }
+
+  async moderateTaskMedia(input: {
+    mediaId: string;
+    action: "approve" | "hide";
+    reason: string;
+    actor: string;
+  }) {
+    if (!input.reason.trim()) return { ok: false, message: "A reason is required." };
+    const index = this.state.taskMedia.findIndex((m) => m.id === input.mediaId);
+    if (index === -1) return { ok: false, message: "Attachment not found." };
+    const current = this.state.taskMedia[index];
+    if (!current) return { ok: false, message: "Attachment not found." };
+
+    this.state.taskMedia[index] = {
+      ...current,
+      moderationStatus: input.action === "approve" ? "APPROVED" : "HIDDEN",
+    };
+    this.recordAudit({
+      actor: input.actor,
+      capability: "ADMIN_SUPPORT",
+      action: `task_media.${input.action}`,
+      resource: input.mediaId,
+      reason: input.reason.trim(),
+    });
+    return { ok: true };
+  }
+
+  /**
+   * No object store in the synthetic adapter, so there is nothing to sign.
+   * Returning null exercises the queue's unavailable-preview path, which is also
+   * what the real adapter returns for media on a task that is no longer listed.
+   */
+  async getMediaPreviewUrl(_input: { storagePath: string; actor: string }): Promise<string | null> {
+    return null;
+  }
+
+  async listRefunds(input: PageInput & { status?: string }) {
+    const filtered = input.status
+      ? this.state.refunds.filter((r) => r.status === input.status)
+      : this.state.refunds;
+    return paged<RefundRow>(filtered, input);
   }
 
   async listReviews(input: PageInput & { status?: string }) {

@@ -1850,3 +1850,54 @@ textarea {
   }
 }
 
+
+/* ---------- Media moderation gallery ---------- */
+
+/*
+ * The media queue is a gallery, not a table: the reviewer's question is "is this
+ * image acceptable", so the image is the largest element and the controls sit
+ * directly beneath it. auto-fill keeps one column on a phone without a media
+ * query, and the cards stay readable at any width in between.
+ */
+.dk-media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.dk-media-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dk-media-thumb {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  border-radius: 8px;
+  background: var(--dk-surfaceSubtle);
+  border: 1px solid var(--dk-borderSubtle);
+}
+
+.dk-media-thumb-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 12px;
+}
+
+.dk-media-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dk-media-title {
+  margin: 0;
+  font-weight: 600;
+}

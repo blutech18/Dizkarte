@@ -87,6 +87,7 @@ const EXPECTED_RPCS = {
   ],
   "0023 review moderation (NEW)": ["admin_moderate_review"],
   "0024 geospatial feed search (NEW)": ["search_task_feed"],
+  "0025 media moderation (NEW)": ["admin_moderate_task_media"],
   // 0020 (notification emission) intentionally contributes nothing here: it is
   // made up of `app.*` helpers and AFTER triggers, neither of which PostgREST
   // describes. Confirm it applied by causing an event (submit an offer) and
@@ -125,6 +126,7 @@ const EXPECTED_NEW_VIEWS = {
   "0016 admin ops (NEW)": ["admin_category_history"],
   "0017 offer withdrawal (NEW)": ["task_locations_readable", "task_private_locations_readable"],
   "0023 review moderation (NEW)": ["admin_review_queue"],
+  "0025 media moderation (NEW)": ["admin_task_media_queue"],
 };
 
 async function fetchOpenApi() {

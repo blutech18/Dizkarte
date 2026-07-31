@@ -856,6 +856,103 @@ describe("SyntheticAdminRepository", () => {
     });
   });
 
+  describe("media moderation", () => {
+    it("defaults the queue to everything and filters by status", async () => {
+      const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
+      const repo = new SyntheticAdminRepository();
+
+      const all = await repo.listTaskMedia({ page: 1, pageSize: 50 });
+      const pending = await repo.listTaskMedia({ page: 1, pageSize: 50, status: "PENDING" });
+
+      expect(all.items.length).toBeGreaterThan(pending.items.length);
+      expect(pending.items.every((row) => row.moderationStatus === "PENDING")).toBe(true);
+    });
+
+    it("hides one attachment without touching its siblings on the same task", async () => {
+      const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
+      const repo = new SyntheticAdminRepository();
+
+      const before = await repo.listTaskMedia({ page: 1, pageSize: 50 });
+      const target = before.items.find((row) => row.id === "tmd-7001")!;
+      const sibling = before.items.find(
+        (row) => row.taskId === target.taskId && row.id !== target.id,
+      )!;
+
+      const result = await repo.moderateTaskMedia({
+        mediaId: target.id,
+        action: "hide",
+        reason: "Shows a third party's face without consent.",
+        actor: "support-admin@dev.dizkarte.invalid",
+      });
+      expect(result.ok).toBe(true);
+
+      const after = await repo.listTaskMedia({ page: 1, pageSize: 50 });
+      expect(after.items.find((row) => row.id === target.id)?.moderationStatus).toBe("HIDDEN");
+      // The whole point of per-item moderation: the rest of the task survives.
+      expect(after.items.find((row) => row.id === sibling.id)?.moderationStatus).toBe(
+        sibling.moderationStatus,
+      );
+    });
+
+    it("records an attributable audit entry naming the attachment", async () => {
+      const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
+      const repo = new SyntheticAdminRepository();
+
+      await repo.moderateTaskMedia({
+        mediaId: "tmd-7001",
+        action: "approve",
+        reason: "Reviewed, nothing objectionable.",
+        actor: "support-admin@dev.dizkarte.invalid",
+      });
+
+      const audit = await repo.listAuditLogs({ page: 1, pageSize: 50 });
+      expect(audit.items[0]?.action).toBe("task_media.approve");
+      expect(audit.items[0]?.resource).toBe("tmd-7001");
+    });
+
+    it("refuses without a reason and leaves the attachment untouched", async () => {
+      const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
+      const repo = new SyntheticAdminRepository();
+
+      const before = await repo.listTaskMedia({ page: 1, pageSize: 50 });
+      const result = await repo.moderateTaskMedia({
+        mediaId: "tmd-7001",
+        action: "hide",
+        reason: "  ",
+        actor: "support-admin@dev.dizkarte.invalid",
+      });
+
+      expect(result.ok).toBe(false);
+      const after = await repo.listTaskMedia({ page: 1, pageSize: 50 });
+      expect(after.items).toEqual(before.items);
+    });
+  });
+
+  describe("refunds and account status filtering", () => {
+    it("lists refunds and filters by status", async () => {
+      const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
+      const repo = new SyntheticAdminRepository();
+
+      const all = await repo.listRefunds({ page: 1, pageSize: 50 });
+      expect(all.items.length).toBeGreaterThan(0);
+
+      const failed = await repo.listRefunds({ page: 1, pageSize: 50, status: "FAILED" });
+      expect(failed.items.every((row) => row.status === "FAILED")).toBe(true);
+      expect(failed.items.length).toBeLessThan(all.items.length);
+    });
+
+    it("filters users by account status, which is how frozen accounts are reviewed", async () => {
+      const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
+      const repo = new SyntheticAdminRepository();
+
+      const all = await repo.listUsers({ page: 1, pageSize: 50 });
+      const suspended = await repo.listUsers({ page: 1, pageSize: 50, status: "suspended" });
+
+      expect(suspended.items.every((row) => row.accountStatus === "suspended")).toBe(true);
+      expect(suspended.items.length).toBeLessThanOrEqual(all.items.length);
+    });
+  });
+
   describe("assignment-gated conversation read", () => {
     it("refuses an Admin who is not the assignee, and writes no audit entry", async () => {
       const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");

@@ -33,7 +33,13 @@ export const NAV_SECTIONS: ReadonlyArray<NavSection> = [
       { href: "/verification", label: "Identity verification", icon: ShieldIcon },
       { href: "/taskers", label: "Tasker applications", icon: ShieldIcon },
       { href: "/users", label: "Users", icon: ShieldIcon },
-      { href: "/tasks", label: "Tasks & media", icon: ClipboardIcon },
+      { href: "/tasks", label: "Tasks", icon: ClipboardIcon },
+      {
+        href: "/media",
+        label: "Task media",
+        capabilities: ["ADMIN_SUPPORT", "ADMIN_SUPER"],
+        icon: ClipboardIcon,
+      },
     ],
   },
   {
@@ -76,8 +82,20 @@ export const NAV_SECTIONS: ReadonlyArray<NavSection> = [
         icon: WalletIcon,
       },
       {
+        href: "/refunds",
+        label: "Refunds",
+        capabilities: ["ADMIN_FINANCE"],
+        icon: WalletIcon,
+      },
+      {
         href: "/withdrawals",
         label: "Withdrawals & payouts",
+        capabilities: ["ADMIN_FINANCE"],
+        icon: WalletIcon,
+      },
+      {
+        href: "/revenue",
+        label: "Revenue",
         capabilities: ["ADMIN_FINANCE"],
         icon: WalletIcon,
       },

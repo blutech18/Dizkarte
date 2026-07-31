@@ -46,7 +46,10 @@ import {
   type ReportDetail,
   type ReportRow,
   type ConversationTranscript,
+  type MediaModerationStatus,
+  type RefundRow,
   type ReportStatus,
+  type TaskMediaRow,
   type ReviewModerationStatus,
   type ReviewRow,
   type TaskRow,
@@ -485,12 +488,15 @@ export class SupabaseAdminRepository implements AdminRepository {
   // Users and tasks
   // =========================================================================
 
-  async listUsers(input: PageInput & { query?: string }): Promise<Paginated<UserRow>> {
+  async listUsers(
+    input: PageInput & { query?: string; status?: string },
+  ): Promise<Paginated<UserRow>> {
     const db = await this.db();
     const { from, to } = pageRange(input.page, input.pageSize);
     let query = db
       .from("profiles")
       .select("id,display_name,account_status,created_at", { count: "exact" });
+    if (input.status) query = query.eq("account_status", input.status);
     const search = input.query?.trim();
     if (search) {
       // Only the display name is searchable: email lives in auth.users and is
@@ -796,6 +802,141 @@ export class SupabaseAdminRepository implements AdminRepository {
       p_reason: input.reason,
       p_idempotency_key: `task_${input.taskId}_${input.action}_${Date.now()}`,
     });
+  }
+
+  // =========================================================================
+  // Media moderation
+  // =========================================================================
+
+  async listTaskMedia(input: PageInput & { status?: string }): Promise<Paginated<TaskMediaRow>> {
+    const db = await this.db();
+    const { from, to } = pageRange(input.page, input.pageSize);
+    let query = db
+      .from("admin_task_media_queue")
+      .select("id,task_id,task_title,kind,storage_path,moderation_status,created_at", {
+        count: "exact",
+      });
+    if (input.status) query = query.eq("moderation_status", input.status);
+    const { data, count, error } = await query
+      .order("created_at", { ascending: false })
+      .range(from, to);
+    if (error) return paginate<TaskMediaRow>([], input.page, input.pageSize, 0);
+
+    const rows = (data ?? []) as ReadonlyArray<{
+      id: string;
+      task_id: string;
+      task_title: string;
+      kind: string;
+      storage_path: string;
+      moderation_status: string;
+      created_at: string;
+    }>;
+    const items = rows.map((row) => ({
+      id: row.id,
+      taskId: row.task_id,
+      taskTitle: row.task_title,
+      kind: row.kind === "video" ? ("video" as const) : ("image" as const),
+      storagePath: row.storage_path,
+      moderationStatus: row.moderation_status as MediaModerationStatus,
+      createdAt: row.created_at,
+    }));
+    return paginate(items, input.page, input.pageSize, count ?? items.length);
+  }
+
+  async moderateTaskMedia(input: {
+    mediaId: string;
+    action: "approve" | "hide";
+    reason: string;
+    actor: string;
+  }): Promise<MutationResult> {
+    if (!input.reason.trim()) return { ok: false, message: MISSING_REASON };
+    return this.call("admin_moderate_task_media", {
+      p_media_id: input.mediaId,
+      p_action: input.action,
+      p_reason: input.reason,
+      p_idempotency_key: `media_${input.mediaId}_${input.action}_${Date.now()}`,
+    });
+  }
+
+  /**
+   * Signed URL for a queue attachment, under the existing storage policy.
+   *
+   * `task_media_read` (migration 0013) grants object reads to feed viewers, the
+   * owning Client, and booking participants — deliberately not to Admins, who are
+   * expected to go through `admin_authorize_object_read` after being assigned to
+   * a case about the task. That assignment does not exist for proactive
+   * moderation, so in practice this succeeds for media on an OPEN task (already
+   * readable by any authenticated user, so no privacy is given up) and returns
+   * `null` otherwise. The queue then shows an explicit unavailable state instead
+   * of a broken image.
+   */
+  async getMediaPreviewUrl(input: {
+    storagePath: string;
+    actor: string;
+  }): Promise<string | null> {
+    const db = await this.db();
+    const { data, error } = await db.storage
+      .from("task-media")
+      .createSignedUrl(input.storagePath, 300);
+    if (error || !data) return null;
+    return data.signedUrl;
+  }
+
+  // =========================================================================
+  // Refunds
+  // =========================================================================
+
+  async listRefunds(input: PageInput & { status?: string }): Promise<Paginated<RefundRow>> {
+    const db = await this.db();
+    const { from, to } = pageRange(input.page, input.pageSize);
+    let query = db
+      .from("refunds")
+      .select("id,payment_intent_id,amount_centavos,status,reason,created_at,updated_at", {
+        count: "exact",
+      });
+    if (input.status) query = query.eq("status", input.status);
+    const { data, count, error } = await query
+      .order("created_at", { ascending: false })
+      .range(from, to);
+    if (error) return paginate<RefundRow>([], input.page, input.pageSize, 0);
+
+    const rows = (data ?? []) as ReadonlyArray<{
+      id: string;
+      payment_intent_id: string;
+      amount_centavos: number | string;
+      status: string;
+      reason: string | null;
+      created_at: string;
+      updated_at: string;
+    }>;
+    if (rows.length === 0) return paginate<RefundRow>([], input.page, input.pageSize, 0);
+
+    // The booking is what an Admin recognises a refund by, so resolve it rather
+    // than showing a bare payment intent id.
+    const { data: intentData } = await db
+      .from("payment_intents")
+      .select("id,booking_id")
+      .in(
+        "id",
+        rows.map((row) => row.payment_intent_id),
+      );
+    const bookingByIntent = new Map(
+      ((intentData ?? []) as ReadonlyArray<{ id: string; booking_id: string | null }>).map(
+        (row) => [row.id, row.booking_id],
+      ),
+    );
+
+    const items = rows.map((row) => ({
+      id: row.id,
+      paymentIntentId: row.payment_intent_id,
+      bookingId: bookingByIntent.get(row.payment_intent_id) ?? null,
+      amountCentavos: Number(row.amount_centavos),
+      status: row.status as RefundRow["status"],
+      reason: row.reason,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+    return paginate(items, input.page, input.pageSize, count ?? items.length);
   }
 
   // =========================================================================
