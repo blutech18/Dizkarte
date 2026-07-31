@@ -121,6 +121,11 @@ const FORBIDDEN_RPCS = [
   "review_reveal_days",
 ];
 
+// Note: process_payment_event / process_refund_event / process_payout_result are
+// intentionally service-role-callable (the payment-webhook edge function invokes
+// them with the service key), so they legitimately appear under the service
+// role and are neither expected-for-clients nor forbidden here.
+
 /** Views added alongside the newest migrations. */
 const EXPECTED_NEW_VIEWS = {
   "0016 admin ops (NEW)": ["admin_category_history"],
