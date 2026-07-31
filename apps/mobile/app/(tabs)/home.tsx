@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { FlatList, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import type { PublicTaskFeedItem } from "@dizkarte/domain";
 import { formatPhp } from "@dizkarte/domain";
@@ -21,9 +21,10 @@ import { CategoryGrid } from "../../src/components/task/CategoryGrid";
 import { useSession } from "../../src/providers/SessionProvider";
 import { useMarketplace } from "../../src/providers/MarketplaceProvider";
 import { useConnectivity } from "../../src/providers/ConnectivityProvider";
+import { useCategories } from "../../src/providers/CategoriesProvider";
 import { isApprovedTasker } from "../../src/services/session-types";
 import { getMapProvider } from "../../src/services/map/factory";
-import type { OwnedTaskRecord } from "../../src/services/marketplace/types";
+import type { BookingRecord, OwnedTaskRecord } from "../../src/services/marketplace/types";
 import type { TaskStatus } from "@dizkarte/domain";
 import { theme, spacing, fontSize, lineHeight, radii, MIN_TOUCH_TARGET } from "../../src/theme";
 
@@ -77,19 +78,31 @@ const CLIENT_STATUS_LABEL: Partial<Record<TaskStatus, string>> = {
   COMPLETION_REQUESTED: "Completion requested",
 };
 
+/** Time-of-day greeting, matching the Airtasker home reference (Good morning/afternoon/evening/night). */
+function greetingForHour(hour: number): string {
+  if (hour < 5) return "Good night";
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  if (hour < 22) return "Good evening";
+  return "Good night";
+}
+
 function ClientHome() {
   const { session } = useSession();
   const { repository, revision } = useMarketplace();
+  const { categories } = useCategories();
   const [tasks, setTasks] = useState<ReadonlyArray<OwnedTaskRecord>>([]);
+  const [bookings, setBookings] = useState<ReadonlyArray<BookingRecord>>([]);
   const [state, setState] = useState<LoadState>("loading");
+  const [searchDraft, setSearchDraft] = useState("");
 
   const load = useCallback(() => {
     if (!session) return;
     setState("loading");
-    repository
-      .listMyTasks(session.userId)
-      .then((result) => {
-        setTasks(result);
+    Promise.all([repository.listMyTasks(session.userId), repository.listMyBookings(session.userId)])
+      .then(([taskResult, bookingResult]) => {
+        setTasks(taskResult);
+        setBookings(bookingResult);
         setState("loaded");
       })
       .catch(() => setState("error"));
@@ -100,6 +113,7 @@ function ClientHome() {
   }, [load, revision]);
 
   const firstName = (session?.displayName ?? "").trim().split(/\s+/)[0] || "there";
+  const greeting = useMemo(() => greetingForHour(new Date().getHours()), []);
   const activeTasks = useMemo(
     () => tasks.filter((t) => CLIENT_ACTIVE_STATUSES.includes(t.status)).slice(0, 3),
     [tasks],
@@ -109,18 +123,131 @@ function ClientHome() {
     [tasks],
   );
 
+  /**
+   * Taskers this Client has actually booked before, most recent first.
+   *
+   * Built from `listMyBookings` rather than a stored "favourites" concept —
+   * there isn't one — so every card is a real past working relationship, never
+   * placeholder people. One card per Tasker (their most recent booking), and
+   * only for a booking that reached a real working relationship (confirmed or
+   * later), so a same-day cancellation never shows up as someone to rebook.
+   */
+  const myTaskers = useMemo(() => {
+    const eligible = ["CONFIRMED", "IN_PROGRESS", "COMPLETION_REQUESTED", "COMPLETED"];
+    const byTasker = new Map<string, BookingRecord>();
+    for (const booking of bookings) {
+      if (!eligible.includes(booking.status)) continue;
+      const existing = byTasker.get(booking.taskerId);
+      if (!existing || booking.createdAt > existing.createdAt) {
+        byTasker.set(booking.taskerId, booking);
+      }
+    }
+    return [...byTasker.values()].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  }, [bookings]);
+
+  // A handful of real, active categories become the quick-suggestion chips
+  // under the search field — never a hardcoded label, since a retired slug
+  // would otherwise dead-end into a category the picker no longer offers.
+  const suggestedCategories = useMemo(() => categories.slice(0, 4), [categories]);
+
+  function goToPostFlow() {
+    const title = searchDraft.trim();
+    router.push(title.length > 0 ? { pathname: "/task/create", params: { title } } : "/task/create");
+  }
+
   return (
     <Screen>
-      <AppHeader title={`Hi, ${firstName}`} subtitle="What do you need done today?" />
-
-      {/* Primary action — a hero, not a list row. */}
+      {/*
+        Full-bleed brand hero: greeting, headline, search-to-post, and quick
+        category chips. Bleeds past the Screen's own padding the same way
+        AppHeader's top navbar does (negative margin matching that padding),
+        so this is the established full-bleed technique, not a new one.
+      */}
       <View style={clientStyles.hero}>
-        <Text style={clientStyles.heroTitle}>Post a task, get offers</Text>
-        <Text style={clientStyles.heroBody}>
-          Describe what you need, set a budget, and approved Taskers near you will send offers.
-        </Text>
-        <Button label="Post a task" icon="note" onPress={() => router.push("/task/create")} />
+        <View style={clientStyles.heroTopRow}>
+          <Text style={clientStyles.heroGreeting}>
+            {greeting}, {firstName}
+          </Text>
+          <Pressable
+            onPress={() => router.push("/(tabs)/notifications")}
+            accessibilityRole="button"
+            accessibilityLabel="Notifications"
+            hitSlop={8}
+          >
+            <Icon name="bell" size={22} color={theme.onPrimary} />
+          </Pressable>
+        </View>
+        <Text style={clientStyles.heroTitle}>Post a Task.{"\n"}Get it Done.</Text>
+
+        <View style={clientStyles.searchInputWrapper}>
+          <Icon name="search" size={18} color={theme.textSecondary} />
+          <TextInput
+            value={searchDraft}
+            onChangeText={setSearchDraft}
+            onSubmitEditing={goToPostFlow}
+            returnKeyType="go"
+            placeholder="In a few words, what do you need done?"
+            placeholderTextColor={theme.textSecondary}
+            style={clientStyles.searchInput}
+            accessibilityLabel="What do you need done?"
+          />
+        </View>
+        <Button label="Get offers" icon="arrow-right" onPress={goToPostFlow} fullWidth />
+
+        {suggestedCategories.length > 0 ? (
+          <View style={clientStyles.suggestionRow}>
+            {suggestedCategories.map((category) => (
+              <Pressable
+                key={category.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Post a ${category.name} task`}
+                onPress={() =>
+                  router.push({ pathname: "/task/create", params: { category: category.id } })
+                }
+                style={({ pressed }) => [
+                  clientStyles.suggestionChip,
+                  pressed ? clientStyles.suggestionChipPressed : null,
+                ]}
+              >
+                <Text style={clientStyles.suggestionChipText}>{category.name}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
       </View>
+
+      {myTaskers.length > 0 ? (
+        <View style={clientStyles.myTaskersSection}>
+          <Text style={clientStyles.sectionTitle}>My Taskers</Text>
+          <Text style={clientStyles.myTaskersSubtitle}>
+            Your past Taskers, all in one place. Rebook anytime.
+          </Text>
+          <View style={clientStyles.myTaskersList}>
+            {myTaskers.slice(0, 6).map((booking) => (
+              <View key={booking.taskerId} style={clientStyles.taskerCard}>
+                <View style={clientStyles.taskerAvatar}>
+                  <Text style={clientStyles.taskerAvatarText}>
+                    {(booking.taskerDisplayName.trim()[0] ?? "?").toUpperCase()}
+                  </Text>
+                </View>
+                <View style={clientStyles.taskerInfo}>
+                  <Text style={clientStyles.taskerName} numberOfLines={1}>
+                    {booking.taskerDisplayName}
+                  </Text>
+                  <Text style={clientStyles.taskerMeta} numberOfLines={1}>
+                    {booking.taskTitle}
+                  </Text>
+                </View>
+                <Button
+                  label="Rebook"
+                  variant="secondary"
+                  onPress={() => router.push("/task/create")}
+                />
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : null}
 
       {/*
         Category shortcuts into the same posting flow. Starting from "what do I
@@ -217,19 +344,110 @@ function ClientHome() {
 
 const clientStyles = StyleSheet.create({
   hero: {
-    backgroundColor: theme.surfaceBrand,
-    borderRadius: radii.lg,
-    padding: spacing.xl,
+    backgroundColor: theme.primary,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xl,
+    borderBottomLeftRadius: radii.lg,
+    borderBottomRightRadius: radii.lg,
     gap: spacing.md,
+    marginHorizontal: -spacing.lg,
+    marginTop: -spacing.lg,
     marginBottom: spacing.xl,
   },
-  heroTitle: { fontSize: fontSize.xl, fontWeight: "700", color: theme.textPrimary },
-  heroBody: {
+  heroTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  heroGreeting: {
+    fontSize: fontSize.sm,
+    fontWeight: "600",
+    color: theme.onPrimary,
+  },
+  heroTitle: {
+    fontSize: fontSize.xxl,
+    lineHeight: lineHeight.xxl,
+    fontWeight: "800",
+    color: theme.onPrimary,
+    letterSpacing: -0.4,
+  },
+  searchInputWrapper: {
+    minHeight: MIN_TOUCH_TARGET,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    backgroundColor: theme.surface,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+  },
+  searchInput: {
+    flex: 1,
+    minHeight: MIN_TOUCH_TARGET,
+    fontSize: fontSize.md,
+    color: theme.textPrimary,
+  },
+  suggestionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  suggestionChip: {
+    minHeight: MIN_TOUCH_TARGET - 8,
+    justifyContent: "center",
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: theme.onPrimary,
+  },
+  suggestionChipPressed: {
+    backgroundColor: theme.primaryPressed,
+  },
+  suggestionChipText: {
+    fontSize: fontSize.sm,
+    fontWeight: "600",
+    color: theme.onPrimary,
+  },
+  myTaskersSection: {
+    marginBottom: spacing.xl,
+  },
+  myTaskersSubtitle: {
     fontSize: fontSize.sm,
     lineHeight: lineHeight.sm,
     color: theme.textSecondary,
-    marginBottom: spacing.xs,
+    marginTop: spacing.xs,
+    marginBottom: spacing.md,
   },
+  myTaskersList: {
+    gap: spacing.sm,
+  },
+  taskerCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    borderRadius: radii.md,
+    padding: spacing.md,
+  },
+  taskerAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: theme.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  taskerAvatarText: {
+    fontSize: fontSize.md,
+    fontWeight: "700",
+    color: theme.primaryPressed,
+  },
+  taskerInfo: { flex: 1, gap: spacing.xs },
+  taskerName: { fontSize: fontSize.md, fontWeight: "700", color: theme.textPrimary },
+  taskerMeta: { fontSize: fontSize.sm, color: theme.textSecondary },
   attentionBanner: {
     flexDirection: "row",
     alignItems: "center",

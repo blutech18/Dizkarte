@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { StyleSheet, Text } from "react-native";
 import { Stack, router, useLocalSearchParams } from "expo-router";
+import { TEXT_LIMITS } from "@dizkarte/config";
 import { Screen } from "../../src/components/ui/Screen";
 import {
   EMPTY_TASK_DRAFT_FORM,
@@ -25,10 +26,16 @@ import { theme, fontSize } from "../../src/theme";
 export default function CreateTaskScreen() {
   const { session } = useSession();
   const { repository, notifyChanged } = useMarketplace();
-  const { category } = useLocalSearchParams<{ category?: string }>();
+  const { category, title: initialTitle } = useLocalSearchParams<{
+    category?: string;
+    title?: string;
+  }>();
   const { categories } = useCategories();
 
-  const [form, setForm] = useState<TaskDraftFormValue>(EMPTY_TASK_DRAFT_FORM);
+  const [form, setForm] = useState<TaskDraftFormValue>(() => {
+    const trimmed = initialTitle?.trim().slice(0, TEXT_LIMITS.taskTitleMax);
+    return trimmed ? { ...EMPTY_TASK_DRAFT_FORM, title: trimmed } : EMPTY_TASK_DRAFT_FORM;
+  });
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
