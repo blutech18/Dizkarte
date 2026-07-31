@@ -110,7 +110,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   avatarText: { color: theme.onPrimary, fontSize: fontSize.xl, fontWeight: "800" },
-  identityText: { flex: 1, gap: 2 },
+  identityText: { flex: 1, gap: spacing.xs },
   name: { fontSize: fontSize.xl, fontWeight: "800", color: theme.textPrimary },
   email: { fontSize: fontSize.sm, color: theme.textSecondary },
   synthRow: { flexDirection: "row", marginTop: spacing.xs },

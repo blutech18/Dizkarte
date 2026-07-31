@@ -9,7 +9,7 @@ import { StatusBadge } from "../../src/components/ui/StatusBadge";
 import { useMarketplace } from "../../src/providers/MarketplaceProvider";
 import { useSession } from "../../src/providers/SessionProvider";
 import { isEligibleTasker } from "../../src/services/session-types";
-import { theme, spacing, fontSize, radii } from "../../src/theme";
+import { theme, spacing, fontSize, lineHeight, radii } from "../../src/theme";
 import { QuestionAndOfferPanel } from "../../src/components/task/QuestionAndOfferPanel";
 
 type LoadState = "loading" | "loaded" | "empty" | "error";
@@ -118,6 +118,7 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: fontSize.md,
+    lineHeight: lineHeight.md,
     color: theme.textSecondary,
     marginBottom: spacing.lg,
   },
@@ -126,20 +127,20 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     padding: spacing.lg,
     marginBottom: spacing.md,
+    gap: spacing.xs,
   },
   sectionTitle: {
-    fontSize: fontSize.sm,
+    fontSize: fontSize.md,
     fontWeight: "700",
     color: theme.textPrimary,
-    marginBottom: spacing.xs,
   },
   body: {
     fontSize: fontSize.md,
     color: theme.textPrimary,
   },
   caption: {
-    fontSize: fontSize.xs,
+    fontSize: fontSize.sm,
+    lineHeight: lineHeight.sm,
     color: theme.textSecondary,
-    marginTop: spacing.xs,
   },
 });

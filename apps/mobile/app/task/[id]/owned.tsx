@@ -20,7 +20,7 @@ import type {
   OwnedTaskRecord,
   TaskQuestionRecord,
 } from "../../../src/services/marketplace/types";
-import { theme, spacing, fontSize, radii } from "../../../src/theme";
+import { theme, spacing, fontSize, lineHeight, radii } from "../../../src/theme";
 
 type LoadState = "loading" | "loaded" | "denied" | "error";
 
@@ -273,7 +273,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
     gap: spacing.sm,
   },
-  pendingText: { color: theme.warningOnSoft, fontSize: fontSize.sm },
+  pendingText: { color: theme.warningOnSoft, fontSize: fontSize.sm, lineHeight: lineHeight.sm },
   section: {
     backgroundColor: theme.surface,
     borderWidth: 1,
@@ -289,15 +289,16 @@ const styles = StyleSheet.create({
     backgroundColor: theme.surfaceSubtle,
     borderRadius: radii.sm,
     padding: spacing.md,
+    gap: spacing.xs,
   },
-  questionAuthor: { fontSize: fontSize.xs, fontWeight: "700", color: theme.textPrimary },
-  questionBody: { fontSize: fontSize.sm, color: theme.textPrimary },
+  questionAuthor: { fontSize: fontSize.sm, fontWeight: "700", color: theme.textPrimary },
+  questionBody: { fontSize: fontSize.sm, lineHeight: lineHeight.sm, color: theme.textPrimary },
   offerCard: {
     borderWidth: 1,
     borderColor: theme.borderSubtle,
     borderRadius: radii.md,
-    padding: spacing.md,
-    gap: spacing.xs,
+    padding: spacing.lg,
+    gap: spacing.sm,
     marginBottom: spacing.sm,
   },
   offerCardUnavailable: { opacity: 0.6 },
@@ -305,8 +306,8 @@ const styles = StyleSheet.create({
   offerTaskerName: { fontSize: fontSize.md, fontWeight: "700", color: theme.textPrimary },
   trustRow: { flexDirection: "row", gap: spacing.xs, flexWrap: "wrap" },
   offerAmount: { fontSize: fontSize.lg, fontWeight: "700", color: theme.primary },
-  offerMessage: { fontSize: fontSize.sm, color: theme.textPrimary },
-  offerMeta: { fontSize: fontSize.xs, color: theme.textSecondary },
+  offerMessage: { fontSize: fontSize.sm, lineHeight: lineHeight.sm, color: theme.textPrimary },
+  offerMeta: { fontSize: fontSize.sm, color: theme.textSecondary },
   errorText: {
     color: theme.errorOnSoft,
     backgroundColor: theme.errorSoft,

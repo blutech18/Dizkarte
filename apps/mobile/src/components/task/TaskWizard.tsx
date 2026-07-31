@@ -16,7 +16,7 @@ import {
   type WizardStepId,
 } from "./taskWizardSteps";
 import type { TaskDraftFormValue } from "./taskDraftValue";
-import { theme, spacing, fontSize, radii, MIN_TOUCH_TARGET } from "../../theme";
+import { theme, spacing, fontSize, lineHeight, radii, MIN_TOUCH_TARGET } from "../../theme";
 
 export type TaskWizardProps = {
   readonly value: TaskDraftFormValue;
@@ -378,8 +378,9 @@ const styles = StyleSheet.create({
   },
   promptHint: {
     fontSize: fontSize.md,
+    lineHeight: lineHeight.md,
     color: theme.textSecondary,
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
   },
   counter: {
     fontSize: fontSize.xs,
@@ -403,14 +404,19 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.md,
   },
-  privateNoticeText: { flex: 1, fontSize: fontSize.xs, color: theme.textSecondary },
+  privateNoticeText: {
+    flex: 1,
+    fontSize: fontSize.sm,
+    lineHeight: lineHeight.sm,
+    color: theme.textSecondary,
+  },
   reviewCard: {
     backgroundColor: theme.surfaceSubtle,
     borderRadius: radii.md,
     padding: spacing.lg,
     gap: spacing.md,
   },
-  reviewRow: { gap: 2 },
+  reviewRow: { gap: spacing.xs },
   reviewLabel: {
     fontSize: fontSize.xs,
     fontWeight: "700",
@@ -418,7 +424,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.4,
   },
-  reviewValue: { fontSize: fontSize.md, color: theme.textPrimary },
+  reviewValue: { fontSize: fontSize.md, lineHeight: lineHeight.md, color: theme.textPrimary },
   error: {
     marginTop: spacing.md,
     color: theme.errorOnSoft,
