@@ -1,7 +1,7 @@
 import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import type { ReactNode } from "react";
 import { router } from "expo-router";
-import { theme, spacing, fontSize, MIN_TOUCH_TARGET } from "../../theme";
+import { theme, spacing, fontSize, lineHeight, MIN_TOUCH_TARGET } from "../../theme";
 import { Icon } from "./Icon";
 
 export type AppHeaderProps = {
@@ -98,6 +98,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: fontSize.sm,
+    lineHeight: lineHeight.sm,
     color: theme.textSecondary,
     marginTop: spacing.xs,
   },

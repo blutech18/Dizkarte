@@ -11,7 +11,7 @@ import { LoadingState, ErrorState, EmptyState } from "../../src/components/ui/As
 import { useSession } from "../../src/providers/SessionProvider";
 import { useMarketplace } from "../../src/providers/MarketplaceProvider";
 import type { BookingRecord } from "../../src/services/marketplace/types";
-import { theme, spacing, fontSize, radii } from "../../src/theme";
+import { theme, spacing, fontSize, lineHeight, radii } from "../../src/theme";
 
 /** The happy-path booking timeline. Terminal states render as a status, not a step. */
 const STEP_LABELS = ["Payment", "In progress", "Completion", "Released"] as const;
@@ -201,10 +201,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.sm,
   },
-  cardTitle: { fontSize: fontSize.md, fontWeight: "700", color: theme.textPrimary, flexShrink: 1 },
+  cardTitle: { fontSize: fontSize.lg, fontWeight: "700", color: theme.textPrimary, flexShrink: 1 },
   cardAmount: { fontSize: fontSize.md, fontWeight: "700", color: theme.primary },
-  cardMeta: { fontSize: fontSize.xs, color: theme.textSecondary },
-  stepper: { flexDirection: "row", marginTop: spacing.xs },
+  cardMeta: { fontSize: fontSize.sm, color: theme.textSecondary },
+  stepper: { flexDirection: "row", marginTop: spacing.sm },
   stepItem: { flex: 1, alignItems: "center", gap: 4 },
   stepDotRow: { flexDirection: "row", alignItems: "center", width: "100%", justifyContent: "center" },
   connector: { flex: 1, height: 2, backgroundColor: theme.borderSubtle },
@@ -233,6 +233,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: spacing.xs,
   },
-  hintTextActive: { flex: 1, fontSize: fontSize.sm, fontWeight: "700", color: theme.primaryPressed },
-  hintTextMuted: { flex: 1, fontSize: fontSize.sm, color: theme.textSecondary },
+  hintTextActive: {
+    flex: 1,
+    fontSize: fontSize.sm,
+    lineHeight: lineHeight.sm,
+    fontWeight: "700",
+    color: theme.primaryPressed,
+  },
+  hintTextMuted: {
+    flex: 1,
+    fontSize: fontSize.sm,
+    lineHeight: lineHeight.sm,
+    color: theme.textSecondary,
+  },
 });

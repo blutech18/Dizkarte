@@ -25,7 +25,7 @@ import { isApprovedTasker } from "../../src/services/session-types";
 import { getMapProvider } from "../../src/services/map/factory";
 import type { OwnedTaskRecord } from "../../src/services/marketplace/types";
 import type { TaskStatus } from "@dizkarte/domain";
-import { theme, spacing, fontSize, radii, MIN_TOUCH_TARGET } from "../../src/theme";
+import { theme, spacing, fontSize, lineHeight, radii, MIN_TOUCH_TARGET } from "../../src/theme";
 
 type LoadState = "loading" | "loaded" | "error";
 
@@ -220,11 +220,16 @@ const clientStyles = StyleSheet.create({
     backgroundColor: theme.surfaceBrand,
     borderRadius: radii.lg,
     padding: spacing.xl,
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
+    gap: spacing.md,
+    marginBottom: spacing.xl,
   },
   heroTitle: { fontSize: fontSize.xl, fontWeight: "700", color: theme.textPrimary },
-  heroBody: { fontSize: fontSize.sm, color: theme.textSecondary, marginBottom: spacing.xs },
+  heroBody: {
+    fontSize: fontSize.sm,
+    lineHeight: lineHeight.sm,
+    color: theme.textSecondary,
+    marginBottom: spacing.xs,
+  },
   attentionBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -238,15 +243,17 @@ const clientStyles = StyleSheet.create({
     flex: 1,
     color: theme.primaryPressed,
     fontSize: fontSize.sm,
+    lineHeight: lineHeight.sm,
     fontWeight: "600",
   },
   sectionHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    marginTop: spacing.md,
   },
-  sectionTitle: { fontSize: fontSize.md, fontWeight: "700", color: theme.textPrimary },
-  taskList: { gap: spacing.sm, marginTop: spacing.sm },
+  sectionTitle: { fontSize: fontSize.lg, fontWeight: "700", color: theme.textPrimary },
+  taskList: { gap: spacing.md, marginTop: spacing.sm },
   taskRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -258,10 +265,10 @@ const clientStyles = StyleSheet.create({
     padding: spacing.md,
   },
   taskRowPressed: { backgroundColor: theme.surfaceSubtle },
-  taskRowMain: { flex: 1, gap: 2 },
-  taskRowTitle: { fontSize: fontSize.sm, fontWeight: "700", color: theme.textPrimary },
-  taskRowMeta: { fontSize: fontSize.xs, color: theme.textSecondary },
-  quickLinks: { gap: spacing.sm, marginTop: spacing.xl },
+  taskRowMain: { flex: 1, gap: spacing.xs },
+  taskRowTitle: { fontSize: fontSize.md, fontWeight: "700", color: theme.textPrimary },
+  taskRowMeta: { fontSize: fontSize.sm, color: theme.textSecondary },
+  quickLinks: { gap: spacing.md, marginTop: spacing.xl },
 });
 
 // ---------------------------------------------------------------------------
@@ -549,8 +556,8 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: theme.borderSubtle,
+    // The list applies `gap`; a marginBottom on top of it double-spaced the feed.
     padding: spacing.lg,
-    marginBottom: spacing.md,
   },
   cardHeader: {
     flexDirection: "row",
@@ -566,8 +573,9 @@ const styles = StyleSheet.create({
   },
   cardDescription: {
     fontSize: fontSize.sm,
+    lineHeight: lineHeight.sm,
     color: theme.textSecondary,
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
   },
   cardFooter: {
     flexDirection: "row",

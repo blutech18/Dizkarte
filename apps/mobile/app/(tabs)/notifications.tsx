@@ -9,7 +9,7 @@ import { LoadingState, ErrorState, EmptyState, DeniedState } from "../../src/com
 import { useSession } from "../../src/providers/SessionProvider";
 import { useMarketplace } from "../../src/providers/MarketplaceProvider";
 import type { NotificationRecord } from "../../src/services/marketplace/types";
-import { theme, spacing, fontSize, radii } from "../../src/theme";
+import { theme, spacing, fontSize, lineHeight, radii } from "../../src/theme";
 
 type LoadState = "loading" | "loaded" | "error";
 
@@ -219,14 +219,14 @@ export default function NotificationsScreen() {
 
 const styles = StyleSheet.create({
   markAllRow: { flexDirection: "row", justifyContent: "flex-end", marginBottom: spacing.xs },
-  group: { marginBottom: spacing.md },
+  group: { marginBottom: spacing.lg },
   groupLabel: {
     fontSize: fontSize.xs,
     fontWeight: "700",
     letterSpacing: 0.5,
     textTransform: "uppercase",
     color: theme.textSecondary,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
   },
   inbox: {
     backgroundColor: theme.surface,
@@ -238,28 +238,28 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
+    gap: spacing.md,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: theme.borderSubtle,
   },
   rowUnread: { backgroundColor: theme.primarySoft },
   rowPressed: { opacity: 0.85 },
   iconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: theme.surfaceSubtle,
     alignItems: "center",
     justifyContent: "center",
   },
   iconCircleUnread: { backgroundColor: theme.surface },
-  rowBody: { flex: 1, gap: 2 },
-  rowTitle: { fontSize: fontSize.sm, color: theme.textPrimary },
+  rowBody: { flex: 1, gap: spacing.xs },
+  rowTitle: { fontSize: fontSize.md, color: theme.textPrimary },
   rowTitleUnread: { fontWeight: "700" },
-  rowPreview: { fontSize: fontSize.xs, color: theme.textSecondary },
-  rowTrailing: { alignItems: "flex-end", gap: 6 },
+  rowPreview: { fontSize: fontSize.sm, lineHeight: lineHeight.sm, color: theme.textSecondary },
+  rowTrailing: { alignItems: "flex-end", gap: spacing.sm },
   rowTime: { fontSize: fontSize.xs, color: theme.textSecondary },
   unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: theme.primary },
 });

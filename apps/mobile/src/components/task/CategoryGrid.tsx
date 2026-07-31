@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { useCategories } from "../../providers/CategoriesProvider";
 import { LoadingState } from "../ui/AsyncState";
 import { hasCategoryArt, type CategoryArtSlug } from "./categoryArt";
-import { theme, spacing, fontSize, radii } from "../../theme";
+import { theme, spacing, fontSize, lineHeight, radii } from "../../theme";
 
 /**
  * Category illustrations, keyed by slug.
@@ -103,8 +103,9 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: fontSize.sm,
+    lineHeight: lineHeight.sm,
     color: theme.textSecondary,
-    marginTop: 2,
+    marginTop: spacing.xs,
     marginBottom: spacing.lg,
   },
   grid: {

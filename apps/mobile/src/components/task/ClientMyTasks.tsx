@@ -12,7 +12,7 @@ import { useSession } from "../../providers/SessionProvider";
 import { useMarketplace } from "../../providers/MarketplaceProvider";
 import { useCategories } from "../../providers/CategoriesProvider";
 import type { OwnedTaskRecord } from "../../services/marketplace/types";
-import { theme, spacing, fontSize, radii, MIN_TOUCH_TARGET } from "../../theme";
+import { theme, spacing, fontSize, lineHeight, radii, MIN_TOUCH_TARGET } from "../../theme";
 
 type FilterKey = "all" | "draft" | "published" | "assigned" | "completed" | "closed";
 
@@ -243,10 +243,10 @@ export function ClientMyTasks() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  filterRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.xs, marginBottom: spacing.lg },
+  filterRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: spacing.lg },
   filterChip: {
     minHeight: MIN_TOUCH_TARGET,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: theme.borderSubtle,
@@ -256,14 +256,14 @@ const styles = StyleSheet.create({
   filterChipActive: { backgroundColor: theme.primary, borderColor: theme.primary },
   filterText: { color: theme.textSecondary, fontSize: fontSize.sm, fontWeight: "600" },
   filterTextActive: { color: theme.onPrimary, fontSize: fontSize.sm, fontWeight: "600" },
-  list: { gap: spacing.sm },
+  list: { gap: spacing.md },
   card: {
     backgroundColor: theme.surface,
     borderWidth: 1,
     borderColor: theme.borderSubtle,
     borderRadius: radii.md,
     padding: spacing.lg,
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   cardPressed: { backgroundColor: theme.surfaceSubtle },
   cardHeader: {
@@ -272,15 +272,15 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: spacing.sm,
   },
-  cardTitle: { fontSize: fontSize.md, fontWeight: "700", color: theme.textPrimary, flexShrink: 1 },
-  cardMeta: { fontSize: fontSize.xs, color: theme.textSecondary },
+  cardTitle: { fontSize: fontSize.lg, fontWeight: "700", color: theme.textPrimary, flexShrink: 1 },
+  cardMeta: { fontSize: fontSize.sm, lineHeight: lineHeight.sm, color: theme.textSecondary },
   actionRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.xs,
     marginTop: spacing.xs,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: theme.borderSubtle,
   },
