@@ -78,6 +78,12 @@ const CLIENT_STATUS_LABEL: Partial<Record<TaskStatus, string>> = {
   COMPLETION_REQUESTED: "Completion requested",
 };
 
+/**
+ * Soft brand tokens rotated across My Taskers cards for visual variety, matching
+ * the reference's alternating card colors without hardcoding new hex values.
+ */
+const TASKER_CARD_TONES = ["accentSoft", "infoSoft", "successSoft", "primarySoft"] as const;
+
 /** Time-of-day greeting, matching the Airtasker home reference (Good morning/afternoon/evening/night). */
 function greetingForHour(hour: number): string {
   if (hour < 5) return "Good night";
@@ -218,28 +224,41 @@ function ClientHome() {
             Your past Taskers, all in one place. Rebook anytime.
           </Text>
           <View style={clientStyles.myTaskersList}>
-            {myTaskers.slice(0, 6).map((booking) => (
-              <View key={booking.taskerId} style={clientStyles.taskerCard}>
-                <View style={clientStyles.taskerAvatar}>
-                  <Text style={clientStyles.taskerAvatarText}>
-                    {(booking.taskerDisplayName.trim()[0] ?? "?").toUpperCase()}
-                  </Text>
+            {myTaskers.slice(0, 6).map((booking, index) => {
+              // Rotates through existing soft brand tokens rather than a fixed
+              // hex list, so each card reads distinctly (matching the
+              // reference's alternating card colors) without inventing new
+              // design tokens.
+              const cardTone =
+                TASKER_CARD_TONES[index % TASKER_CARD_TONES.length] ?? TASKER_CARD_TONES[0];
+              return (
+                <View
+                  key={booking.taskerId}
+                  style={[clientStyles.taskerCard, { backgroundColor: theme[cardTone] }]}
+                >
+                  <View style={clientStyles.taskerCardTopRow}>
+                    <View style={clientStyles.taskerAvatar}>
+                      <Text style={clientStyles.taskerAvatarText}>
+                        {(booking.taskerDisplayName.trim()[0] ?? "?").toUpperCase()}
+                      </Text>
+                    </View>
+                    <Button
+                      label="Rebook"
+                      variant="secondary"
+                      onPress={() => router.push("/task/create")}
+                    />
+                  </View>
+                  <View style={clientStyles.taskerCardBottomRow}>
+                    <Text style={clientStyles.taskerName} numberOfLines={1}>
+                      {booking.taskerDisplayName}
+                    </Text>
+                    <Text style={clientStyles.taskerMeta} numberOfLines={1}>
+                      {booking.taskTitle}
+                    </Text>
+                  </View>
                 </View>
-                <View style={clientStyles.taskerInfo}>
-                  <Text style={clientStyles.taskerName} numberOfLines={1}>
-                    {booking.taskerDisplayName}
-                  </Text>
-                  <Text style={clientStyles.taskerMeta} numberOfLines={1}>
-                    {booking.taskTitle}
-                  </Text>
-                </View>
-                <Button
-                  label="Rebook"
-                  variant="secondary"
-                  onPress={() => router.push("/task/create")}
-                />
-              </View>
-            ))}
+              );
+            })}
           </View>
         </View>
       ) : null}
@@ -405,31 +424,37 @@ const clientStyles = StyleSheet.create({
     gap: spacing.sm,
   },
   taskerCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.borderSubtle,
     borderRadius: radii.md,
     padding: spacing.md,
+    gap: spacing.md,
   },
+  taskerCardTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  taskerCardBottomRow: { gap: spacing.xs },
   taskerAvatar: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: theme.primarySoft,
+    backgroundColor: theme.surface,
     alignItems: "center",
     justifyContent: "center",
   },
   taskerAvatarText: {
     fontSize: fontSize.md,
     fontWeight: "700",
-    color: theme.primaryPressed,
+    color: theme.textPrimary,
   },
-  taskerInfo: { flex: 1, gap: spacing.xs },
   taskerName: { fontSize: fontSize.md, fontWeight: "700", color: theme.textPrimary },
-  taskerMeta: { fontSize: fontSize.sm, color: theme.textSecondary },
+  taskerMeta: {
+    fontSize: fontSize.xs,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    color: theme.textSecondary,
+  },
   attentionBanner: {
     flexDirection: "row",
     alignItems: "center",
