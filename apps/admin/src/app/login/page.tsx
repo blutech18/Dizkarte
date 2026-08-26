@@ -18,7 +18,11 @@ export default async function LoginPage({
       <main id="dk-main-content" className="dk-auth-shell">
         <div className="dk-auth-card">
           <div className="dk-auth-logo">
-            <img src="/brand/text-icon-logo.png" alt="Dizkarte" style={{ height: 44, width: "auto" }} />
+            <img
+              src="/brand/text-icon-logo.png"
+              alt="Dizkarte"
+              style={{ height: 44, width: "auto" }}
+            />
           </div>
           <h1 className="dk-auth-title">Admin Console Sign In</h1>
           <p className="dk-auth-subtitle">
@@ -37,7 +41,8 @@ export default async function LoginPage({
                 border: "1px solid var(--dk-errorSoft)",
               }}
             >
-              That password link has expired or was already used. Request a new password reset link below.
+              That password link has expired or was already used. Request a new password reset link
+              below.
             </div>
           ) : null}
 

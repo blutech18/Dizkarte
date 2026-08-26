@@ -5,6 +5,7 @@ import { signInSchema } from "@dizkarte/domain";
 import { Screen } from "../../src/components/ui/Screen";
 import { TextField } from "../../src/components/ui/TextField";
 import { Button } from "../../src/components/ui/Button";
+import { AuthBackButton } from "../../src/components/auth/AuthBackButton";
 import { useSession } from "../../src/providers/SessionProvider";
 import { SocialSignIn } from "../../src/components/auth/SocialSignIn";
 import { theme, spacing, fontSize } from "../../src/theme";
@@ -42,6 +43,7 @@ export default function SignInScreen() {
 
   return (
     <Screen>
+      <AuthBackButton fallback="/(auth)/welcome" />
       <View style={styles.centerContainer}>
         <View style={styles.formContent}>
           <Image
@@ -56,7 +58,11 @@ export default function SignInScreen() {
           <Text style={styles.subtitle}>Welcome back! Sign in to continue to Dizkarte.</Text>
 
           {formError ? (
-            <Text style={styles.formError} accessibilityRole="alert" accessibilityLiveRegion="polite">
+            <Text
+              style={styles.formError}
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite"
+            >
               {formError}
             </Text>
           ) : null}

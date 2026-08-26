@@ -7,6 +7,8 @@ import {
   classifyReconciliation,
   derivePaymentIntentStatus,
   displayNameFor,
+  mapCaseSubject,
+  mapReportTriage,
   pageRange,
   toPayloadHashPreview,
   toProviderEventStatus,
@@ -55,10 +57,18 @@ describe("derivePaymentIntentStatus", () => {
       }),
     ).toBe("CONFIRMED");
     expect(
-      derivePaymentIntentStatus({ dbStatus: "PENDING", ledgerTypes: [], hasSucceededRefund: false }),
+      derivePaymentIntentStatus({
+        dbStatus: "PENDING",
+        ledgerTypes: [],
+        hasSucceededRefund: false,
+      }),
     ).toBe("PENDING");
     expect(
-      derivePaymentIntentStatus({ dbStatus: "CREATED", ledgerTypes: [], hasSucceededRefund: false }),
+      derivePaymentIntentStatus({
+        dbStatus: "CREATED",
+        ledgerTypes: [],
+        hasSucceededRefund: false,
+      }),
     ).toBe("CREATED");
   });
 
@@ -213,5 +223,109 @@ describe("pageRange", () => {
     expect(pageRange(0, 20)).toEqual({ from: 0, to: 19 });
     expect(pageRange(1, 1000)).toEqual({ from: 0, to: 99 });
     expect(pageRange(Number.NaN, Number.NaN)).toEqual({ from: 0, to: 19 });
+  });
+});
+
+describe("mapCaseSubject", () => {
+  const payload = {
+    exists: true,
+    kind: "message",
+    label: 'Message from "Tasker Dos" in booking e5000000',
+    status: "APPROVED",
+    body: "Pay me outside the app or I walk.",
+    occurredAt: "2026-08-24T10:00:00.000Z",
+    subjectUserId: "c2222222-2222-2222-2222-222222222222",
+    subjectUserName: "Tasker Dos",
+    counterpartyName: "Client Uno",
+    taskId: "a5000000-0000-0000-0000-000000000001",
+    taskTitle: "Deep clean 2BR condo",
+    bookingId: "e5000000-0000-0000-0000-000000000001",
+    amountCentavos: null,
+    extra: { bookingStatus: "CONFIRMED", attachmentCount: 2 },
+  };
+
+  it("projects a resolved subject as-is", () => {
+    const subject = mapCaseSubject(payload, "message");
+    expect(subject.exists).toBe(true);
+    expect(subject.body).toBe("Pay me outside the app or I walk.");
+    expect(subject.subjectUserName).toBe("Tasker Dos");
+    expect(subject.extra).toEqual({ bookingStatus: "CONFIRMED", attachmentCount: 2 });
+  });
+
+  it("keeps a centavo amount that PostgREST rendered as a string", () => {
+    // bigint crosses the wire as text; losing it would silently show no amount.
+    const subject = mapCaseSubject({ ...payload, amountCentavos: "340000" }, "booking");
+    expect(subject.amountCentavos).toBe(340000);
+  });
+
+  it("degrades to a non-existent subject instead of throwing", () => {
+    // A case page must still open when the resolver returned nothing.
+    for (const bad of [null, undefined, "not json", 42]) {
+      const subject = mapCaseSubject(bad, "task");
+      expect(subject.exists).toBe(false);
+      expect(subject.kind).toBe("task");
+      expect(subject.label).toContain("could not be resolved");
+      expect(subject.body).toBeNull();
+    }
+  });
+
+  it("treats a deleted resource as existing=false with the server's label", () => {
+    const subject = mapCaseSubject(
+      { exists: false, kind: "message", label: "This message no longer exists" },
+      "message",
+    );
+    expect(subject.exists).toBe(false);
+    expect(subject.label).toBe("This message no longer exists");
+  });
+
+  it("drops nested objects from extras rather than rendering [object Object]", () => {
+    const subject = mapCaseSubject(
+      { ...payload, extra: { flag: true, nested: { a: 1 }, missing: null, count: "7" } },
+      "message",
+    );
+    expect(subject.extra).toEqual({ flag: true, missing: null, count: "7" });
+  });
+
+  it("does not accept an empty string as a value", () => {
+    // An empty label would render a blank card; null makes the fallback fire.
+    const subject = mapCaseSubject({ ...payload, label: "", status: "" }, "message");
+    expect(subject.label).toContain("could not be resolved");
+    expect(subject.status).toBeNull();
+  });
+});
+
+describe("mapReportTriage", () => {
+  const payload = {
+    reporter: {
+      id: "c1111111-1111-1111-1111-111111111111",
+      displayName: "Client Uno",
+      accountStatus: "active",
+      reportsFiled: 3,
+      reportsDismissed: 1,
+    },
+    resourceReportSummary: { distinctReporters: 2, openCases: 2, actionedCases: 0 },
+  };
+
+  it("projects reporter identity and pile-on counts", () => {
+    const triage = mapReportTriage(payload);
+    expect(triage?.reporter.displayName).toBe("Client Uno");
+    expect(triage?.reporter.reportsDismissed).toBe(1);
+    expect(triage?.distinctReporters).toBe(2);
+  });
+
+  it("accepts counts that arrived as strings", () => {
+    const triage = mapReportTriage({
+      reporter: { ...payload.reporter, reportsFiled: "3" },
+      resourceReportSummary: { distinctReporters: "2", openCases: "2", actionedCases: "0" },
+    });
+    expect(triage?.reporter.reportsFiled).toBe(3);
+    expect(triage?.openCases).toBe(2);
+  });
+
+  it("returns null when the block is absent instead of inventing zeros", () => {
+    // "No other reports" and "we could not tell" must not look identical.
+    expect(mapReportTriage(null)).toBeNull();
+    expect(mapReportTriage({})).toBeNull();
+    expect(mapReportTriage({ reporter: payload.reporter })).toBeNull();
   });
 });

@@ -154,4 +154,16 @@ describe("collectViolations / shouldFailClosed", () => {
     });
     expect(shouldFailClosed("development", violations)).toBe(true);
   });
+
+  it("accepts live map mode without a bundled key (geocoding is server-proxied)", () => {
+    const violations = collectViolations({
+      environment: "development",
+      adapterModes: { ...allSynthetic, map: "live" },
+      credentials: noCreds,
+    });
+    // Live map mode no longer requires a client-side MAP_PUBLIC_KEY: the Google
+    // key lives server-side in the geocode Edge Function.
+    expect(violations.filter((v) => v.field === "mapPublicKey")).toHaveLength(0);
+    expect(shouldFailClosed("development", violations)).toBe(false);
+  });
 });

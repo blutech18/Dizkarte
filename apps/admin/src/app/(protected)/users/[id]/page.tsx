@@ -62,8 +62,7 @@ export default async function UserDetailPage({
         <div>
           <h1 className="dk-page-title">{user.displayName}</h1>
           <p className="dk-page-subtitle">
-            Joined {new Date(user.createdAt).toLocaleDateString("en-PH")} · Language{" "}
-            {user.language}
+            Joined {new Date(user.createdAt).toLocaleDateString("en-PH")} · Language {user.language}
             {user.cityCode ? ` · City ${user.cityCode}` : ""}
           </p>
         </div>

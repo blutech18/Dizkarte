@@ -55,9 +55,9 @@ describe("validateChatMessageInput", () => {
 
     it("rejects a traversing or absolute object key", () => {
       for (const storagePath of [`${SENDER}/../other/photo.jpg`, "/etc/passwd"]) {
-        expect(validateChatMessageInput({ body: null, media: [attachment({ storagePath })] }).ok).toBe(
-          false,
-        );
+        expect(
+          validateChatMessageInput({ body: null, media: [attachment({ storagePath })] }).ok,
+        ).toBe(false);
       }
     });
   });

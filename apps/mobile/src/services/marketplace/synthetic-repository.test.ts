@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Ensure a development-shaped public config resolves before any module under
 // test calls `getAppConfig()`. Mirrors `.env.example` (safe placeholders only).
@@ -96,6 +96,108 @@ describe("SyntheticMarketplaceRepository", () => {
       expect(strangerView).toBeNull();
     });
 
+    it("persists uploaded task-media metadata when the draft is updated", async () => {
+      const base = await repo.saveDraftTask(CLIENT_ID, draft());
+      const photo = {
+        id: `${CLIENT_ID}/${base.id}/photo.jpg`,
+        kind: "image" as const,
+        fileName: "photo.jpg",
+        sizeBytes: 240_000,
+        mimeType: "image/jpeg",
+        storagePath: `${CLIENT_ID}/${base.id}/photo.jpg`,
+      };
+
+      const saved = await repo.saveDraftTask(CLIENT_ID, draft({ media: [photo] }), base.id);
+
+      expect(saved.id).toBe(base.id);
+      expect(saved.draft.media).toEqual([photo]);
+
+      const edited = await repo.saveDraftTask(
+        CLIENT_ID,
+        draft({
+          media: [],
+          landmark: "Cebu City, Cebu",
+          approximateLat: 10.3157,
+          approximateLng: 123.8854,
+          exactAddress: "Osmena Boulevard, Cebu City",
+          exactLat: 10.3102,
+          exactLng: 123.8939,
+        }),
+        base.id,
+      );
+
+      expect(edited.draft.media).toEqual([]);
+      expect(edited.draft).toMatchObject({
+        landmark: "Cebu City, Cebu",
+        approximateLat: 10.3157,
+        approximateLng: 123.8854,
+        exactAddress: "Osmena Boulevard, Cebu City",
+        exactLat: 10.3102,
+        exactLng: 123.8939,
+      });
+    });
+
+    it("stores category answers and reads them back with their question labels", async () => {
+      const categoryId = "30000000-0000-4000-8000-000000000004"; // moving-hauling
+      const questions = await repo.listCategoryQuestions(categoryId);
+      expect(questions.length).toBeGreaterThan(0);
+
+      // The reference flow's exact removals wording comes from the catalogue.
+      const stairs = questions.find((q) => q.code === "stairs");
+      expect(stairs?.label).toBe("Are there stairs?");
+      expect(stairs?.options).toContain("At both places");
+      expect(stairs?.required).toBe(true);
+
+      const whatMoving = questions.find((q) => q.code === "what_moving");
+      expect(whatMoving).toBeDefined();
+
+      const saved = await repo.saveDraftTask(
+        CLIENT_ID,
+        draft({
+          categoryId,
+          answers: [
+            { questionId: whatMoving!.id, answer: "House" },
+            { questionId: stairs!.id, answer: "At both places" },
+          ],
+        }),
+      );
+
+      const stored = await repo.listTaskAnswers(saved.id);
+      expect(stored.map((row) => [row.label, row.answer])).toEqual([
+        ["What are you moving?", "House"],
+        ["Are there stairs?", "At both places"],
+      ]);
+    });
+
+    it("drops blank answers and leaves stored answers untouched when none are supplied", async () => {
+      const categoryId = "30000000-0000-4000-8000-000000000004";
+      const questions = await repo.listCategoryQuestions(categoryId);
+      const first = questions[0]!;
+
+      const saved = await repo.saveDraftTask(
+        CLIENT_ID,
+        draft({
+          categoryId,
+          answers: [
+            { questionId: first.id, answer: "House" },
+            { questionId: questions[1]!.id, answer: "   " },
+          ],
+        }),
+      );
+      expect(await repo.listTaskAnswers(saved.id)).toHaveLength(1);
+
+      // Re-saving without an answers list (what the single-page edit form does)
+      // must not clear what is already stored.
+      const edited = await repo.saveDraftTask(
+        CLIENT_ID,
+        draft({ categoryId, title: "Move a house instead" }),
+        saved.id,
+      );
+      const stillThere = await repo.listTaskAnswers(edited.id);
+      expect(stillThere).toHaveLength(1);
+      expect(stillThere[0]?.answer).toBe("House");
+    });
+
     it("denies publishing when identity is not verified", async () => {
       const saved = await repo.saveDraftTask(CLIENT_ID, draft());
       const result = await repo.publishTask(saved.id, CLIENT_ID, false);
@@ -120,6 +222,98 @@ describe("SyntheticMarketplaceRepository", () => {
 
       const feed = await repo.searchOpenTasks({ page: 1, pageSize: 50 });
       expect(feed.items.some((item) => item.id === saved.id)).toBe(true);
+    });
+  });
+
+  describe("owner task cancellation", () => {
+    it("cancels an open task and withdraws it from the marketplace", async () => {
+      const saved = await repo.saveDraftTask(CLIENT_ID, draft());
+      await repo.publishTask(saved.id, CLIENT_ID, true);
+
+      const outcome = await repo.cancelOwnTask(saved.id, CLIENT_ID);
+      expect(outcome.ok).toBe(true);
+
+      const after = await repo.getOwnedTask(saved.id, CLIENT_ID);
+      expect(after?.status).toBe("CANCELLED");
+      const feed = await repo.searchOpenTasks({ page: 1, pageSize: 50 });
+      expect(feed.items.some((item) => item.id === saved.id)).toBe(false);
+    });
+
+    it("cancels a draft that was never published", async () => {
+      const saved = await repo.saveDraftTask(CLIENT_ID, draft());
+      expect((await repo.cancelOwnTask(saved.id, CLIENT_ID)).ok).toBe(true);
+      expect((await repo.getOwnedTask(saved.id, CLIENT_ID))?.status).toBe("CANCELLED");
+    });
+
+    it("denies cancellation by anyone but the owner", async () => {
+      const saved = await repo.saveDraftTask(CLIENT_ID, draft());
+      const outcome = await repo.cancelOwnTask(saved.id, OTHER_CLIENT_ID);
+      expect(outcome.ok).toBe(false);
+
+      expect((await repo.getOwnedTask(saved.id, CLIENT_ID))?.status).toBe("DRAFT");
+    });
+
+    it("is idempotent, so cancelling twice still succeeds", async () => {
+      const saved = await repo.saveDraftTask(CLIENT_ID, draft());
+      expect((await repo.cancelOwnTask(saved.id, CLIENT_ID)).ok).toBe(true);
+      expect((await repo.cancelOwnTask(saved.id, CLIENT_ID)).ok).toBe(true);
+    });
+
+    it("closes every live offer so no Tasker is left waiting", async () => {
+      const saved = await repo.saveDraftTask(CLIENT_ID, draft());
+      await repo.publishTask(saved.id, CLIENT_ID, true);
+      const offer = await repo.submitOffer(saved.id, TASKER_ID, "Ramon Bautista", {
+        amountCentavos: 45000,
+        message: "I can bring my own tools and finish within the hour.",
+        etaText: "Within 2 hours",
+        availabilityText: "Today after 3pm",
+        experienceText: "Five years of plumbing repairs.",
+      });
+      expect(offer.status).toBe("SUBMITTED");
+
+      await repo.cancelOwnTask(saved.id, CLIENT_ID);
+
+      const offers = await repo.listOffers(saved.id, CLIENT_ID);
+      expect(offers.every((o) => o.status !== "SUBMITTED")).toBe(true);
+    });
+
+    it("refuses to cancel once the task carries a booking, leaving that to the booking flow", async () => {
+      const saved = await repo.saveDraftTask(CLIENT_ID, draft());
+      await repo.publishTask(saved.id, CLIENT_ID, true);
+      const offer = await repo.submitOffer(saved.id, TASKER_ID, "Ramon Bautista", {
+        amountCentavos: 45000,
+        message: "I can bring my own tools and finish within the hour.",
+        etaText: "Within 2 hours",
+        availabilityText: "Today after 3pm",
+        experienceText: "Five years of plumbing repairs.",
+      });
+      await repo.selectOffer(saved.id, offer.id, CLIENT_ID, `select-${saved.id}`);
+
+      const outcome = await repo.cancelOwnTask(saved.id, CLIENT_ID);
+      expect(outcome.ok).toBe(false);
+      expect(outcome.reason).toBeTruthy();
+    });
+  });
+
+  describe("public portfolio visibility", () => {
+    it("shows an owner their pending work sample but never shows it publicly", async () => {
+      const added = await repo.addPortfolioItem(TASKER_ID, {
+        storagePath: `${TASKER_ID}/portfolio/deck.jpg`,
+        caption: "Deck rebuild",
+      });
+      expect(added.ok).toBe(true);
+
+      // The owner sees their own item while it is still in moderation...
+      const own = await repo.listMyPortfolio(TASKER_ID);
+      expect(own).toHaveLength(1);
+      expect(own[0]?.moderationStatus).toBe("PENDING");
+
+      // ...but a Client comparing offers must not see unmoderated content.
+      expect(await repo.listPublicPortfolio(TASKER_ID)).toEqual([]);
+    });
+
+    it("returns an empty portfolio for a Tasker who has none", async () => {
+      expect(await repo.listPublicPortfolio(OTHER_CLIENT_ID)).toEqual([]);
     });
   });
 
@@ -432,6 +626,8 @@ describe("SyntheticMarketplaceRepository", () => {
 
     it("opening a dispute freezes the booking without deleting history", async () => {
       const bookingId = await inProgressBooking();
+      expect(await repo.getDisputeForBooking(bookingId, CLIENT_ID)).toBeNull();
+
       const dispute = await repo.openDispute(
         { bookingId, reason: "Work not finished." },
         CLIENT_ID,
@@ -443,6 +639,12 @@ describe("SyntheticMarketplaceRepository", () => {
 
       const events = await repo.listBookingEvents(bookingId);
       expect(events.length).toBeGreaterThan(0);
+
+      // Either participant can read the dispute; a non-participant sees nothing.
+      const forTasker = await repo.getDisputeForBooking(bookingId, TASKER_ID);
+      expect(forTasker?.id).toBe(dispute?.id);
+      expect(forTasker?.status).toBe("OPEN");
+      expect(await repo.getDisputeForBooking(bookingId, OTHER_CLIENT_ID)).toBeNull();
     });
   });
 
@@ -494,6 +696,344 @@ describe("SyntheticMarketplaceRepository", () => {
         CLIENT_ID,
       );
       expect(second.ok).toBe(false);
+    });
+
+    it("reveals a one-sided review once the window expires (Phase 3 timeout case)", async () => {
+      // The exit gate requires the TIMEOUT case, not just the both-submitted one:
+      // a Client who reviews and never hears back must eventually see their own
+      // review published rather than sitting hidden forever.
+      const bookingId = await completedBooking();
+      await repo.submitReview({ bookingId, score: 5, comment: "Great work" }, CLIENT_ID);
+
+      const beforeDeadline = await repo.getReviewPair(bookingId, TASKER_ID);
+      expect(beforeDeadline?.bothSubmitted).toBe(false);
+      expect(beforeDeadline?.counterpartReview).toBeNull();
+      const deadline = beforeDeadline?.revealDeadline;
+      expect(deadline).toBeTruthy();
+
+      // Advance past the documented reveal deadline. Only `Date` is faked: the
+      // adapter awaits a real `setTimeout` to mimic latency, which faked timers
+      // would stall.
+      vi.useFakeTimers({ toFake: ["Date"] });
+      try {
+        vi.setSystemTime(new Date(new Date(deadline as string).getTime() + 60_000));
+        const afterDeadline = await repo.getReviewPair(bookingId, TASKER_ID);
+        expect(afterDeadline?.bothSubmitted).toBe(false);
+        expect(afterDeadline?.counterpartReview).not.toBeNull();
+        expect(afterDeadline?.counterpartReview?.status).toBe("REVEALED");
+        // Persisted, not merely returned as readable: the row itself is revealed.
+        expect(afterDeadline?.counterpartReview?.revealedAt).not.toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("returns nothing to a non-participant viewer", async () => {
+      const bookingId = await completedBooking();
+      await repo.submitReview({ bookingId, score: 5, comment: "Great work" }, CLIENT_ID);
+
+      const stranger = await repo.getReviewPair(bookingId, "unrelated-user");
+      expect(stranger).toBeNull();
+    });
+  });
+
+  describe("conversation summaries and read state", () => {
+    async function confirmedConversation(idempotencyKey: string) {
+      const saved = await repo.saveDraftTask(CLIENT_ID, draft());
+      const published = await repo.publishTask(saved.id, CLIENT_ID, true);
+      if (!published.ok) throw new Error("publish failed");
+      const offer = await repo.submitOffer(published.task.id, TASKER_ID, "Ramon Bautista", {
+        amountCentavos: 45000,
+        message: "Offer",
+        etaText: "2 hours",
+        availabilityText: "Today",
+        experienceText: "Experienced.",
+      });
+      const selected = await repo.selectOffer(
+        published.task.id,
+        offer.id,
+        CLIENT_ID,
+        idempotencyKey,
+      );
+      if (!selected.ok) throw new Error("selection failed");
+      const checkout = await repo.createCheckoutSession(selected.bookingId, CLIENT_ID);
+      await repo.simulateCheckout(checkout.providerReference, "success");
+      await repo.processAuthoritativeWebhook(checkout.providerReference);
+      const conversation = await repo.getConversationForBooking(selected.bookingId, CLIENT_ID);
+      if (!conversation) throw new Error("conversation not found");
+      return { conversationId: conversation.id, bookingId: selected.bookingId };
+    }
+
+    it("counts only the counterpart's messages as unread, and clears on read", async () => {
+      const { conversationId, bookingId } = await confirmedConversation("summary-key-1");
+      await repo.sendMessage(conversationId, TASKER_ID, "On my way.", "sum-1");
+      await repo.sendMessage(conversationId, CLIENT_ID, "Gate code is 1234.", "sum-2");
+      await repo.sendMessage(conversationId, TASKER_ID, "Arrived.", "sum-3");
+
+      const clientView = await repo.listConversationSummaries(CLIENT_ID);
+      const summary = clientView.find((row) => row.bookingId === bookingId);
+      expect(summary).toBeDefined();
+      // Two Tasker messages are unread; the Client's own message is not.
+      expect(summary?.unreadCount).toBe(2);
+      expect(summary?.lastMessagePreview).toBe("Arrived.");
+      expect(summary?.lastMessageSenderId).toBe(TASKER_ID);
+
+      await repo.markConversationRead(conversationId, CLIENT_ID);
+      const afterRead = await repo.listConversationSummaries(CLIENT_ID);
+      expect(afterRead.find((row) => row.bookingId === bookingId)?.unreadCount).toBe(0);
+    });
+
+    it("is symmetric: each participant's own messages are never unread to them", async () => {
+      const { conversationId, bookingId } = await confirmedConversation("summary-key-2");
+      await repo.sendMessage(conversationId, CLIENT_ID, "Are you nearby?", "sym-1");
+
+      const taskerView = await repo.listConversationSummaries(TASKER_ID);
+      expect(taskerView.find((row) => row.bookingId === bookingId)?.unreadCount).toBe(1);
+
+      const clientView = await repo.listConversationSummaries(CLIENT_ID);
+      expect(clientView.find((row) => row.bookingId === bookingId)?.unreadCount).toBe(0);
+    });
+
+    it("reopens unread when a newer counterpart message arrives after reading", async () => {
+      const { conversationId, bookingId } = await confirmedConversation("summary-key-3");
+      await repo.sendMessage(conversationId, TASKER_ID, "Starting now.", "re-1");
+      await repo.markConversationRead(conversationId, CLIENT_ID);
+      expect(
+        (await repo.listConversationSummaries(CLIENT_ID)).find((r) => r.bookingId === bookingId)
+          ?.unreadCount,
+      ).toBe(0);
+
+      await repo.sendMessage(conversationId, TASKER_ID, "One more thing.", "re-2");
+      const reopened = (await repo.listConversationSummaries(CLIENT_ID)).find(
+        (r) => r.bookingId === bookingId,
+      );
+      expect(reopened?.unreadCount).toBe(1);
+      expect(reopened?.lastMessagePreview).toBe("One more thing.");
+    });
+
+    it("describes a media-only message without inventing preview text", async () => {
+      const { conversationId, bookingId } = await confirmedConversation("summary-key-4");
+      await repo.sendMessage(conversationId, TASKER_ID, null, "media-1", [
+        {
+          kind: "image",
+          fileName: "proof.jpg",
+          sizeBytes: 2048,
+          mimeType: "image/jpeg",
+          storagePath: "chat-media/synthetic/proof.jpg",
+        },
+      ]);
+
+      const summary = (await repo.listConversationSummaries(CLIENT_ID)).find(
+        (r) => r.bookingId === bookingId,
+      );
+      expect(summary?.lastMessagePreview).toBeNull();
+      expect(summary?.lastMessageHasMedia).toBe(true);
+      expect(summary?.unreadCount).toBe(1);
+    });
+
+    it("returns nothing to a non-participant, and their read-mark is a no-op", async () => {
+      const { conversationId } = await confirmedConversation("summary-key-5");
+      await repo.sendMessage(conversationId, TASKER_ID, "Private context.", "priv-1");
+
+      expect(await repo.listConversationSummaries(OTHER_CLIENT_ID)).toEqual([]);
+
+      // Must not create read state for a thread the caller cannot even list.
+      await repo.markConversationRead(conversationId, OTHER_CLIENT_ID);
+      const clientView = await repo.listConversationSummaries(CLIENT_ID);
+      expect(clientView[0]?.unreadCount).toBe(1);
+    });
+
+    it("excludes a booking whose chat has not unlocked yet", async () => {
+      // A PAYMENT_PENDING booking has no conversation, so it must not appear as
+      // an empty thread in the list.
+      const saved = await repo.saveDraftTask(CLIENT_ID, draft());
+      const published = await repo.publishTask(saved.id, CLIENT_ID, true);
+      if (!published.ok) throw new Error("publish failed");
+      const offer = await repo.submitOffer(published.task.id, TASKER_ID, "Ramon Bautista", {
+        amountCentavos: 45000,
+        message: "Offer",
+        etaText: "2 hours",
+        availabilityText: "Today",
+        experienceText: "Experienced.",
+      });
+      const selected = await repo.selectOffer(published.task.id, offer.id, CLIENT_ID, "unpaid-key");
+      if (!selected.ok) throw new Error("selection failed");
+
+      const summaries = await repo.listConversationSummaries(CLIENT_ID);
+      expect(summaries.some((row) => row.bookingId === selected.bookingId)).toBe(false);
+    });
+  });
+
+  describe("owned task offer counts", () => {
+    it("counts only offers still awaiting a decision, matching the Supabase adapter", async () => {
+      const saved = await repo.saveDraftTask(CLIENT_ID, draft());
+      const published = await repo.publishTask(saved.id, CLIENT_ID, true);
+      if (!published.ok) throw new Error("publish failed");
+
+      const offer = await repo.submitOffer(published.task.id, TASKER_ID, "Ramon Bautista", {
+        amountCentavos: 45000,
+        message: "Offer",
+        etaText: "2 hours",
+        availabilityText: "Today",
+        experienceText: "Experienced.",
+      });
+
+      // While the offer is SUBMITTED the card should invite a review.
+      const withOffer = await repo.getOwnedTask(published.task.id, CLIENT_ID);
+      expect(withOffer?.offerCount).toBe(1);
+      const listedWithOffer = await repo.listMyTasks(CLIENT_ID);
+      expect(listedWithOffer.find((task) => task.id === published.task.id)?.offerCount).toBe(1);
+
+      const selected = await repo.selectOffer(
+        published.task.id,
+        offer.id,
+        CLIENT_ID,
+        "offer-count-key",
+      );
+      if (!selected.ok) throw new Error("selection failed");
+
+      // Once accepted there is nothing left to review: an offer already acted on
+      // must not keep inflating "Review N offers" or the My Tasks overview tile.
+      const afterSelection = await repo.getOwnedTask(published.task.id, CLIENT_ID);
+      expect(afterSelection?.offerCount).toBe(0);
+      const listedAfter = await repo.listMyTasks(CLIENT_ID);
+      expect(listedAfter.find((task) => task.id === published.task.id)?.offerCount).toBe(0);
+    });
+
+    it("returns only the requesting owner's tasks", async () => {
+      const mine = await repo.saveDraftTask(CLIENT_ID, draft());
+      await repo.saveDraftTask(OTHER_CLIENT_ID, draft());
+
+      const listed = await repo.listMyTasks(CLIENT_ID);
+      expect(listed.some((task) => task.id === mine.id)).toBe(true);
+      expect(listed.every((task) => task.clientId === CLIENT_ID)).toBe(true);
+    });
+  });
+
+  describe("trust & safety reports", () => {
+    async function conversationWithMessages(idempotencyKey: string) {
+      const saved = await repo.saveDraftTask(CLIENT_ID, draft());
+      const published = await repo.publishTask(saved.id, CLIENT_ID, true);
+      if (!published.ok) throw new Error("publish failed");
+      const offer = await repo.submitOffer(published.task.id, TASKER_ID, "Ramon Bautista", {
+        amountCentavos: 45000,
+        message: "Offer",
+        etaText: "2 hours",
+        availabilityText: "Today",
+        experienceText: "Experienced.",
+      });
+      const selected = await repo.selectOffer(
+        published.task.id,
+        offer.id,
+        CLIENT_ID,
+        idempotencyKey,
+      );
+      if (!selected.ok) throw new Error("selection failed");
+      const checkout = await repo.createCheckoutSession(selected.bookingId, CLIENT_ID);
+      await repo.simulateCheckout(checkout.providerReference, "success");
+      await repo.processAuthoritativeWebhook(checkout.providerReference);
+      const conversation = await repo.getConversationForBooking(selected.bookingId, CLIENT_ID);
+      if (!conversation) throw new Error("conversation not found");
+      const fromTasker = await repo.sendMessage(conversation.id, TASKER_ID, "Their words.", "r-1");
+      const fromClient = await repo.sendMessage(conversation.id, CLIENT_ID, "My words.", "r-2");
+      return { bookingId: selected.bookingId, fromTasker, fromClient };
+    }
+
+    it("lets a participant report the counterpart's message, opening one case", async () => {
+      const { fromTasker } = await conversationWithMessages("report-key-1");
+      const report = await repo.submitReport({
+        reporterId: CLIENT_ID,
+        resourceType: "message",
+        resourceId: fromTasker.id as unknown as string,
+        category: "harassment",
+        narrative: "This message was abusive towards me.",
+      });
+      expect(report.status).toBe("OPEN");
+      expect(report.resourceType).toBe("message");
+
+      // A second submission returns the SAME case rather than stacking duplicates
+      // on the Admin queue.
+      const again = await repo.submitReport({
+        reporterId: CLIENT_ID,
+        resourceType: "message",
+        resourceId: fromTasker.id as unknown as string,
+        category: "spam",
+        narrative: "Reporting the same message again.",
+      });
+      expect(again.id).toBe(report.id);
+    });
+
+    it("refuses to report your own message", async () => {
+      const { fromClient } = await conversationWithMessages("report-key-2");
+      await expect(
+        repo.submitReport({
+          reporterId: CLIENT_ID,
+          resourceType: "message",
+          resourceId: fromClient.id as unknown as string,
+          category: "spam",
+          narrative: "Reporting my own message makes no sense.",
+        }),
+      ).rejects.toThrow(/FORBIDDEN/);
+    });
+
+    it("refuses a message in a conversation the reporter is not part of", async () => {
+      const { fromTasker } = await conversationWithMessages("report-key-3");
+      await expect(
+        repo.submitReport({
+          reporterId: OTHER_CLIENT_ID,
+          resourceType: "message",
+          resourceId: fromTasker.id as unknown as string,
+          category: "harassment",
+          narrative: "A conversation I am not a participant of.",
+        }),
+      ).rejects.toThrow(/FORBIDDEN/);
+    });
+
+    it("refuses a booking the reporter is not party to, and self-reporting", async () => {
+      const { bookingId } = await conversationWithMessages("report-key-4");
+      await expect(
+        repo.submitReport({
+          reporterId: OTHER_CLIENT_ID,
+          resourceType: "booking",
+          resourceId: bookingId as unknown as string,
+          category: "fraud",
+          narrative: "A booking I have nothing to do with.",
+        }),
+      ).rejects.toThrow(/FORBIDDEN/);
+
+      await expect(
+        repo.submitReport({
+          reporterId: CLIENT_ID,
+          resourceType: "user",
+          resourceId: CLIENT_ID,
+          category: "spam",
+          narrative: "Reporting myself should be impossible.",
+        }),
+      ).rejects.toThrow(/FORBIDDEN/);
+    });
+
+    it("enforces the narrative bounds before writing anything", async () => {
+      await expect(
+        repo.submitReport({
+          reporterId: CLIENT_ID,
+          resourceType: "user",
+          resourceId: TASKER_ID,
+          category: "other",
+          narrative: "too short",
+        }),
+      ).rejects.toThrow(/VALIDATION_ERROR/);
+    });
+
+    it("allows reporting another profile", async () => {
+      const report = await repo.submitReport({
+        reporterId: CLIENT_ID,
+        resourceType: "user",
+        resourceId: TASKER_ID,
+        category: "harassment",
+        narrative: "This profile is impersonating somebody else.",
+      });
+      expect(report.resourceType).toBe("user");
+      expect(report.status).toBe("OPEN");
     });
   });
 
@@ -1359,7 +1899,7 @@ describe("SyntheticMarketplaceRepository", () => {
 
     it("reflects a confirmed booking as active work with a protected ledger balance", async () => {
       await confirmedBookingForTasker();
-      const snapshot = await repo.getTaskerDashboard(TASKER_ID);
+      const snapshot = await repo.getTaskerWorkSnapshot(TASKER_ID);
       expect(snapshot.activeBookings.length).toBeGreaterThan(0);
       expect(snapshot.ledger.protectedCentavos).toBeGreaterThan(0);
       expect(snapshot.ledger.derived).toBe(true);
@@ -1371,7 +1911,7 @@ describe("SyntheticMarketplaceRepository", () => {
       await repo.requestCompletion({ bookingId, note: "Done", evidence: [] }, TASKER_ID);
       await repo.confirmCompletion(bookingId, CLIENT_ID);
 
-      const snapshot = await repo.getTaskerDashboard(TASKER_ID);
+      const snapshot = await repo.getTaskerWorkSnapshot(TASKER_ID);
       expect(snapshot.completedWork.some((b) => b.id === bookingId)).toBe(true);
       expect(snapshot.ledger.availableCentavos).toBeGreaterThan(0);
     });
@@ -1381,7 +1921,7 @@ describe("SyntheticMarketplaceRepository", () => {
       await repo.startWork(bookingId, TASKER_ID);
       await repo.requestCompletion({ bookingId, note: "Done", evidence: [] }, TASKER_ID);
 
-      const snapshot = await repo.getTaskerDashboard(TASKER_ID);
+      const snapshot = await repo.getTaskerWorkSnapshot(TASKER_ID);
       expect(snapshot.completionRequested.some((b) => b.id === bookingId)).toBe(true);
       expect(snapshot.activeBookings.some((b) => b.id === bookingId)).toBe(false);
       expect(snapshot.completedWork.some((b) => b.id === bookingId)).toBe(false);
@@ -1638,6 +2178,29 @@ describe("SyntheticMarketplaceRepository", () => {
       });
 
       expect(outcome.ok).toBe(false);
+    });
+
+    it("removes an owner document only while the case remains editable", async () => {
+      const openCase = await repo.startVerification();
+      const attached = await repo.addVerificationDocument({
+        caseId: openCase.id,
+        kind: "government_id_front",
+        storagePath: `${CLIENT_ID}/${openCase.id}/replace-me.jpg`,
+        mimeType: "image/jpeg",
+        sizeBytes: 120_000,
+      });
+      expect(attached.ok).toBe(true);
+      if (!attached.ok) return;
+
+      await expect(
+        repo.removeVerificationDocument({
+          caseId: openCase.id,
+          documentId: attached.document.id,
+        }),
+      ).resolves.toEqual({ ok: true });
+
+      const missingDocument = await repo.submitVerification();
+      expect(missingDocument.ok).toBe(false);
     });
   });
 });

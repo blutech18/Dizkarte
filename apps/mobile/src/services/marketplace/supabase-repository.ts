@@ -15,7 +15,9 @@ import {
   type PublicTaskerProfile,
   type PublicTaskFeedItem,
   type TaskId,
+  type TaskLocationType,
   type TaskQuestionId,
+  type TaskTimeOfDay,
   type UserId,
 } from "@dizkarte/domain";
 import type { MobileMarketplacePort } from "./port";
@@ -30,19 +32,27 @@ import {
   maskContact,
   persistedDeliveryStatus,
   toBookingStatus,
+  toConversationSummary,
   toOfferStatus,
   toPointLiteral,
   toTaskStatus,
+  type ConversationSummaryRow,
   type RawBookingRow,
   type RawOfferRow,
 } from "./supabase-mappers";
 import type {
+  AddVerificationDocumentOutcome,
+  AddPayoutMethodInput,
+  BillingAddressInput,
+  BillingAddressRecord,
   BookingEventRecord,
   BookingRecord,
   CheckoutSessionRecord,
   CheckoutSimulationChoice,
   CompletionEvidenceItem,
   ConversationRecord,
+  ConversationSummary,
+  ReportRecord,
   DisputeRecord,
   DraftTaskInput,
   LedgerSummary,
@@ -55,23 +65,82 @@ import type {
   NotificationPreferences,
   NotificationRecord,
   OfferRecord,
+  OfferRegistrationStatus,
   OpenDisputeInput,
   OwnedTaskRecord,
+  PayoutMethodSummary,
+  PortfolioItemRecord,
+  PsgcBarangay,
+  PsgcCity,
+  RegistrationActionOutcome,
+  ReportEvidenceItem,
   RequestCompletionInput,
   RequestWithdrawalOutcome,
   ReviewInput,
   ReviewPairView,
   SelectOfferOutcome,
   SpecialtyOption,
+  SubmitTaskerApplicationInput,
+  SubmitTaskerApplicationOutcome,
   SubmitVerificationOutcome,
   SupportTicketRecord,
-  TaskerDashboardSnapshot,
+  TaskerApplicationRecord,
+  TaskerWorkSnapshot,
   TaskQuestionRecord,
+  TaskQuestionDefinition,
+  TaskQuestionInputKind,
+  TaskAnswerInput,
+  TaskAnswerRecord,
   UpdateProfileOutcome,
   VerificationCaseRecord,
   VerificationDocumentKind,
   WithdrawalRecord,
 } from "./types";
+
+/** Row shapes for the offer-registration reads. */
+type RawRegistrationStatusRow = {
+  readonly mobile_complete: boolean;
+  readonly bank_complete: boolean;
+  readonly billing_complete: boolean;
+};
+type RawPayoutMethodRow = {
+  readonly id: string;
+  readonly provider: string;
+  readonly masked_label: string;
+  readonly status: string;
+};
+type RawBillingAddressRow = {
+  readonly line1: string;
+  readonly line2: string | null;
+  readonly city: string;
+  readonly region: string | null;
+  readonly postal_code: string | null;
+  readonly country: string;
+};
+type RawPsgcCityRow = {
+  readonly code: string;
+  readonly city6: string;
+  readonly name: string;
+  readonly province_name: string | null;
+  readonly is_city: boolean;
+};
+type RawPsgcBarangayRow = {
+  readonly code: string;
+  readonly name: string;
+  readonly city6: string;
+};
+function mapPsgcCity(row: RawPsgcCityRow): PsgcCity {
+  return {
+    code: row.code,
+    city6: row.city6,
+    name: row.name,
+    provinceName: row.province_name,
+    isCity: row.is_city,
+  };
+}
+function mapPsgcBarangay(row: RawPsgcBarangayRow): PsgcBarangay {
+  return { code: row.code, name: row.name, city6: row.city6 };
+}
 
 /** `public.verification_cases` row as returned by the self-service RPCs. */
 type VerificationCaseRow = {
@@ -125,6 +194,15 @@ const CHECKOUT_UNAVAILABLE =
   "No approved Philippine payment provider is configured, so a real checkout cannot be started. " +
   "Escrow payment is enabled once provider credentials and the refund policy are approved.";
 
+/**
+ * Monotonic suffix so each realtime subscription gets its OWN channel topic.
+ * Supabase returns the same cached channel for an identical topic, and adding a
+ * `postgres_changes` listener to an already-`subscribe()`d channel throws — so
+ * independent subscribers (e.g. the notifications screen AND the header-badge
+ * provider) must never share a topic.
+ */
+let realtimeChannelSeq = 0;
+
 export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
   private cachedClient: DizkarteSupabaseClient | null = null;
   private cachedReads: SupabaseMarketplaceReadAdapter | null = null;
@@ -167,7 +245,12 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     const unique = [...new Set(userIds.filter((id): id is string => Boolean(id)))];
     const map = new Map<string, string>();
     if (unique.length === 0) return map;
-    const { data } = await this.client.from("profiles").select("id,display_name").in("id", unique);
+    // Read the display-safe cross-user projection, not `profiles` (self-only by
+    // RLS): a counterpart's name must resolve on bookings, offers, and chat.
+    const { data } = await this.client
+      .from("public_profiles")
+      .select("id,display_name")
+      .in("id", unique);
     for (const row of (data ?? []) as ReadonlyArray<{ id: string; display_name: string | null }>) {
       map.set(row.id, row.display_name?.trim() || "Dizkarte user");
     }
@@ -183,9 +266,15 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
   // =========================================================================
 
   async listMyTasks(clientId: string): Promise<ReadonlyArray<OwnedTaskRecord>> {
+    // The cards do not render `time_of_day`, so keep this batched list projection
+    // compatible with environments where additive migration 0039 is still
+    // rolling out. Detail/edit reads continue to select it so a chosen time is
+    // never silently discarded.
     const { data, error } = await this.client
       .from("tasks")
-      .select("id,client_id,category_id,title,description,budget_centavos,scheduled_for,same_day,status,published_at,created_at,updated_at")
+      .select(
+        "id,client_id,category_id,title,description,budget_centavos,scheduled_for,same_day,status,published_at,created_at,updated_at",
+      )
       .eq("client_id", clientId)
       .order("created_at", { ascending: false });
     fail("listMyTasks", error);
@@ -227,9 +316,11 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     fail("listMyTasks:bookings", bookingRes.error);
 
     const pubById = new Map<string, RawPublicLocRow>();
-    for (const r of (pubLocs.data ?? []) as ReadonlyArray<RawPublicLocRow>) pubById.set(r.task_id, r);
+    for (const r of (pubLocs.data ?? []) as ReadonlyArray<RawPublicLocRow>)
+      pubById.set(r.task_id, r);
     const privById = new Map<string, RawPrivateLocRow>();
-    for (const r of (privLocs.data ?? []) as ReadonlyArray<RawPrivateLocRow>) privById.set(r.task_id, r);
+    for (const r of (privLocs.data ?? []) as ReadonlyArray<RawPrivateLocRow>)
+      privById.set(r.task_id, r);
 
     const mediaByTask = new Map<string, RawTaskMediaRow[]>();
     for (const r of (mediaRes.data ?? []) as ReadonlyArray<RawTaskMediaRow>) {
@@ -242,14 +333,20 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
       questionCountByTask.set(r.task_id, (questionCountByTask.get(r.task_id) ?? 0) + 1);
     }
     const offersByTask = new Map<string, { id: string; status: string }[]>();
-    for (const r of (offerRes.data ?? []) as ReadonlyArray<{ task_id: string; id: string; status: string }>) {
+    for (const r of (offerRes.data ?? []) as ReadonlyArray<{
+      task_id: string;
+      id: string;
+      status: string;
+    }>) {
       const bucket = offersByTask.get(r.task_id) ?? [];
       bucket.push({ id: r.id, status: r.status });
       offersByTask.set(r.task_id, bucket);
     }
     // Ordered created_at desc, so the first booking seen per task is the latest.
     const latestBookingByTask = new Map<string, RawLatestBookingRow>();
-    for (const r of (bookingRes.data ?? []) as ReadonlyArray<RawLatestBookingRow & { task_id: string }>) {
+    for (const r of (bookingRes.data ?? []) as ReadonlyArray<
+      RawLatestBookingRow & { task_id: string }
+    >) {
       if (!latestBookingByTask.has(r.task_id)) {
         latestBookingByTask.set(r.task_id, {
           id: r.id,
@@ -275,9 +372,13 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
   }
 
   async getOwnedTask(taskId: TaskId, clientId: string): Promise<OwnedTaskRecord | null> {
+    // `*` is intentional for this owner-scoped row read: PostgREST includes
+    // `time_of_day` when migration 0039 is present and simply omits it on a
+    // legacy schema. Exact location/contact data lives in separate protected
+    // relations, while the client filter and RLS still gate this task row.
     const { data, error } = await this.client
       .from("tasks")
-      .select("id,client_id,category_id,title,description,budget_centavos,scheduled_for,same_day,status,published_at,created_at,updated_at")
+      .select("*")
       .eq("id", taskId)
       .eq("client_id", clientId)
       .maybeSingle();
@@ -294,7 +395,13 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     const [publicLoc, privateLoc, media, counts] = await Promise.all([
       this.client
         .from("task_locations_readable")
-        .select("task_id,city_code,barangay_code,landmark,approximate_lat,approximate_lng")
+        // `*` for the same reason `getOwnedTask` uses it on `tasks`: PostgREST
+        // includes `dropoff_landmark` once migration 0041 is present and simply
+        // omits it on a schema where it is still rolling out, whereas naming the
+        // column explicitly makes the whole request fail with 400 until then.
+        // Every column of this view is public by construction, so `*` widens
+        // nothing — the private address lives in a separate relation.
+        .select("*")
         .eq("task_id", row.id)
         .maybeSingle(),
       this.client
@@ -365,6 +472,8 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
       budget_centavos: draft.budgetCentavos,
       scheduled_for: draft.scheduledFor,
       same_day: draft.sameDay,
+      time_of_day: draft.timeOfDay ?? null,
+      location_type: draft.locationType ?? "in_person",
     };
 
     let taskId: string;
@@ -401,6 +510,7 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
           city_code: draft.cityCode,
           barangay_code: draft.barangayCode,
           landmark: draft.landmark,
+          dropoff_landmark: draft.dropoffLandmark ?? null,
           approximate_point: toPointLiteral(draft.approximateLat, draft.approximateLng),
         },
         { onConflict: "task_id" },
@@ -418,12 +528,62 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     fail("saveDraftTask.privateLocation", privResult.error);
 
     await this.syncTaskMedia(taskId, draft.media);
+    await this.syncTaskAnswers(taskId, draft.answers);
 
     const saved = await this.getOwnedTask(taskId as TaskId, authedId);
     if (!saved) {
       throw new MarketplaceRequestError("saveDraftTask", "Saved task could not be read back.");
     }
     return saved;
+  }
+
+  /**
+   * Bring `task_answers` in line with the draft's answer list.
+   *
+   * `undefined` means the caller did not collect answers at all (the single-page
+   * edit form), so stored answers are left exactly as they are. An empty array
+   * is an explicit "no answers" and does clear them.
+   */
+  private async syncTaskAnswers(
+    taskId: string,
+    answers: ReadonlyArray<TaskAnswerInput> | undefined,
+  ): Promise<void> {
+    if (!answers) return;
+
+    // Blank answers are absences, not values: an optional question left empty
+    // should not create a row.
+    const provided = answers
+      .map((entry) => ({ questionId: entry.questionId, answer: entry.answer.trim() }))
+      .filter((entry) => entry.answer.length > 0);
+
+    const { data, error } = await this.client
+      .from("task_answers")
+      .select("id,question_id")
+      .eq("task_id", taskId);
+    fail("saveDraftTask.answers", error);
+
+    const existing = (data ?? []) as ReadonlyArray<{ id: string; question_id: string }>;
+    const keep = new Set(provided.map((entry) => entry.questionId));
+    const staleIds = existing.filter((row) => !keep.has(row.question_id)).map((row) => row.id);
+    if (staleIds.length > 0) {
+      const { error: deleteError } = await this.client
+        .from("task_answers")
+        .delete()
+        .in("id", staleIds);
+      fail("saveDraftTask.answers.remove", deleteError);
+    }
+
+    if (provided.length > 0) {
+      const { error: upsertError } = await this.client.from("task_answers").upsert(
+        provided.map((entry) => ({
+          task_id: taskId,
+          question_id: entry.questionId,
+          answer: entry.answer,
+        })),
+        { onConflict: "task_id,question_id" },
+      );
+      fail("saveDraftTask.answers.write", upsertError);
+    }
   }
 
   /**
@@ -506,6 +666,40 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     return { ok: true, task };
   }
 
+  /**
+   * Retire an unbooked task through `cancel_own_task` (0040).
+   *
+   * Authorization, the DRAFT/OPEN restriction, offer rejection, and idempotency
+   * are all the RPC's job; the `clientId` argument is only for the caller's own
+   * filtering. The raised message is mapped to something a Client can act on
+   * rather than surfacing raw SQL text.
+   */
+  async cancelOwnTask(
+    taskId: TaskId,
+    _clientId: string,
+  ): Promise<{ readonly ok: boolean; readonly reason?: string }> {
+    const { error } = await this.client.rpc("cancel_own_task", {
+      p_task_id: taskId,
+      p_idempotency_key: `cancel_task_${taskId}`,
+    });
+    if (!error) return { ok: true };
+
+    const message = error.message.toUpperCase();
+    if (message.includes("FORBIDDEN") || message.includes("PRIVILEGE")) {
+      return { ok: false, reason: "Only the task owner may cancel this task." };
+    }
+    if (message.includes("INVALID_STATE")) {
+      return {
+        ok: false,
+        reason: "This task can no longer be cancelled here. Open the booking to manage it.",
+      };
+    }
+    if (message.includes("NOT_FOUND")) {
+      return { ok: false, reason: "This task no longer exists." };
+    }
+    return { ok: false, reason: "Could not cancel this task. Please try again." };
+  }
+
   // =========================================================================
   // Public discovery
   // =========================================================================
@@ -535,6 +729,8 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     scheduledFrom?: string;
     scheduledTo?: string;
     sameDayOnly?: boolean;
+    /** Only tasks with zero offers (migration 0047 p_no_offers_only). */
+    noOffersOnly?: boolean;
     nearLat?: number;
     nearLng?: number;
     radiusKm?: number;
@@ -557,6 +753,7 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
       p_scheduled_from: input.scheduledFrom ?? null,
       p_scheduled_to: input.scheduledTo ?? null,
       p_same_day_only: input.sameDayOnly === true,
+      p_no_offers_only: input.noOffersOnly === true,
       p_near_lat: input.nearLat ?? null,
       p_near_lng: input.nearLng ?? null,
       p_radius_km: input.radiusKm ?? null,
@@ -662,9 +859,51 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     };
   }
 
-  // =========================================================================
-  // Offers
-  // =========================================================================
+  async answerQuestion(
+    questionId: string,
+    taskId: TaskId,
+    clientId: string,
+    answer: string,
+  ): Promise<TaskQuestionRecord> {
+    // Verify the task belongs to this client before allowing an answer.
+    const { data: taskRow, error: taskErr } = await this.client
+      .from("tasks")
+      .select("client_id")
+      .eq("id", taskId)
+      .maybeSingle();
+    fail("answerQuestion:getTask", taskErr);
+    if (!taskRow || taskRow.client_id !== clientId) {
+      throw new Error("Forbidden: only the task owner may answer questions.");
+    }
+
+    const now = new Date().toISOString();
+    const { data, error } = await this.client
+      .from("task_questions")
+      .update({ answer, answered_at: now })
+      .eq("id", questionId)
+      .eq("task_id", taskId)
+      .select("id,task_id,author_id,body,answer,created_at")
+      .single();
+    fail("answerQuestion", error);
+    const row = data as {
+      id: string;
+      task_id: string;
+      author_id: string;
+      body: string;
+      answer: string | null;
+      created_at: string;
+    };
+    const names = await this.displayNames([row.author_id]);
+    return {
+      id: row.id as TaskQuestionId,
+      taskId: row.task_id as TaskId,
+      authorId: row.author_id as UserId,
+      authorDisplayName: this.nameOf(names, row.author_id),
+      body: row.body,
+      answer: row.answer,
+      createdAt: row.created_at,
+    };
+  }
 
   /**
    * Offers on a task. RLS already restricts rows to the submitting Tasker or
@@ -831,15 +1070,55 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
   // =========================================================================
 
   /**
-   * Escrow checkout is provider-authoritative and no provider is approved, so
-   * this refuses instead of returning a fabricated session. Returning a
-   * synthetic checkout here would let the UI imply that money had moved.
+   * Provider-authoritative checkout. Creates a hosted checkout session through
+   * the `payment-checkout` Edge Function (which holds the provider secret key
+   * server-side) and returns its URL. Fails closed — surfaced as
+   * `CHECKOUT_UNAVAILABLE` — when no approved provider is configured, so the UI
+   * never implies money moved. The booking is only ever confirmed by the
+   * provider webhook, never by this call.
    */
   async createCheckoutSession(
-    _bookingId: BookingId,
-    _clientId: string,
+    bookingId: BookingId,
+    clientId: string,
   ): Promise<CheckoutSessionRecord> {
-    throw new MarketplaceRequestError("createCheckoutSession", CHECKOUT_UNAVAILABLE);
+    const authedId = await this.currentUserId();
+    if (!authedId || authedId !== clientId) {
+      throw new MarketplaceRequestError(
+        "createCheckoutSession",
+        "You are not signed in as this user.",
+      );
+    }
+    const { data, error } = await this.client.functions.invoke("payment-checkout", {
+      body: { bookingId },
+    });
+    if (error) {
+      throw new MarketplaceRequestError("createCheckoutSession", CHECKOUT_UNAVAILABLE);
+    }
+    const session = (
+      data as {
+        success?: boolean;
+        data?: {
+          bookingId: string;
+          paymentIntentId: string;
+          providerReference: string;
+          checkoutUrl: string;
+          amountCentavos: number;
+          mode: "synthetic" | "sandbox" | "live";
+        };
+      } | null
+    )?.data;
+    if (!session?.checkoutUrl || !session.providerReference) {
+      throw new MarketplaceRequestError("createCheckoutSession", CHECKOUT_UNAVAILABLE);
+    }
+    return {
+      bookingId: session.bookingId as BookingId,
+      paymentIntentId: session.paymentIntentId,
+      providerReference: session.providerReference,
+      checkoutUrl: session.checkoutUrl,
+      amountCentavos: session.amountCentavos,
+      synthetic: false,
+      mode: session.mode,
+    };
   }
 
   async simulateCheckout(
@@ -875,7 +1154,9 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
   async listMyBookings(userId: string): Promise<ReadonlyArray<BookingRecord>> {
     const { data, error } = await this.client
       .from("bookings")
-      .select("id,task_id,client_id,tasker_id,agreed_centavos,status,idempotency_key,created_at,updated_at")
+      .select(
+        "id,task_id,client_id,tasker_id,agreed_centavos,status,idempotency_key,created_at,updated_at",
+      )
       .or(`client_id.eq.${userId},tasker_id.eq.${userId}`)
       .order("created_at", { ascending: false });
     fail("listMyBookings", error);
@@ -885,7 +1166,9 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
   async getBooking(bookingId: BookingId, viewerId: string): Promise<BookingRecord | null> {
     const { data, error } = await this.client
       .from("bookings")
-      .select("id,task_id,client_id,tasker_id,agreed_centavos,status,idempotency_key,created_at,updated_at")
+      .select(
+        "id,task_id,client_id,tasker_id,agreed_centavos,status,idempotency_key,created_at,updated_at",
+      )
       .eq("id", bookingId)
       .maybeSingle();
     fail("getBooking", error);
@@ -945,12 +1228,14 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
       ]),
     );
     const locByTask = new Map(
-      ((privateLocs.data ?? []) as ReadonlyArray<{
-        task_id: string;
-        exact_address: string;
-        exact_lat: number;
-        exact_lng: number;
-      }>).map((loc) => [loc.task_id, loc]),
+      (
+        (privateLocs.data ?? []) as ReadonlyArray<{
+          task_id: string;
+          exact_address: string;
+          exact_lat: number;
+          exact_lng: number;
+        }>
+      ).map((loc) => [loc.task_id, loc]),
     );
     const evidenceByBooking = new Map<string, CompletionEvidenceItem[]>();
     for (const item of (evidence.data ?? []) as ReadonlyArray<{
@@ -1051,9 +1336,7 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
         : []),
       ...input.evidence
         .map((item) =>
-          item.kind === "note"
-            ? `note:${item.note ?? ""}`
-            : (item.storagePath ?? null),
+          item.kind === "note" ? `note:${item.note ?? ""}` : (item.storagePath ?? null),
         )
         .filter((path): path is string => path !== null)
         .map((path) => ({
@@ -1102,6 +1385,24 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     return mapDispute(data as Parameters<typeof mapDispute>[0]);
   }
 
+  async getDisputeForBooking(
+    bookingId: BookingId,
+    _viewerId: string,
+  ): Promise<DisputeRecord | null> {
+    // `disputes_select` RLS admits only a booking participant (or the opener),
+    // so the session JWT is the authorization gate — a non-participant simply
+    // sees no row. Newest first in case a booking ever carried more than one.
+    const { data, error } = await this.client
+      .from("disputes")
+      .select("id,booking_id,opened_by,reason,status,created_at")
+      .eq("booking_id", bookingId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    fail("getDisputeForBooking", error);
+    return data ? mapDispute(data as Parameters<typeof mapDispute>[0]) : null;
+  }
+
   // =========================================================================
   // Ledger and Tasker dashboard
   // =========================================================================
@@ -1119,7 +1420,7 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     };
   }
 
-  async getTaskerDashboard(taskerId: string): Promise<TaskerDashboardSnapshot> {
+  async getTaskerWorkSnapshot(taskerId: string): Promise<TaskerWorkSnapshot> {
     const [feed, bookings, ledger, profile] = await Promise.all([
       this.searchOpenTasks({ page: 1, pageSize: 10, sort: "newest" }),
       this.listMyBookings(taskerId),
@@ -1143,9 +1444,7 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
       activeBookings: asTasker.filter(
         (booking) => booking.status === "CONFIRMED" || booking.status === "IN_PROGRESS",
       ),
-      completionRequested: asTasker.filter(
-        (booking) => booking.status === "COMPLETION_REQUESTED",
-      ),
+      completionRequested: asTasker.filter((booking) => booking.status === "COMPLETION_REQUESTED"),
       completedWork: asTasker.filter((booking) => booking.status === "COMPLETED"),
       ledger,
       ratingAverage: stats?.rating_average ?? null,
@@ -1187,6 +1486,154 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
       return { ok: false, reason: "INSUFFICIENT_AVAILABLE_BALANCE" };
     }
     return { ok: false, reason: "PROVIDER_UNAVAILABLE" };
+  }
+
+  // =========================================================================
+  // Offer registration ("Finish registration" gate)
+  // =========================================================================
+
+  async getOfferRegistrationStatus(userId: string): Promise<OfferRegistrationStatus> {
+    const authedId = await this.currentUserId();
+    if (!authedId || authedId !== userId) {
+      return { mobileComplete: false, bankComplete: false, billingComplete: false };
+    }
+    const { data, error } = await this.client.rpc("my_offer_registration_status");
+    fail("getOfferRegistrationStatus", error);
+    const row = ((data ?? []) as ReadonlyArray<RawRegistrationStatusRow>)[0];
+    return {
+      mobileComplete: row?.mobile_complete ?? false,
+      bankComplete: row?.bank_complete ?? false,
+      billingComplete: row?.billing_complete ?? false,
+    };
+  }
+
+  async saveRegistrationMobile(userId: string, mobile: string): Promise<RegistrationActionOutcome> {
+    const authedId = await this.currentUserId();
+    if (!authedId || authedId !== userId)
+      return { ok: false, reason: "Not signed in as this user." };
+    const { error } = await this.client.rpc("save_registration_mobile", { p_mobile: mobile });
+    if (error) return { ok: false, reason: detailOf(error.message) };
+    return { ok: true };
+  }
+
+  async listPayoutMethods(userId: string): Promise<ReadonlyArray<PayoutMethodSummary>> {
+    const { data, error } = await this.client
+      .from("payout_methods")
+      .select("id,provider,masked_label,status")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    fail("listPayoutMethods", error);
+    return ((data ?? []) as ReadonlyArray<RawPayoutMethodRow>).map((row) => ({
+      id: row.id,
+      provider: row.provider,
+      maskedLabel: row.masked_label,
+      status: row.status === "disabled" ? "disabled" : "active",
+    }));
+  }
+
+  async addPayoutMethod(
+    userId: string,
+    input: AddPayoutMethodInput,
+  ): Promise<RegistrationActionOutcome> {
+    const authedId = await this.currentUserId();
+    if (!authedId || authedId !== userId)
+      return { ok: false, reason: "Not signed in as this user." };
+    const { error } = await this.client.rpc("add_payout_method", {
+      p_provider: input.provider,
+      p_masked_label: input.maskedLabel,
+    });
+    if (error) return { ok: false, reason: detailOf(error.message) };
+    return { ok: true };
+  }
+
+  async getBillingAddress(userId: string): Promise<BillingAddressRecord | null> {
+    const { data, error } = await this.client
+      .from("billing_addresses")
+      .select("line1,line2,city,region,postal_code,country")
+      .eq("user_id", userId)
+      .maybeSingle();
+    fail("getBillingAddress", error);
+    if (!data) return null;
+    const row = data as RawBillingAddressRow;
+    return {
+      line1: row.line1,
+      line2: row.line2,
+      city: row.city,
+      region: row.region,
+      postalCode: row.postal_code,
+      country: row.country,
+    };
+  }
+
+  async saveBillingAddress(
+    userId: string,
+    input: BillingAddressInput,
+  ): Promise<RegistrationActionOutcome> {
+    const authedId = await this.currentUserId();
+    if (!authedId || authedId !== userId)
+      return { ok: false, reason: "Not signed in as this user." };
+    const { error } = await this.client.rpc("save_billing_address", {
+      p_line1: input.line1,
+      p_line2: input.line2 ?? null,
+      p_city: input.city,
+      p_region: input.region ?? null,
+      p_postal_code: input.postalCode ?? null,
+      p_country: input.country ?? "PH",
+    });
+    if (error) return { ok: false, reason: detailOf(error.message) };
+    return { ok: true };
+  }
+
+  // =========================================================================
+  // PSGC localities (canonical city/barangay lookup — decision D14)
+  // =========================================================================
+
+  async searchCities(keyword: string): Promise<ReadonlyArray<PsgcCity>> {
+    const term = keyword.trim();
+    let query = this.client
+      .from("psgc_cities_municipalities")
+      .select("code,city6,name,province_name,is_city")
+      .order("name")
+      .limit(25);
+    if (term.length > 0) query = query.ilike("name", `%${term}%`);
+    const { data, error } = await query;
+    fail("searchCities", error);
+    return ((data ?? []) as ReadonlyArray<RawPsgcCityRow>).map(mapPsgcCity);
+  }
+
+  async searchBarangays(city6: string, keyword: string): Promise<ReadonlyArray<PsgcBarangay>> {
+    const term = keyword.trim();
+    let query = this.client
+      .from("psgc_barangays")
+      .select("code,name,city6")
+      .eq("city6", city6)
+      .order("name")
+      .limit(40);
+    if (term.length > 0) query = query.ilike("name", `%${term}%`);
+    const { data, error } = await query;
+    fail("searchBarangays", error);
+    return ((data ?? []) as ReadonlyArray<RawPsgcBarangayRow>).map(mapPsgcBarangay);
+  }
+
+  async getCityByCode(city6: string): Promise<PsgcCity | null> {
+    const { data, error } = await this.client
+      .from("psgc_cities_municipalities")
+      .select("code,city6,name,province_name,is_city")
+      .eq("city6", city6)
+      .limit(1)
+      .maybeSingle();
+    fail("getCityByCode", error);
+    return data ? mapPsgcCity(data as RawPsgcCityRow) : null;
+  }
+
+  async getBarangayByCode(code: string): Promise<PsgcBarangay | null> {
+    const { data, error } = await this.client
+      .from("psgc_barangays")
+      .select("code,name,city6")
+      .eq("code", code)
+      .maybeSingle();
+    fail("getBarangayByCode", error);
+    return data ? mapPsgcBarangay(data as RawPsgcBarangayRow) : null;
   }
 
   // =========================================================================
@@ -1387,6 +1834,30 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     };
   }
 
+  /**
+   * Conversation summaries for the Bookings list (migration 0046).
+   *
+   * `conversation_summaries()` takes no argument: it is scoped to `auth.uid()`
+   * inside the function, so the `userId` here only keeps the port signature
+   * uniform and can never widen what is returned.
+   */
+  async listConversationSummaries(_userId: string): Promise<ReadonlyArray<ConversationSummary>> {
+    const { data, error } = await this.client.rpc("conversation_summaries");
+    fail("listConversationSummaries", error);
+    return ((data ?? []) as ReadonlyArray<ConversationSummaryRow>).map(toConversationSummary);
+  }
+
+  async markConversationRead(conversationId: ConversationId, _viewerId: string): Promise<void> {
+    const { error } = await this.client.rpc("mark_conversation_read", {
+      p_conversation_id: conversationId,
+    });
+    // A non-participant is refused by the RPC. Surfacing that would only tell
+    // the caller something they cannot act on — and the screen calling this has
+    // already loaded the conversation, so a failure here just means the badge
+    // clears on the next successful open.
+    if (error) return;
+  }
+
   // =========================================================================
   // Reviews
   // =========================================================================
@@ -1416,7 +1887,13 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
       p_booking_id: bookingId,
     });
     if (error || data === null) {
-      return { bookingId, myReview: null, counterpartReview: null, bothSubmitted: false, revealDeadline: null };
+      return {
+        bookingId,
+        myReview: null,
+        counterpartReview: null,
+        bothSubmitted: false,
+        revealDeadline: null,
+      };
     }
     const payload = data as {
       reveal_deadline: string | null;
@@ -1441,7 +1918,8 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     const { data, error } = await this.client.rpc("start_verification");
     fail("startVerification", error);
     const row = (Array.isArray(data) ? data[0] : data) as VerificationCaseRow | null;
-    if (!row) throw new MarketplaceRequestError("startVerification", "No verification case returned.");
+    if (!row)
+      throw new MarketplaceRequestError("startVerification", "No verification case returned.");
     return this.hydrateVerificationCase(row);
   }
 
@@ -1451,15 +1929,54 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     storagePath: string;
     mimeType: string;
     sizeBytes: number;
-  }): Promise<{ ok: boolean; reason?: string }> {
-    const { error } = await this.client.from("verification_documents").insert({
-      case_id: input.caseId,
-      kind: input.kind,
-      storage_path: input.storagePath,
-      mime_type: input.mimeType,
-      size_bytes: input.sizeBytes,
-    });
+  }): Promise<AddVerificationDocumentOutcome> {
+    const { data, error } = await this.client
+      .from("verification_documents")
+      .insert({
+        case_id: input.caseId,
+        kind: input.kind,
+        storage_path: input.storagePath,
+        mime_type: input.mimeType,
+        size_bytes: input.sizeBytes,
+      })
+      .select("id,kind,storage_path,created_at")
+      .single();
     if (error) return { ok: false, reason: detailOf(error.message) };
+    const row = data as {
+      id: string;
+      kind: VerificationDocumentKind;
+      storage_path: string;
+      created_at: string;
+    };
+    return {
+      ok: true,
+      document: {
+        id: row.id,
+        kind: row.kind,
+        storagePath: row.storage_path,
+        createdAt: row.created_at,
+      },
+    };
+  }
+
+  async removeVerificationDocument(input: {
+    caseId: string;
+    documentId: string;
+  }): Promise<{ readonly ok: true } | { readonly ok: false; readonly reason: string }> {
+    const { data, error } = await this.client
+      .from("verification_documents")
+      .delete()
+      .eq("id", input.documentId)
+      .eq("case_id", input.caseId)
+      .select("id")
+      .maybeSingle();
+    if (error) return { ok: false, reason: detailOf(error.message) };
+    if (!data) {
+      return {
+        ok: false,
+        reason: "This document cannot be removed from the current verification case.",
+      };
+    }
     return { ok: true };
   }
 
@@ -1479,19 +1996,22 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
    * resubmission look ready when the server will refuse it.
    */
   private async hydrateVerificationCase(row: VerificationCaseRow): Promise<VerificationCaseRecord> {
-    const { data } = await this.client
+    const { data, error } = await this.client
       .from("verification_documents")
       .select("id,kind,storage_path,created_at")
       .eq("case_id", row.id)
       .order("created_at", { ascending: true });
+    fail("startVerification.documents", error);
 
     const since = row.decided_at ? new Date(row.decided_at).getTime() : Number.NEGATIVE_INFINITY;
-    const documents = ((data ?? []) as ReadonlyArray<{
-      id: string;
-      kind: string;
-      storage_path: string;
-      created_at: string;
-    }>)
+    const documents = (
+      (data ?? []) as ReadonlyArray<{
+        id: string;
+        kind: string;
+        storage_path: string;
+        created_at: string;
+      }>
+    )
       .filter((doc) => new Date(doc.created_at).getTime() > since)
       .map((doc) => ({
         id: doc.id,
@@ -1544,6 +2064,18 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
       .is("read_at", null);
   }
 
+  async unreadNotificationCount(userId: string): Promise<number> {
+    // `head: true` + `count: exact` returns only the count (no rows), so the
+    // global header badge never transfers the whole notification list.
+    const { count, error } = await this.client
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .is("read_at", null);
+    fail("unreadNotificationCount", error);
+    return count ?? 0;
+  }
+
   /**
    * Stream notifications addressed to this user (migration 0022 publication).
    *
@@ -1579,8 +2111,12 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
   }
 
   subscribeToNotifications(userId: string, onChange: () => void): () => void {
+    // A UNIQUE topic per call: multiple independent subscribers (the
+    // notifications screen and the header-badge provider) must not share a
+    // channel, or the second `.on(...)` lands on an already-subscribed channel.
+    realtimeChannelSeq += 1;
     const channel = this.client
-      .channel(`notifications:${userId}`)
+      .channel(`notifications:${userId}:${realtimeChannelSeq}`)
       .on(
         "postgres_changes",
         {
@@ -1639,6 +2175,45 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
   // Support
   // =========================================================================
 
+  async submitReport(input: {
+    reporterId: string;
+    resourceType: "task" | "user" | "message" | "offer" | "booking";
+    resourceId: string;
+    category: "fraud" | "harassment" | "inappropriate" | "safety" | "spam" | "other";
+    narrative: string;
+  }): Promise<ReportRecord> {
+    // Every rule (may I see this resource, is this a duplicate, is the narrative
+    // in bounds) lives in `submit_report`; `reporterId` is not sent because the
+    // RPC resolves the reporter from `auth.uid()` and would ignore it anyway.
+    const { data, error } = await this.client.rpc("submit_report", {
+      p_resource_type: input.resourceType,
+      p_resource_id: input.resourceId,
+      p_category: input.category,
+      p_narrative: input.narrative,
+    });
+    if (error) throw new MarketplaceRequestError("submitReport", detailOf(error.message));
+    const row = data as {
+      id: string;
+      reporter_id: string;
+      resource_type: string;
+      resource_id: string;
+      category: string;
+      narrative: string;
+      status: string;
+      created_at: string;
+    };
+    return {
+      id: row.id as unknown as ReportRecord["id"],
+      reporterId: row.reporter_id as UserId,
+      resourceType: row.resource_type as ReportRecord["resourceType"],
+      resourceId: row.resource_id,
+      category: row.category as ReportRecord["category"],
+      narrative: row.narrative,
+      status: row.status as ReportRecord["status"],
+      createdAt: row.created_at,
+    };
+  }
+
   async submitSupportTicket(input: {
     reporterId: string;
     subjectType: "task" | "booking";
@@ -1652,19 +2227,28 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
       storagePath?: string;
     }>;
   }): Promise<SupportTicketRecord> {
-    // `support_tickets.category` does not have a 'quality' member; it maps onto
-    // the task-related category rather than being silently dropped.
+    // The concrete subject is persisted as first-class columns (migration 0037)
+    // so a ticket opened from a booking stays linked to that booking on later
+    // reads, instead of the id being lost the moment it is submitted. A non-uuid
+    // subject id (the "general" sentinel) is stored as no subject at all.
+    const subjectId = isSubjectUuid(input.subjectId) ? input.subjectId : null;
+    const subjectType = subjectId ? input.subjectType : null;
+    // `support_tickets.category` has no 'quality' member, so it is stored under
+    // its 'task' home; the read path (`toAppSupportCategory`) maps it back so the
+    // requester still sees exactly the category they chose.
     const dbCategory = input.category === "quality" ? "task" : input.category;
     const { data, error } = await this.client
       .from("support_tickets")
       .insert({
         user_id: input.reporterId,
         subject: `${input.subjectType} concern`,
+        subject_type: subjectType,
+        subject_id: subjectId,
         narrative: input.narrative,
         category: dbCategory,
         status: "OPEN",
       })
-      .select("id,user_id,subject,narrative,category,status,created_at")
+      .select(TICKET_COLUMNS)
       .single();
     if (error) throw new MarketplaceRequestError("submitSupportTicket", detailOf(error.message));
     const row = data as RawTicketRow;
@@ -1672,56 +2256,86 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     // Same encoding as completion evidence: a note becomes a `note:` sentinel,
     // a file records its real object key, and a file with no uploaded object is
     // dropped rather than stored as an unopenable attachment.
-    const evidenceRows = input.evidence
+    const evidencePaths = input.evidence
       .map((item) =>
         item.kind === "note" ? `note:${item.note ?? ""}` : (item.storagePath ?? null),
       )
-      .filter((path): path is string => path !== null)
-      .map((path) => ({
-        owner_id: input.reporterId,
-        resource_type: "ticket",
-        resource_id: row.id,
-        storage_path: path,
-      }));
-    if (evidenceRows.length > 0) {
-      const { error: evidenceError } = await this.client.from("evidence").insert(evidenceRows);
+      .filter((path): path is string => path !== null);
+    if (evidencePaths.length > 0) {
+      const { error: evidenceError } = await this.client.from("evidence").insert(
+        evidencePaths.map((path) => ({
+          owner_id: input.reporterId,
+          resource_type: "ticket",
+          resource_id: row.id,
+          storage_path: path,
+        })),
+      );
       fail("submitSupportTicket.evidence", evidenceError);
     }
 
-    return this.mapTicket(row, input.subjectType, input.subjectId, input.category);
+    // Reflect the just-persisted attachments in the returned record. The row-id
+    // prefix keeps the synthetic keys unique across tickets for list rendering.
+    const evidence = evidencePaths.map((path, index) =>
+      decodeTicketEvidence(`${row.id}:${index}`, path),
+    );
+    return this.mapTicket(row, evidence);
   }
 
   async listMySupportTickets(userId: string): Promise<ReadonlyArray<SupportTicketRecord>> {
     const { data, error } = await this.client
       .from("support_tickets")
-      .select("id,user_id,subject,narrative,category,status,created_at")
+      .select(TICKET_COLUMNS)
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
     fail("listMySupportTickets", error);
-    return ((data ?? []) as ReadonlyArray<RawTicketRow>).map((row) =>
-      this.mapTicket(row, row.subject.startsWith("booking") ? "booking" : "task", "", "other"),
-    );
+    const rows = (data ?? []) as ReadonlyArray<RawTicketRow>;
+    if (rows.length === 0) return [];
+
+    // One batched read of the requester's own ticket evidence (RLS restricts
+    // `evidence` to owner_id = the caller) so the history reflects real
+    // attachment counts instead of always showing none.
+    const evidenceByTicket = new Map<string, ReportEvidenceItem[]>();
+    const { data: evidenceData, error: evidenceError } = await this.client
+      .from("evidence")
+      .select("id,resource_id,storage_path")
+      .eq("resource_type", "ticket")
+      .in(
+        "resource_id",
+        rows.map((row) => row.id),
+      );
+    fail("listMySupportTickets.evidence", evidenceError);
+    for (const ev of (evidenceData ?? []) as ReadonlyArray<RawTicketEvidenceRow>) {
+      const list = evidenceByTicket.get(ev.resource_id) ?? [];
+      list.push(decodeTicketEvidence(ev.id, ev.storage_path));
+      evidenceByTicket.set(ev.resource_id, list);
+    }
+
+    return rows.map((row) => this.mapTicket(row, evidenceByTicket.get(row.id) ?? []));
   }
 
   private mapTicket(
     row: RawTicketRow,
-    subjectType: "task" | "booking",
-    subjectId: string,
-    category: SupportTicketRecord["category"],
+    evidence: ReadonlyArray<ReportEvidenceItem>,
   ): SupportTicketRecord {
     const status = ["OPEN", "PENDING", "RESOLVED", "CLOSED"].includes(row.status)
       ? (row.status as SupportTicketRecord["status"])
       : "OPEN";
+    // Prefer the first-class column; fall back to the legacy subject-text prefix
+    // for tickets created before migration 0037.
+    const subjectType: "task" | "booking" =
+      row.subject_type === "booking" || row.subject_type === "task"
+        ? row.subject_type
+        : row.subject.startsWith("booking")
+          ? "booking"
+          : "task";
     return {
       id: row.id as SupportTicketRecord["id"],
       reporterId: row.user_id as UserId,
       subjectType,
-      subjectId,
-      category,
+      subjectId: row.subject_id ?? "",
+      category: toAppSupportCategory(row.category),
       narrative: row.narrative,
-      // Evidence and the admin-side history are not part of the requester's
-      // read surface; the requester sees their own submission and its status.
-      evidence: [],
+      evidence,
       status,
       createdAt: row.created_at,
       history: [],
@@ -1746,6 +2360,74 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     fail("listCategories", error);
     return ((data ?? []) as ReadonlyArray<{ id: string; slug: string; name: string }>).map(
       (row) => ({ id: row.id, slug: row.slug, name: row.name }),
+    );
+  }
+
+  async listCategoryQuestions(categoryId: string): Promise<ReadonlyArray<TaskQuestionDefinition>> {
+    const { data, error } = await this.client
+      .from("task_question_definitions")
+      .select("id,category_id,code,label,input_kind,options,placeholder,required,sort_order")
+      .eq("category_id", categoryId)
+      .eq("active", true)
+      .order("sort_order", { ascending: true });
+    fail("listCategoryQuestions", error);
+    type Row = {
+      id: string;
+      category_id: string;
+      code: string;
+      label: string;
+      input_kind: TaskQuestionInputKind;
+      options: unknown;
+      placeholder: string | null;
+      required: boolean;
+      sort_order: number;
+    };
+    return ((data ?? []) as ReadonlyArray<Row>).map((row) => ({
+      id: row.id,
+      categoryId: row.category_id,
+      code: row.code,
+      label: row.label,
+      inputKind: row.input_kind,
+      // `options` is a jsonb array; keep only the string entries so a malformed
+      // row degrades to "no choices" instead of rendering `undefined` chips.
+      options: Array.isArray(row.options)
+        ? row.options.filter((option): option is string => typeof option === "string")
+        : [],
+      placeholder: row.placeholder,
+      required: row.required,
+      sortOrder: row.sort_order,
+    }));
+  }
+
+  async listTaskAnswers(taskId: TaskId): Promise<ReadonlyArray<TaskAnswerRecord>> {
+    const { data, error } = await this.client
+      .from("task_answers")
+      .select("answer,question_id,task_question_definitions(code,label,sort_order)")
+      .eq("task_id", taskId);
+    fail("listTaskAnswers", error);
+    type DefinitionJoin = { code: string; label: string; sort_order: number };
+    type Row = {
+      answer: string;
+      question_id: string;
+      // A to-one embed: typed as an array by the client, an object at runtime.
+      task_question_definitions: DefinitionJoin | ReadonlyArray<DefinitionJoin> | null;
+    };
+    return (
+      ((data ?? []) as ReadonlyArray<Row>)
+        .map((row) => {
+          const joined = row.task_question_definitions;
+          const definition = Array.isArray(joined) ? joined[0] : joined;
+          return {
+            questionId: row.question_id,
+            code: definition?.code ?? "",
+            label: definition?.label ?? "",
+            answer: row.answer,
+            sortOrder: definition?.sort_order ?? 0,
+          };
+        })
+        // A retired question keeps its stored answer but has no label to show.
+        .filter((row) => row.label.length > 0)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
     );
   }
 
@@ -1856,7 +2538,10 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
       ...(input.bio !== undefined ? { bio: input.bio } : {}),
     });
     if (!parsed.success) {
-      return { ok: false, message: parsed.error.issues[0]?.message ?? "Check the details entered." };
+      return {
+        ok: false,
+        message: parsed.error.issues[0]?.message ?? "Check the details entered.",
+      };
     }
 
     const fields: Record<string, unknown> = {};
@@ -1868,6 +2553,10 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     }
     if (parsed.data.language !== undefined) fields["language"] = parsed.data.language;
     if (parsed.data.bio !== undefined) fields["bio"] = parsed.data.bio;
+    // Avatar is a storage object path we control (owner-partitioned), not free
+    // user text, so it is applied directly rather than through the shared text
+    // schema. RLS on `profiles` still gates the row to its owner.
+    if (input.avatarPath !== undefined) fields["avatar_path"] = input.avatarPath;
 
     if (Object.keys(fields).length > 0) {
       const { error } = await this.client.from("profiles").update(fields).eq("id", authedId);
@@ -1946,8 +2635,185 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     );
   }
 
+  async getMyTaskerApplication(userId: string): Promise<TaskerApplicationRecord | null> {
+    const { data, error } = await this.client
+      .from("tasker_applications")
+      .select("id,status,bio,experience,payout_provider,decision_reason,submitted_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    fail("getMyTaskerApplication", error);
+    const row = data as {
+      id: string;
+      status: TaskerApplicationRecord["status"];
+      bio: string;
+      experience: string;
+      payout_provider: string | null;
+      decision_reason: string | null;
+      submitted_at: string | null;
+    } | null;
+    if (!row) return null;
+
+    const [specialtiesResult, areasResult] = await Promise.all([
+      this.client.from("tasker_specialties").select("specialty_id").eq("user_id", userId),
+      this.client
+        .from("service_areas")
+        .select("city_code,barangay_code")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: true })
+        .limit(1),
+    ]);
+    fail("getMyTaskerApplication", specialtiesResult.error);
+    fail("getMyTaskerApplication", areasResult.error);
+    const specialtyIds = (
+      (specialtiesResult.data ?? []) as ReadonlyArray<{ specialty_id: string }>
+    ).map((specialty) => specialty.specialty_id);
+    const area = (
+      (areasResult.data ?? []) as ReadonlyArray<{
+        city_code: string;
+        barangay_code: string | null;
+      }>
+    )[0];
+
+    return {
+      id: row.id,
+      status: row.status,
+      bio: row.bio,
+      experience: row.experience,
+      specialtyIds,
+      cityCode: area?.city_code ?? null,
+      barangayCode: area?.barangay_code ?? null,
+      payoutProvider: row.payout_provider ?? null,
+      decisionReason: row.decision_reason ?? null,
+      submittedAt: row.submitted_at ?? null,
+    };
+  }
+
+  async submitTaskerApplication(
+    userId: string,
+    input: SubmitTaskerApplicationInput,
+  ): Promise<SubmitTaskerApplicationOutcome> {
+    const authedId = await this.currentUserId();
+    if (!authedId || authedId !== userId) {
+      return { ok: false, message: "You are not signed in as this user." };
+    }
+    const { error } = await this.client.rpc("submit_tasker_application", {
+      p_bio: input.bio,
+      p_experience: input.experience,
+      p_specialty_ids: [...new Set(input.specialtyIds)],
+      p_city_code: input.cityCode,
+      p_barangay_code: input.barangayCode ?? null,
+      p_payout_provider: input.payoutProvider ?? null,
+    });
+    if (error) return { ok: false, message: detailOf(error.message) };
+    const application = await this.getMyTaskerApplication(userId);
+    if (!application) return { ok: false, message: "Application could not be read back." };
+    return { ok: true, application };
+  }
+
   async getPublicTaskerProfile(userId: string): Promise<PublicTaskerProfile | null> {
     return this.reads.getPublicTaskerProfile(userId as UserId);
+  }
+
+  async listMyPortfolio(userId: string): Promise<ReadonlyArray<PortfolioItemRecord>> {
+    const { data, error } = await this.client
+      .from("portfolio_items")
+      .select("id,storage_path,caption,moderation_status,created_at")
+      .eq("user_id", userId)
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: false });
+    fail("listMyPortfolio", error);
+    return (
+      (data ?? []) as ReadonlyArray<{
+        id: string;
+        storage_path: string;
+        caption: string | null;
+        moderation_status: PortfolioItemRecord["moderationStatus"];
+        created_at: string;
+      }>
+    ).map((row) => ({
+      id: row.id,
+      storagePath: row.storage_path,
+      caption: row.caption,
+      moderationStatus: row.moderation_status,
+      createdAt: row.created_at,
+    }));
+  }
+
+  /**
+   * Another Tasker's approved work samples.
+   *
+   * The `moderation_status` filter is applied here as well as in RLS: the
+   * policy already restricts a non-owner to approved rows, and asking for
+   * exactly that keeps the intent explicit at the call site (and keeps the
+   * result identical when the caller happens to be the owner).
+   */
+  async listPublicPortfolio(userId: string): Promise<ReadonlyArray<PortfolioItemRecord>> {
+    const { data, error } = await this.client
+      .from("portfolio_items")
+      .select("id,storage_path,caption,moderation_status,created_at")
+      .eq("user_id", userId)
+      .eq("moderation_status", "APPROVED")
+      .order("sort_order", { ascending: true })
+      .order("created_at", { ascending: false });
+    fail("listPublicPortfolio", error);
+    return (
+      (data ?? []) as ReadonlyArray<{
+        id: string;
+        storage_path: string;
+        caption: string | null;
+        moderation_status: PortfolioItemRecord["moderationStatus"];
+        created_at: string;
+      }>
+    ).map((row) => ({
+      id: row.id,
+      storagePath: row.storage_path,
+      caption: row.caption,
+      moderationStatus: row.moderation_status,
+      createdAt: row.created_at,
+    }));
+  }
+
+  async addPortfolioItem(
+    userId: string,
+    input: { storagePath: string; caption?: string | null },
+  ): Promise<{ ok: boolean; reason?: string }> {
+    const authedId = await this.currentUserId();
+    if (!authedId || authedId !== userId) {
+      return { ok: false, reason: "You are not signed in as this user." };
+    }
+    // Defense in depth: the object must live in the caller's own partition. The
+    // storage RLS enforces this too, but rejecting here gives a clear message.
+    if (!input.storagePath.startsWith(`${userId}/`)) {
+      return { ok: false, reason: "That image is not in your storage area." };
+    }
+    const caption = input.caption?.trim() ? input.caption.trim().slice(0, 280) : null;
+    const { error } = await this.client
+      .from("portfolio_items")
+      .insert({ user_id: userId, storage_path: input.storagePath, caption });
+    if (error) return { ok: false, reason: detailOf(error.message) };
+    return { ok: true };
+  }
+
+  async removePortfolioItem(userId: string, itemId: string): Promise<{ ok: boolean }> {
+    const authedId = await this.currentUserId();
+    if (!authedId || authedId !== userId) return { ok: false };
+    const { data } = await this.client
+      .from("portfolio_items")
+      .select("storage_path")
+      .eq("id", itemId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    const path = (data as { storage_path: string } | null)?.storage_path ?? null;
+    const { error } = await this.client
+      .from("portfolio_items")
+      .delete()
+      .eq("id", itemId)
+      .eq("user_id", userId);
+    if (error) return { ok: false };
+    if (path) await this.client.storage.from("portfolios").remove([path]);
+    return { ok: true };
   }
 }
 
@@ -1960,6 +2826,8 @@ type RawTaskRow = {
   readonly budget_centavos: number;
   readonly scheduled_for: string | null;
   readonly same_day: boolean;
+  readonly time_of_day?: string | null;
+  readonly location_type?: string | null;
   readonly status: string;
   readonly published_at: string | null;
   readonly created_at: string;
@@ -1973,6 +2841,7 @@ type RawPublicLocRow = {
   readonly landmark: string;
   readonly approximate_lat: number;
   readonly approximate_lng: number;
+  readonly dropoff_landmark?: string | null;
 };
 
 type RawPrivateLocRow = {
@@ -2038,7 +2907,10 @@ function assembleOwnedTask(
     budgetCentavos: Number(row.budget_centavos),
     scheduledFor: row.scheduled_for,
     sameDay: row.same_day,
+    timeOfDay: (row.time_of_day ?? null) as TaskTimeOfDay | null,
+    locationType: (row.location_type ?? "in_person") as TaskLocationType,
     landmark: pub?.landmark ?? "",
+    dropoffLandmark: pub?.dropoff_landmark ?? null,
     cityCode: pub?.city_code ?? "",
     barangayCode: pub?.barangay_code ?? "",
     approximateLat: Number(pub?.approximate_lat ?? 0),
@@ -2077,11 +2949,73 @@ type RawTicketRow = {
   readonly id: string;
   readonly user_id: string;
   readonly subject: string;
+  readonly subject_type: string | null;
+  readonly subject_id: string | null;
   readonly narrative: string;
   readonly category: string;
   readonly status: string;
   readonly created_at: string;
 };
+
+type RawTicketEvidenceRow = {
+  readonly id: string;
+  readonly resource_id: string;
+  readonly storage_path: string;
+};
+
+/** Columns read for every support-ticket projection (kept in one place so the
+ * insert-returning and the list query never drift out of sync). */
+const TICKET_COLUMNS =
+  "id,user_id,subject,subject_type,subject_id,narrative,category,status,created_at" as const;
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A support subject id is only persisted when it is a real uuid; the "general"
+ * sentinel (and any other non-uuid) is stored as no subject at all. */
+function isSubjectUuid(value: string): boolean {
+  return UUID_RE.test(value);
+}
+
+/**
+ * Map the database category domain
+ * (`account | payment | task | safety | other`) back onto the four categories
+ * the mobile app models. 'quality' has no dedicated database member and is
+ * stored under its 'task' home on write, so 'task' reads back as 'quality';
+ * database-only values the app has no concept of collapse to 'other'.
+ */
+function toAppSupportCategory(dbCategory: string): SupportTicketRecord["category"] {
+  switch (dbCategory) {
+    case "payment":
+      return "payment";
+    case "safety":
+      return "safety";
+    case "quality":
+    case "task":
+      return "quality";
+    default:
+      return "other";
+  }
+}
+
+/**
+ * Decode a stored evidence object key back into a display item. Notes are held
+ * as a `note:` sentinel (mirroring completion evidence); everything else is a
+ * real object key in the private `evidence` bucket. The stored row carries no
+ * mime kind, so a file is surfaced as an image — the requester's history only
+ * uses the count and note text, never the concrete file kind.
+ */
+function decodeTicketEvidence(id: string, storagePath: string): ReportEvidenceItem {
+  if (storagePath.startsWith("note:")) {
+    return {
+      id,
+      kind: "note",
+      storagePath: null,
+      note: storagePath.slice("note:".length),
+      fileName: null,
+    };
+  }
+  return { id, kind: "image", storagePath, note: null, fileName: null };
+}
 
 /**
  * Build the adapter against the shared, session-bound mobile Supabase client.

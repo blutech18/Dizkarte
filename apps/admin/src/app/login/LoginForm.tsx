@@ -15,7 +15,12 @@ export function LoginForm({ from }: { readonly from: string }) {
       action={formAction}
       className="dk-stack"
       aria-describedby={state.error ? "login-error" : undefined}
-      style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%" }}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        height: "100%",
+      }}
     >
       <input type="hidden" name="from" value={from} />
       {state.error ? (
@@ -34,7 +39,17 @@ export function LoginForm({ from }: { readonly from: string }) {
             gap: 6,
           }}
         >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
             <circle cx="12" cy="12" r="10" />
             <line x1="12" y1="8" x2="12" y2="12" />
             <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -62,7 +77,14 @@ export function LoginForm({ from }: { readonly from: string }) {
           </div>
         </div>
         <div className="dk-field" style={{ margin: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 2,
+            }}
+          >
             <label className="dk-label dk-required" htmlFor="password" style={{ margin: 0 }}>
               Password
             </label>

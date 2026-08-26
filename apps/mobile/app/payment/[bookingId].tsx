@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Stack, router, useLocalSearchParams } from "expo-router";
+import { Redirect, Stack, router, useLocalSearchParams } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import type { BookingId } from "@dizkarte/domain";
 import { formatPhp } from "@dizkarte/domain";
 import { Screen } from "../../src/components/ui/Screen";
@@ -43,22 +44,26 @@ type Phase =
  */
 export default function PaymentScreen() {
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
-  const { session } = useSession();
+  const { session, status } = useSession();
   const { repository, notifyChanged } = useMarketplace();
   const [phase, setPhase] = useState<Phase>({ step: "loading" });
 
-  const isDevOrTest = (() => {
+  // Checkout is available in development/test (synthetic simulator) or whenever a
+  // real provider is configured (sandbox/live). Otherwise it fails closed.
+  const paymentContext = (() => {
     try {
-      const env = getAppConfig().environment;
-      return env === "development" || env === "test";
+      const cfg = getAppConfig();
+      const isDevOrTest = cfg.environment === "development" || cfg.environment === "test";
+      const mode = cfg.adapterModes.payment;
+      return { enabled: isDevOrTest || mode === "sandbox" || mode === "live" };
     } catch {
-      return false;
+      return { enabled: false };
     }
   })();
 
   const load = useCallback(() => {
     if (!session) return;
-    if (!isDevOrTest) {
+    if (!paymentContext.enabled) {
       setPhase({ step: "disabled" });
       return;
     }
@@ -67,7 +72,7 @@ export default function PaymentScreen() {
       .createCheckoutSession(bookingId as BookingId, session.userId)
       .then((checkoutSession) => setPhase({ step: "checkout", session: checkoutSession }))
       .catch(() => setPhase({ step: "error" }));
-  }, [bookingId, repository, session, isDevOrTest]);
+  }, [bookingId, repository, session, paymentContext.enabled]);
 
   useEffect(() => {
     load();
@@ -100,12 +105,49 @@ export default function PaymentScreen() {
     [phase, repository, notifyChanged],
   );
 
-  if (!session) return <DeniedState description="Sign in to complete payment." />;
+  /** Poll the authoritative payment state once; returns true when it resolved. */
+  const pollStatus = useCallback(
+    async (checkoutSession: CheckoutSessionRecord): Promise<boolean> => {
+      const outcome = await repository.processAuthoritativeWebhook(
+        checkoutSession.providerReference,
+      );
+      if (!outcome) return false;
+      notifyChanged();
+      setPhase({
+        step: outcome.status === "CONFIRMED" ? "confirmed" : "failed",
+        session: checkoutSession,
+      });
+      return true;
+    },
+    [repository, notifyChanged],
+  );
+
+  /**
+   * Real provider checkout: open the hosted checkout page, then poll for the
+   * authoritative webhook outcome. Navigation/closing the page never confirms
+   * the booking — only the provider webhook does, which `pollStatus` observes.
+   */
+  const handleOpenCheckout = useCallback(async () => {
+    if (phase.step !== "checkout") return;
+    const checkoutSession = phase.session;
+    await WebBrowser.openBrowserAsync(checkoutSession.checkoutUrl);
+    setPhase({ step: "awaiting-webhook", session: checkoutSession, choice: "success" });
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+      const resolved = await pollStatus(checkoutSession);
+      if (resolved) return;
+    }
+    // Not confirmed yet — return to checkout so the user can re-open or re-check.
+    setPhase({ step: "checkout", session: checkoutSession });
+  }, [phase, pollStatus]);
+
+  if (status === "loading") return <LoadingState label="Loading" />;
+  if (!session) return <Redirect href="/(auth)/welcome" />;
 
   if (phase.step === "disabled") {
     return (
-      <Screen>
-        <Stack.Screen options={{ headerShown: true, title: "Payment" }} />
+      <Screen subPageTitle="Payment">
+        <Stack.Screen options={{ headerShown: false }} />
         <DeniedState
           title="Payment is unavailable"
           description="Live payment processing is disabled because no approved production payment provider is configured. This is expected outside development/test."
@@ -118,25 +160,37 @@ export default function PaymentScreen() {
   if (phase.step === "error") return <ErrorState onRetry={load} />;
 
   return (
-    <Screen>
-      <Stack.Screen options={{ headerShown: true, title: "Payment" }} />
+    <Screen subPageTitle="Payment">
+      <Stack.Screen options={{ headerShown: false }} />
       {/*
         Kept as an alert: no approved payment provider is configured, so nothing
         on this screen moves real money. The wording states that plainly rather
         than implying a live checkout.
       */}
-      <View style={styles.syntheticBanner} accessibilityRole="alert">
-        <Text style={styles.syntheticBannerText}>
-          Test checkout — no payment is taken and no money moves
-        </Text>
-      </View>
+      {/*
+        Banner reflects whether this is the development simulator (no money) or a
+        real provider checkout (sandbox/live).
+      */}
+      {phase.session.synthetic ? (
+        <View style={styles.syntheticBanner} accessibilityRole="alert">
+          <Text style={styles.syntheticBannerText}>
+            Test checkout — no payment is taken and no money moves
+          </Text>
+        </View>
+      ) : phase.session.mode === "sandbox" ? (
+        <View style={styles.syntheticBanner} accessibilityRole="alert">
+          <Text style={styles.syntheticBannerText}>
+            Sandbox checkout — provider test mode, no real money moves
+          </Text>
+        </View>
+      ) : null}
 
       <View style={styles.card}>
         <Text style={styles.amount}>{formatPhp(phase.session.amountCentavos)}</Text>
         <Text style={styles.reference}>Reference: {phase.session.providerReference}</Text>
       </View>
 
-      {phase.step === "checkout" ? (
+      {phase.step === "checkout" && phase.session.synthetic ? (
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Choose a deterministic outcome</Text>
           <Text style={styles.caption}>
@@ -163,6 +217,28 @@ export default function PaymentScreen() {
             label="Simulate retry"
             onPress={() => handleChoice("retry")}
             variant="secondary"
+            fullWidth
+          />
+        </View>
+      ) : null}
+
+      {phase.step === "checkout" && !phase.session.synthetic ? (
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Pay securely</Text>
+          <Text style={styles.caption}>
+            You&apos;ll be taken to the provider&apos;s secure checkout to pay with GCash, Maya, or
+            a card. Your booking is confirmed only after the provider confirms payment.
+          </Text>
+          <Button
+            label="Open secure checkout"
+            onPress={() => void handleOpenCheckout()}
+            fullWidth
+          />
+          <View style={{ height: spacing.sm }} />
+          <Button
+            label="I've paid — check status"
+            variant="secondary"
+            onPress={() => void pollStatus(phase.session)}
             fullWidth
           />
         </View>

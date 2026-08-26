@@ -2,10 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildExpoMessages,
+  canRetryPush,
   chunkExpoMessages,
   EXPO_PUSH_MAX_BATCH,
   isExpoPushToken,
+  PUSH_MAX_ATTEMPTS_DEFAULT,
   pushCategoryForType,
+  pushRetryBackoffMinutes,
   shouldPush,
 } from "./push-delivery.js";
 
@@ -23,7 +26,7 @@ describe("isExpoPushToken", () => {
 });
 
 describe("pushCategoryForType", () => {
-  it("mirrors app.notification_category from migration 0020", () => {
+  it("mirrors app.notification_category from migrations 0020 + 0043", () => {
     expect(pushCategoryForType("OFFER_RECEIVED")).toBe("offers");
     expect(pushCategoryForType("OFFER_SELECTED")).toBe("offers");
     expect(pushCategoryForType("PAYMENT_FAILED")).toBe("payments");
@@ -33,6 +36,47 @@ describe("pushCategoryForType", () => {
     expect(pushCategoryForType("MESSAGE_RECEIVED")).toBe("messages");
     expect(pushCategoryForType("VERIFICATION_DECISION")).toBe("verification");
     expect(pushCategoryForType("SOMETHING_ELSE")).toBe("system");
+  });
+
+  it("maps the Wave 3B producers added in 0043/0044", () => {
+    // A muted category must mute BOTH channels, so these three mappings are the
+    // contract between app.notification_category and the push dispatcher.
+    expect(pushCategoryForType("REVIEW_REMINDER")).toBe("reviews");
+    expect(pushCategoryForType("NEARBY_TASK")).toBe("nearby");
+    // A trust & safety outcome rides the `system` toggle (0050).
+    expect(pushCategoryForType("REPORT_RESOLVED")).toBe("system");
+    expect(pushCategoryForType("COMPLETION_REMINDER")).toBe("bookings");
+  });
+});
+
+describe("push retry schedule", () => {
+  it("backs off exponentially and caps at an hour", () => {
+    expect(pushRetryBackoffMinutes(1)).toBe(2);
+    expect(pushRetryBackoffMinutes(2)).toBe(4);
+    expect(pushRetryBackoffMinutes(3)).toBe(8);
+    expect(pushRetryBackoffMinutes(4)).toBe(16);
+    expect(pushRetryBackoffMinutes(5)).toBe(32);
+    expect(pushRetryBackoffMinutes(6)).toBe(60);
+    expect(pushRetryBackoffMinutes(50)).toBe(60);
+  });
+
+  it("treats a non-positive attempt count as the first attempt", () => {
+    expect(pushRetryBackoffMinutes(0)).toBe(2);
+    expect(pushRetryBackoffMinutes(-3)).toBe(2);
+  });
+
+  it("stops retrying once the attempt ceiling is reached", () => {
+    expect(canRetryPush(0)).toBe(true);
+    expect(canRetryPush(PUSH_MAX_ATTEMPTS_DEFAULT - 1)).toBe(true);
+    expect(canRetryPush(PUSH_MAX_ATTEMPTS_DEFAULT)).toBe(false);
+    expect(canRetryPush(99)).toBe(false);
+  });
+
+  it("honours a configured ceiling", () => {
+    expect(canRetryPush(3, 5)).toBe(true);
+    expect(canRetryPush(5, 5)).toBe(false);
+    // A nonsense ceiling still permits the first attempt rather than looping.
+    expect(canRetryPush(0, 0)).toBe(true);
   });
 });
 

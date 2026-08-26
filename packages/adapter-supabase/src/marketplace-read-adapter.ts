@@ -179,9 +179,7 @@ export class SupabaseMarketplaceReadAdapter implements MarketplaceRepository {
     const { data: authData } = await this.client.auth.getUser();
     const callerId = authData.user?.id;
     if (callerId && callerId !== userId) {
-      throw new Error(
-        "getDerivedBalances: balances can only be read for the signed-in user.",
-      );
+      throw new Error("getDerivedBalances: balances can only be read for the signed-in user.");
     }
 
     const { data, error } = await this.client.rpc("my_ledger_balances");

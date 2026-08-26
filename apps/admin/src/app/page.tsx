@@ -3,7 +3,14 @@ import { redirect } from "next/navigation";
 import { readSession } from "@/lib/session";
 import { PublicHeader } from "@/components/shell/PublicHeader";
 import { LinkButton } from "@/components/ui/Button";
-import { ShieldIcon, TagIcon, ChatIcon, WalletIcon, ClipboardIcon, GridIcon } from "@/components/shell/icons";
+import {
+  ShieldIcon,
+  TagIcon,
+  ChatIcon,
+  WalletIcon,
+  ClipboardIcon,
+  GridIcon,
+} from "@/components/shell/icons";
 
 export const metadata: Metadata = { title: "Overview" };
 export const dynamic = "force-dynamic";
@@ -57,7 +64,16 @@ const TRUST_PILLARS = [
     title: "Role-Based Access Control",
     desc: "Super Admin, Finance, and Support capabilities strictly isolate access boundaries.",
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
         <path d="M7 11V7a5 5 0 0 1 10 0v4" />
       </svg>
@@ -67,7 +83,16 @@ const TRUST_PILLARS = [
     title: "Failsafe Data Privacy",
     desc: "Privacy-safe projections shield raw IDs, exact geolocation coordinates, and private messages.",
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
       </svg>
     ),
@@ -76,7 +101,16 @@ const TRUST_PILLARS = [
     title: "Audited Ledger Reconciliation",
     desc: "Double-entry accounting principles guarantee zero ghost balances or unverified payouts.",
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <line x1="12" y1="1" x2="12" y2="23" />
         <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
       </svg>
@@ -86,7 +120,16 @@ const TRUST_PILLARS = [
     title: "Assignment Protection",
     desc: "Case detail narratives and evidence are locked exclusively to assigned team members.",
     icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
         <circle cx="9" cy="7" r="4" />
       </svg>
@@ -106,10 +149,12 @@ export default async function RootPage() {
 
       {/* Hero Section */}
       <section className="dk-hero">
-        <h1 className="dk-hero-title">Run the Dizkarte marketplace with total trust & governance.</h1>
+        <h1 className="dk-hero-title">
+          Run the Dizkarte marketplace with total trust & governance.
+        </h1>
         <p className="dk-hero-subtitle">
-          Verify identities, moderate tasks, resolve disputes, and manage payouts from one
-          protected console — every sensitive action is capability-gated and logged.
+          Verify identities, moderate tasks, resolve disputes, and manage payouts from one protected
+          console — every sensitive action is capability-gated and logged.
         </p>
 
         <div className="dk-hero-actions">
@@ -144,7 +189,8 @@ export default async function RootPage() {
           <span className="dk-section-tag">Modular Operations</span>
           <h2 className="dk-section-title">Everything the team needs to govern</h2>
           <p className="dk-section-subtitle">
-            Capability-gated modules engineered for verification, safety, compliance, and financial control.
+            Capability-gated modules engineered for verification, safety, compliance, and financial
+            control.
           </p>
         </div>
 
@@ -183,9 +229,9 @@ export default async function RootPage() {
 
       {/* Footer */}
       <footer className="dk-landing-footer">
-        Dizkarte Admin is a protected internal console. Access requires an authorized Admin capability.
+        Dizkarte Admin is a protected internal console. Access requires an authorized Admin
+        capability.
       </footer>
     </div>
   );
 }
-

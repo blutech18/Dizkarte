@@ -1,8 +1,28 @@
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { theme, spacing, fontSize } from "../../theme";
 import { Button } from "./Button";
+import { SkeletonList } from "./Skeleton";
 
-export function LoadingState({ label = "Loading" }: { readonly label?: string }) {
+export function LoadingState({
+  label = "Loading",
+  variant = "skeleton",
+  count = 3,
+}: {
+  readonly label?: string;
+  readonly variant?: "skeleton" | "spinner";
+  readonly count?: number;
+}) {
+  if (variant === "skeleton") {
+    return (
+      <View
+        style={styles.skeletonContainer}
+        accessibilityRole="progressbar"
+        accessibilityLabel={`${label}…`}
+      >
+        <SkeletonList count={count} />
+      </View>
+    );
+  }
   return (
     <View style={styles.container} accessibilityRole="progressbar" accessibilityLabel={`${label}…`}>
       <ActivityIndicator size="large" color={theme.primary} />
@@ -77,6 +97,11 @@ export function DeniedState({
 }
 
 const styles = StyleSheet.create({
+  skeletonContainer: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    width: "100%",
+  },
   container: {
     flex: 1,
     alignItems: "center",

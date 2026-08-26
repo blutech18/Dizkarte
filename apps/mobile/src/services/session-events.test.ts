@@ -12,9 +12,9 @@ describe("decideAuthAction", () => {
   });
 
   it("clears on an explicit sign-out", () => {
-    expect(
-      decideAuthAction({ event: "SIGNED_OUT", nextUserId: null, currentUserId: USER }),
-    ).toBe("clear");
+    expect(decideAuthAction({ event: "SIGNED_OUT", nextUserId: null, currentUserId: USER })).toBe(
+      "clear",
+    );
   });
 
   it("clears whenever the event carries no user", () => {
@@ -32,21 +32,21 @@ describe("decideAuthAction", () => {
   });
 
   it("keeps the existing projection when only user metadata changed", () => {
-    expect(
-      decideAuthAction({ event: "USER_UPDATED", nextUserId: USER, currentUserId: USER }),
-    ).toBe("keep");
+    expect(decideAuthAction({ event: "USER_UPDATED", nextUserId: USER, currentUserId: USER })).toBe(
+      "keep",
+    );
   });
 
   it("derives on first sign-in", () => {
-    expect(
-      decideAuthAction({ event: "SIGNED_IN", nextUserId: USER, currentUserId: null }),
-    ).toBe("derive");
+    expect(decideAuthAction({ event: "SIGNED_IN", nextUserId: USER, currentUserId: null })).toBe(
+      "derive",
+    );
   });
 
   it("derives when the signed-in user actually changes", () => {
-    expect(
-      decideAuthAction({ event: "SIGNED_IN", nextUserId: OTHER, currentUserId: USER }),
-    ).toBe("derive");
+    expect(decideAuthAction({ event: "SIGNED_IN", nextUserId: OTHER, currentUserId: USER })).toBe(
+      "derive",
+    );
   });
 
   it("derives on the initial session restored from storage", () => {

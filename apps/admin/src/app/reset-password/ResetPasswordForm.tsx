@@ -29,7 +29,12 @@ export function ResetPasswordForm() {
       action={formAction}
       className="dk-stack"
       aria-describedby={state.error ? "reset-error" : undefined}
-      style={{ display: "flex", flexDirection: "column", justifyContent: "space-between", height: "100%" }}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        height: "100%",
+      }}
     >
       {state.error ? (
         <div
@@ -47,7 +52,17 @@ export function ResetPasswordForm() {
             gap: 6,
           }}
         >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
             <circle cx="12" cy="12" r="10" />
             <line x1="12" y1="8" x2="12" y2="12" />
             <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -72,7 +87,15 @@ export function ResetPasswordForm() {
             placeholder="admin@dizkarte.ph"
           />
         </div>
-        <span className="dk-field-description" style={{ marginTop: 8, fontSize: 11.5, color: "var(--dk-textSecondary)", whiteSpace: "nowrap" }}>
+        <span
+          className="dk-field-description"
+          style={{
+            marginTop: 8,
+            fontSize: 11.5,
+            color: "var(--dk-textSecondary)",
+            whiteSpace: "nowrap",
+          }}
+        >
           A secure recovery link will be sent if this email has Admin access.
         </span>
       </div>
@@ -94,7 +117,19 @@ export function ResetPasswordForm() {
             "Send Reset Link"
           )}
         </button>
-        <Link className="dk-btn dk-btn-secondary" href="/login" style={{ textAlign: "center", width: "100%", height: 38, fontSize: 13.5, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Link
+          className="dk-btn dk-btn-secondary"
+          href="/login"
+          style={{
+            textAlign: "center",
+            width: "100%",
+            height: 38,
+            fontSize: 13.5,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
           Back to sign in
         </Link>
       </div>

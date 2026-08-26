@@ -8,7 +8,7 @@ import {
 import { theme, radii, spacing, fontSize, MIN_TOUCH_TARGET } from "../../theme";
 import { Icon, type IconName } from "./Icon";
 
-export type ButtonVariant = "primary" | "secondary" | "destructive" | "text";
+export type ButtonVariant = "primary" | "primaryDark" | "secondary" | "destructive" | "text";
 
 export type ButtonProps = {
   readonly label: string;
@@ -108,7 +108,15 @@ const variantStyles: Record<ButtonVariant, { container: object; label: object; p
     primary: {
       container: { backgroundColor: theme.primary },
       label: { color: theme.onPrimary },
-      pressed: { backgroundColor: theme.primaryPressed },
+      pressed: { backgroundColor: theme.primaryPressed, transform: [{ scale: 0.98 }] },
+    },
+    // A deeper-purple pill, distinct from the surrounding brand-purple hero
+    // background it sits on (e.g. the Home "Get offers" CTA), so the button
+    // reads as a raised control instead of blending into its container.
+    primaryDark: {
+      container: { backgroundColor: theme.primaryPressed },
+      label: { color: theme.onPrimary },
+      pressed: { backgroundColor: theme.primaryHover, transform: [{ scale: 0.98 }] },
     },
     secondary: {
       container: {
@@ -117,16 +125,16 @@ const variantStyles: Record<ButtonVariant, { container: object; label: object; p
         borderColor: theme.borderControl,
       },
       label: { color: theme.primary },
-      pressed: { backgroundColor: theme.surfaceSubtle },
+      pressed: { backgroundColor: theme.surfaceSubtle, transform: [{ scale: 0.98 }] },
     },
     destructive: {
       container: { backgroundColor: theme.errorSolid },
       label: { color: "#FFFFFF" },
-      pressed: { backgroundColor: theme.errorSolid },
+      pressed: { backgroundColor: theme.errorSolid, transform: [{ scale: 0.98 }] },
     },
     text: {
       container: { backgroundColor: "transparent" },
       label: { color: theme.link },
-      pressed: { backgroundColor: theme.surfaceSubtle },
+      pressed: { backgroundColor: theme.surfaceSubtle, transform: [{ scale: 0.98 }] },
     },
   };

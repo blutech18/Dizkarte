@@ -1,6 +1,8 @@
 import type { MapProvider } from "@dizkarte/domain";
 import { SyntheticMapProvider } from "@dizkarte/domain";
 import { getAppConfig } from "../../lib/config";
+import { GoogleMapProvider } from "./google-map-provider";
+import { EdgeGeocodingMapProvider } from "./edge-geocoding-provider";
 
 let cachedProvider: MapProvider | null = null;
 let cachedUnavailable = false;
@@ -8,25 +10,39 @@ let cachedUnavailable = false;
 /**
  * Single construction point for the mobile map provider.
  *
- * Mirrors `marketplace/factory.ts`: the synthetic map provider can only be
- * constructed in `development`/`test`. Outside those environments this
- * module never falls back to synthetic data — if no real map provider is
- * wired (task 9.2, pending an approved provider/credential), `getMapProvider`
- * returns `null` and callers must render a map-unavailable state, never a
- * silent synthetic fallback in production.
+ * Selection order:
+ *  1. `MAP_MODE=live` -> `EdgeGeocodingMapProvider`, the secure default:
+ *     geocoding is proxied through the `geocode` Edge Function so the Google
+ *     key stays server-side and is never bundled into the app.
+ *  2. A configured public `MAP_PUBLIC_KEY` -> legacy `GoogleMapProvider`
+ *     (direct-to-Google). Retained for flexibility but discouraged because the
+ *     key is publicly visible in the app bundle.
+ *  3. Otherwise `SyntheticMapProvider` in development/test, or fail closed
+ *     (`null`) in production so UI renders a "map unavailable" state.
  */
 export function getMapProvider(): MapProvider | null {
   if (cachedProvider) return cachedProvider;
   if (cachedUnavailable) return null;
-  const { environment } = getAppConfig();
-  if (environment !== "development" && environment !== "test") {
-    // No real map provider adapter exists yet in this pass (task 9.2).
-    // Fail closed rather than throw, so the screen can render a clear
-    // "map unavailable" state instead of crashing the app.
+
+  const config = getAppConfig();
+
+  if (config.adapterModes.map === "live") {
+    cachedProvider = new EdgeGeocodingMapProvider();
+    return cachedProvider;
+  }
+
+  const apiKey = config.mapPublicKey;
+  if (apiKey && apiKey.trim().length > 0) {
+    cachedProvider = new GoogleMapProvider(apiKey);
+    return cachedProvider;
+  }
+
+  if (config.environment !== "development" && config.environment !== "test") {
     cachedUnavailable = true;
     return null;
   }
-  cachedProvider = new SyntheticMapProvider(environment);
+
+  cachedProvider = new SyntheticMapProvider(config.environment);
   return cachedProvider;
 }
 

@@ -40,6 +40,12 @@ supabase/.temp/
 # this project rather than part of the delivered system.
 .kiro/
 
+# Project documentation. Kept out of the repository at the Client's request
+# (2026-08-15): the contract, scope/spec, brand, acceptance and operations
+# documents are delivered and versioned outside git. The files stay on disk —
+# they are simply untracked, so edits to them never appear in a commit.
+docs/
+
 # Editor / OS
 .DS_Store
 Thumbs.db

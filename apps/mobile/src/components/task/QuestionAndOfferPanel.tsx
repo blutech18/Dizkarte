@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
+import { router } from "expo-router";
 import { askQuestionSchema, submitOfferSchema, type TaskId } from "@dizkarte/domain";
 import type { MobileSession } from "../../services/session-types";
 import { isClient, isIdentityVerified } from "../../services/session-types";
@@ -7,8 +8,13 @@ import { useMarketplace } from "../../providers/MarketplaceProvider";
 import { MyOfferHistoryList } from "./MyOfferHistoryList";
 import { TextField } from "../ui/TextField";
 import { Button } from "../ui/Button";
-import { DeniedState } from "../ui/AsyncState";
-import { theme, spacing, fontSize, radii } from "../../theme";
+import { Icon, type IconName } from "../ui/Icon";
+import { DeniedState, LoadingState } from "../ui/AsyncState";
+import {
+  isOfferRegistrationComplete,
+  type OfferRegistrationStatus,
+} from "../../services/marketplace";
+import { theme, spacing, fontSize, lineHeight, radii, useResponsiveLayout } from "../../theme";
 
 export type QuestionAndOfferPanelProps = {
   readonly taskId: TaskId;
@@ -44,15 +50,86 @@ export function QuestionAndOfferPanel({
           : "Your Tasker application must be approved before you can submit offers.";
     return <DeniedState title="Tasker approval required" description={description} />;
   }
-  return <OfferForm taskId={taskId} session={session} />;
+  return <OfferGate taskId={taskId} session={session} />;
 }
 
-function OfferForm({
+/**
+ * "Finish registration" gate (Airtasker-style): an approved, verified Tasker
+ * must still have a mobile number, a payout (bank) account, and a billing
+ * address before the offer form is shown. Reflects live completion and links to
+ * the checklist; `submit_offer` enforces the same requirement server-side.
+ */
+function OfferGate({
   taskId,
   session,
 }: {
   readonly taskId: TaskId;
   readonly session: MobileSession;
+}) {
+  const { repository, revision } = useMarketplace();
+  const { isTablet } = useResponsiveLayout();
+  const [regStatus, setRegStatus] = useState<OfferRegistrationStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      setRegStatus(await repository.getOfferRegistrationStatus(session.userId));
+    } catch {
+      setRegStatus(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [repository, session.userId]);
+
+  useEffect(() => {
+    void load();
+  }, [load, revision]);
+
+  if (loading && !regStatus) {
+    return <LoadingState label="Checking your registration" />;
+  }
+  if (regStatus && isOfferRegistrationComplete(regStatus)) {
+    return <OfferForm taskId={taskId} session={session} isTablet={isTablet} />;
+  }
+
+  const remaining = [
+    regStatus?.mobileComplete ? null : "mobile number",
+    regStatus?.bankComplete ? null : "bank account",
+    regStatus?.billingComplete ? null : "billing address",
+  ].filter((item): item is string => item !== null);
+
+  return (
+    <View style={[styles.registrationCard, isTablet ? styles.panelPaddingTablet : null]}>
+      <View style={styles.registrationHeader}>
+        <Text style={styles.registrationEyebrow}>OFFER ACCESS</Text>
+        <View style={styles.registrationTitleRow}>
+          <Icon name="lock" size={20} color={theme.primary} />
+          <Text style={styles.registrationTitle}>Finish registration to make offers</Text>
+        </View>
+      </View>
+      <Text style={styles.registrationBody}>
+        Add your {remaining.length > 0 ? remaining.join(", ") : "remaining details"} before sending
+        a proposal. The same requirement is enforced when an offer is submitted.
+      </Text>
+      <Button
+        label="Finish registration"
+        icon="arrow-right"
+        fullWidth
+        onPress={() => router.push("/finish-registration")}
+      />
+    </View>
+  );
+}
+
+function OfferForm({
+  taskId,
+  session,
+  isTablet,
+}: {
+  readonly taskId: TaskId;
+  readonly session: MobileSession;
+  readonly isTablet: boolean;
 }) {
   const { repository, notifyChanged } = useMarketplace();
   const [questionBody, setQuestionBody] = useState("");
@@ -122,9 +199,14 @@ function OfferForm({
   }
 
   return (
-    <View>
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Ask a question</Text>
+    <View style={styles.formStack}>
+      <View style={[styles.section, isTablet ? styles.panelPaddingTablet : null]}>
+        <WorkspaceSectionHeader
+          eyebrow="BEFORE YOU QUOTE"
+          icon="chat"
+          title="Ask a question"
+          description="Confirm important scope details without exchanging private contact information."
+        />
         {questionSubmitted ? (
           <Text style={styles.successText}>Your question was sent to the Client.</Text>
         ) : (
@@ -137,13 +219,23 @@ function OfferForm({
               error={questionError}
               description="Keep questions specific to this task. Contact details cannot be exchanged here."
             />
-            <Button label="Send question" onPress={submitQuestion} variant="secondary" />
+            <Button
+              label="Send question"
+              onPress={submitQuestion}
+              variant="secondary"
+              fullWidth={!isTablet}
+            />
           </>
         )}
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Submit an offer</Text>
+      <View style={[styles.section, isTablet ? styles.panelPaddingTablet : null]}>
+        <WorkspaceSectionHeader
+          eyebrow="YOUR PROPOSAL"
+          icon="briefcase"
+          title="Make an offer"
+          description="Give the Client one complete price, timeline, availability, and relevant experience."
+        />
         {offerResult === "success" ? (
           <Text style={styles.successText}>
             Your offer was submitted. You will be notified if it is selected. See it below in "Your
@@ -202,8 +294,13 @@ function OfferForm({
         )}
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Your offers on this task</Text>
+      <View style={[styles.section, isTablet ? styles.panelPaddingTablet : null]}>
+        <WorkspaceSectionHeader
+          eyebrow="OFFER ACTIVITY"
+          icon="note"
+          title="Your offers on this task"
+          description="Track every proposal you have submitted for this brief."
+        />
         <MyOfferHistoryList
           taskerId={session.userId}
           taskId={taskId}
@@ -215,20 +312,122 @@ function OfferForm({
   );
 }
 
+function WorkspaceSectionHeader({
+  eyebrow,
+  icon,
+  title,
+  description,
+}: {
+  readonly eyebrow: string;
+  readonly icon: IconName;
+  readonly title: string;
+  readonly description: string;
+}) {
+  return (
+    <View style={styles.workspaceHeader}>
+      <Text style={styles.workspaceEyebrow}>{eyebrow}</Text>
+      <View style={styles.workspaceTitleRow}>
+        <Icon name={icon} size={20} color={theme.primary} />
+        <Text style={styles.workspaceTitle} accessibilityRole="header">
+          {title}
+        </Text>
+      </View>
+      <Text style={styles.workspaceDescription}>{description}</Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
-  section: {
-    backgroundColor: theme.surface,
-    borderRadius: radii.md,
+  registrationCard: {
+    minWidth: 0,
+    width: "100%",
+    gap: spacing.md,
+    padding: spacing.md,
     borderWidth: 1,
     borderColor: theme.borderSubtle,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
+    borderRadius: radii.lg,
+    backgroundColor: theme.surface,
   },
-  sectionTitle: {
-    fontSize: fontSize.md,
-    fontWeight: "700",
+  panelPaddingTablet: {
+    padding: spacing.lg,
+  },
+  registrationHeader: {
+    minWidth: 0,
+    gap: spacing.sm,
+  },
+  registrationEyebrow: {
+    color: theme.primary,
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+  registrationTitleRow: {
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+  },
+  registrationTitle: {
+    minWidth: 0,
+    flex: 1,
     color: theme.textPrimary,
-    marginBottom: spacing.sm,
+    fontSize: fontSize.md,
+    lineHeight: lineHeight.md,
+    fontWeight: "800",
+  },
+  registrationBody: {
+    minWidth: 0,
+    color: theme.textSecondary,
+    fontSize: fontSize.sm,
+    lineHeight: lineHeight.sm,
+  },
+  formStack: {
+    minWidth: 0,
+    width: "100%",
+    gap: spacing.md,
+  },
+  section: {
+    minWidth: 0,
+    width: "100%",
+    gap: spacing.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    borderRadius: radii.lg,
+    backgroundColor: theme.surface,
+  },
+  workspaceHeader: {
+    minWidth: 0,
+    gap: spacing.sm,
+    paddingBottom: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.borderSubtle,
+  },
+  workspaceEyebrow: {
+    color: theme.textSecondary,
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 1,
+  },
+  workspaceTitleRow: {
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm,
+  },
+  workspaceTitle: {
+    minWidth: 0,
+    flex: 1,
+    color: theme.textPrimary,
+    fontSize: fontSize.md,
+    lineHeight: lineHeight.md,
+    fontWeight: "800",
+  },
+  workspaceDescription: {
+    minWidth: 0,
+    color: theme.textSecondary,
+    fontSize: fontSize.xs,
+    lineHeight: lineHeight.xs,
   },
   successText: {
     color: theme.successOnSoft,
@@ -243,6 +442,5 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: radii.sm,
     fontWeight: "600",
-    marginBottom: spacing.sm,
   },
 });

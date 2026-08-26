@@ -6,6 +6,12 @@
 --
 -- Usage (development database only):
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/tests/ledger_and_constraints.sql
+--
+-- Note: the fixtures use the `ADJUSTMENT` transaction type because migration
+-- 0036 added `ck_ledger_tx_booking_scoped` — every booking-scoped type (including
+-- `FEE_CHARGE`) must now carry a `booking_id`. `ADJUSTMENT` is one of the
+-- deliberately booking-free types, so these checks still exercise the balance and
+-- immutability invariants without inventing a synthetic booking.
 
 begin;
 
@@ -15,7 +21,7 @@ declare v_tx uuid; v_acc uuid; v_ok boolean := false;
 begin
   v_acc := app.ensure_ledger_account('platform', null, 'PLATFORM_FEE');
   insert into public.ledger_transactions (type, idempotency_key)
-    values ('FEE_CHARGE', 'test_unbalanced_' || gen_random_uuid()::text) returning id into v_tx;
+    values ('ADJUSTMENT', 'test_unbalanced_' || gen_random_uuid()::text) returning id into v_tx;
   begin
     insert into public.ledger_entries (transaction_id, account_id, amount_centavos)
       values (v_tx, v_acc, 100), (v_tx, v_acc, -50);
@@ -39,7 +45,7 @@ begin
   v_a := app.ensure_ledger_account('platform', null, 'CLIENT_FUNDING');
   v_b := app.ensure_ledger_account('platform', null, 'PLATFORM_FEE');
   insert into public.ledger_transactions (type, idempotency_key)
-    values ('FEE_CHARGE', 'test_balanced_' || gen_random_uuid()::text) returning id into v_tx;
+    values ('ADJUSTMENT', 'test_balanced_' || gen_random_uuid()::text) returning id into v_tx;
   insert into public.ledger_entries (transaction_id, account_id, amount_centavos)
     values (v_tx, v_a, -100), (v_tx, v_b, 100);
   set constraints all immediate;
@@ -53,7 +59,7 @@ begin
   v_a := app.ensure_ledger_account('platform', null, 'CLIENT_FUNDING');
   v_b := app.ensure_ledger_account('platform', null, 'PLATFORM_FEE');
   insert into public.ledger_transactions (type, idempotency_key)
-    values ('FEE_CHARGE', 'test_immutable_' || gen_random_uuid()::text) returning id into v_tx;
+    values ('ADJUSTMENT', 'test_immutable_' || gen_random_uuid()::text) returning id into v_tx;
   insert into public.ledger_entries (transaction_id, account_id, amount_centavos)
     values (v_tx, v_a, -100), (v_tx, v_b, 100);
   set constraints all immediate;

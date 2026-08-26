@@ -160,6 +160,11 @@ jobs:
         uses: actions/checkout@v4
 
       # Pinned to match the version validated locally (see change log).
+      #
+      # If `supabase start` ever becomes unusable on a host (it needs a range of
+      # free ports — 54322 sits inside a reserved range on some Windows hosts),
+      # `npm run test:sql` runs the same migrations and suites against a
+      # throwaway `supabase/postgres` container instead, needing only Docker.
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
@@ -180,12 +185,14 @@ jobs:
 
       # Run each SQL self-check suite with ON_ERROR_STOP so any FAIL/exception
       # aborts the job with a non-zero exit. Matches the local run:
-      # ledger_and_constraints 4/4, rls_enabled 3/3, security_hardening 30/30.
+      # ledger_and_constraints 4/4, rls_enabled 3/3, security_hardening 30/30,
+      # milestone3_reviews_notifications 14/14, conversation_read_state 8/8,
+      # task_feed_filters 6/6, report_submission 10/10, admin_case_subject 15/15.
       - name: Run SQL test suites
         run: |
           set -euo pipefail
           DB_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
-          for suite in ledger_and_constraints rls_enabled security_hardening; do
+          for suite in ledger_and_constraints rls_enabled security_hardening milestone3_reviews_notifications conversation_read_state task_feed_filters report_submission admin_case_subject; do
             echo "=== running supabase/tests/$suite.sql ==="
             psql "$DB_URL" -v ON_ERROR_STOP=1 -f "supabase/tests/$suite.sql"
           done

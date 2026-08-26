@@ -1,9 +1,11 @@
 import "server-only";
 import type {
+  CaseSubject,
   LedgerAccountType,
   LedgerTransactionType,
   PaymentIntentStatus,
   ReconciliationStatus,
+  ReportTriage,
 } from "./types";
 
 /**
@@ -96,6 +98,7 @@ const LEDGER_TX_TYPES: ReadonlyArray<LedgerTransactionType> = [
   "WITHDRAWAL_REVERSE",
   "FREEZE",
   "UNFREEZE",
+  "ADJUSTMENT",
 ];
 
 export function toLedgerTransactionType(value: string | null | undefined): LedgerTransactionType {
@@ -237,7 +240,119 @@ export function displayNameFor(
 /** Zero-based Supabase `range()` bounds for a 1-based page input. */
 export function pageRange(page: number, pageSize: number): { from: number; to: number } {
   const safePage = Number.isFinite(page) && page > 0 ? Math.floor(page) : 1;
-  const safeSize = Number.isFinite(pageSize) && pageSize > 0 ? Math.min(Math.floor(pageSize), 100) : 20;
+  const safeSize =
+    Number.isFinite(pageSize) && pageSize > 0 ? Math.min(Math.floor(pageSize), 100) : 20;
   const from = (safePage - 1) * safeSize;
   return { from, to: from + safeSize - 1 };
+}
+
+/**
+ * Project the `jsonb` returned by `admin_read_report_subject` /
+ * `admin_read_dispute_subject` into a `CaseSubject`.
+ *
+ * Defensive on purpose: the payload crosses a PostgREST boundary, so every field
+ * is narrowed rather than cast. An unreadable or absent payload becomes
+ * `exists: false` with a plain label instead of throwing — a case page must still
+ * open when its subject was deleted, and a blank card is worse than a sentence
+ * saying the content is gone.
+ */
+export function mapCaseSubject(payload: unknown, resourceType: string): CaseSubject {
+  const missing: CaseSubject = {
+    exists: false,
+    kind: resourceType,
+    label: `This ${resourceType} could not be resolved`,
+    status: null,
+    body: null,
+    occurredAt: null,
+    subjectUserId: null,
+    subjectUserName: null,
+    counterpartyName: null,
+    taskId: null,
+    taskTitle: null,
+    bookingId: null,
+    amountCentavos: null,
+    extra: {},
+  };
+  if (typeof payload !== "object" || payload === null) return missing;
+  const raw = payload as Record<string, unknown>;
+
+  const text = (key: string): string | null => {
+    const value = raw[key];
+    return typeof value === "string" && value.length > 0 ? value : null;
+  };
+  const count = (key: string): number | null => {
+    const value = raw[key];
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    // PostgREST renders bigint as a string; a centavo amount must survive that.
+    if (typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value))) {
+      return Number(value);
+    }
+    return null;
+  };
+
+  const extra: Record<string, string | number | boolean | null> = {};
+  if (typeof raw.extra === "object" && raw.extra !== null) {
+    for (const [key, value] of Object.entries(raw.extra as Record<string, unknown>)) {
+      if (value === null) extra[key] = null;
+      else if (typeof value === "string" || typeof value === "boolean") extra[key] = value;
+      else if (typeof value === "number" && Number.isFinite(value)) extra[key] = value;
+      else if (typeof value === "object") continue;
+      else extra[key] = String(value);
+    }
+  }
+
+  return {
+    exists: raw.exists === true,
+    kind: text("kind") ?? resourceType,
+    label: text("label") ?? missing.label,
+    status: text("status"),
+    body: text("body"),
+    occurredAt: text("occurredAt"),
+    subjectUserId: text("subjectUserId"),
+    subjectUserName: text("subjectUserName"),
+    counterpartyName: text("counterpartyName"),
+    taskId: text("taskId"),
+    taskTitle: text("taskTitle"),
+    bookingId: text("bookingId"),
+    amountCentavos: count("amountCentavos"),
+    extra,
+  };
+}
+
+/**
+ * Project the reporter/pile-on block of `admin_read_report_subject`.
+ *
+ * Returns `null` when the block is absent rather than inventing zeros: "no other
+ * reports" and "we could not tell" must not look the same to a moderator.
+ */
+export function mapReportTriage(payload: unknown): ReportTriage | null {
+  if (typeof payload !== "object" || payload === null) return null;
+  const raw = payload as Record<string, unknown>;
+  const reporter = raw.reporter;
+  const summary = raw.resourceReportSummary;
+  if (typeof reporter !== "object" || reporter === null) return null;
+  if (typeof summary !== "object" || summary === null) return null;
+
+  const reporterRaw = reporter as Record<string, unknown>;
+  const summaryRaw = summary as Record<string, unknown>;
+  const num = (value: unknown): number => {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value === "string" && Number.isFinite(Number(value))) return Number(value);
+    return 0;
+  };
+  const str = (value: unknown, fallback: string): string =>
+    typeof value === "string" && value.length > 0 ? value : fallback;
+
+  return {
+    reporter: {
+      id: str(reporterRaw.id, ""),
+      displayName: str(reporterRaw.displayName, "Unknown reporter"),
+      accountStatus: str(reporterRaw.accountStatus, "unknown"),
+      reportsFiled: num(reporterRaw.reportsFiled),
+      reportsDismissed: num(reporterRaw.reportsDismissed),
+    },
+    distinctReporters: num(summaryRaw.distinctReporters),
+    openCases: num(summaryRaw.openCases),
+    actionedCases: num(summaryRaw.actionedCases),
+  };
 }

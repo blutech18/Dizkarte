@@ -21,24 +21,49 @@ const COMPLETE = form({
   budget: "1500",
   sameDay: true,
   landmark: "Near SM North EDSA",
+  cityCode: "137404",
+  barangayCode: "137404022",
   exactAddress: "12 Sample Road, Quezon City",
 });
 
+describe("required category questions", () => {
+  const STAIRS = { id: "q-stairs", label: "Are there stairs?" };
+
+  it("blocks the details step until a required question is answered", () => {
+    expect(validateStep("description", COMPLETE, [STAIRS])).toBe(
+      'Answer "Are there stairs?" so Taskers can quote.',
+    );
+    expect(canContinue("description", COMPLETE, [STAIRS])).toBe(false);
+  });
+
+  it("passes once the answer is present", () => {
+    const answered = form({
+      ...COMPLETE,
+      categoryAnswers: { "q-stairs": "At both places" },
+    });
+    expect(validateStep("description", answered, [STAIRS])).toBeNull();
+    expect(canContinue("description", answered, [STAIRS])).toBe(true);
+  });
+
+  it("treats a whitespace-only answer as unanswered", () => {
+    const blank = form({ ...COMPLETE, categoryAnswers: { "q-stairs": "   " } });
+    expect(canContinue("description", blank, [STAIRS])).toBe(false);
+  });
+
+  it("sends the Client back to the details step from review", () => {
+    expect(firstIncompleteStep(stepsFor(), COMPLETE, [STAIRS])).toBe("description");
+  });
+
+  it("applies no question rules when none are supplied (the edit form)", () => {
+    expect(validateStep("description", COMPLETE)).toBeNull();
+    expect(firstIncompleteStep(stepsFor(), COMPLETE)).toBeNull();
+  });
+});
+
 describe("stepsFor", () => {
-  it("asks for a category when none was chosen", () => {
-    expect(stepsFor(false)).toContain("category");
-    expect(stepsFor(false)).toHaveLength(WIZARD_STEP_IDS.length);
-  });
-
-  it("skips the category step when one was chosen on the home grid", () => {
-    const steps = stepsFor(true);
-    expect(steps).not.toContain("category");
-    expect(steps).toHaveLength(WIZARD_STEP_IDS.length - 1);
-  });
-
-  it("always ends on review", () => {
-    expect(stepsFor(true).at(-1)).toBe("review");
-    expect(stepsFor(false).at(-1)).toBe("review");
+  it("returns step list ending on review", () => {
+    expect(stepsFor()).toHaveLength(WIZARD_STEP_IDS.length);
+    expect(stepsFor().at(-1)).toBe("review");
   });
 });
 
@@ -60,11 +85,6 @@ describe("budgetToCentavos", () => {
 });
 
 describe("validateStep", () => {
-  it("requires a category", () => {
-    expect(validateStep("category", form())).not.toBeNull();
-    expect(validateStep("category", COMPLETE)).toBeNull();
-  });
-
   it("enforces the title length the schema enforces", () => {
     expect(validateStep("title", form({ title: "" }))).not.toBeNull();
     expect(validateStep("title", form({ title: "Move" }))).not.toBeNull();
@@ -101,9 +121,11 @@ describe("validateStep", () => {
     ).not.toBeNull();
   });
 
-  it("requires both a public landmark and a private address", () => {
-    expect(validateStep("location", form({ landmark: "", exactAddress: "12 Road" }))).not.toBeNull();
-    expect(validateStep("location", form({ landmark: "Near mall", exactAddress: "" }))).not.toBeNull();
+  it("requires a public landmark, a city, a barangay, and a private address", () => {
+    expect(validateStep("location", form({ ...COMPLETE, landmark: "" }))).not.toBeNull();
+    expect(validateStep("location", form({ ...COMPLETE, cityCode: null }))).not.toBeNull();
+    expect(validateStep("location", form({ ...COMPLETE, barangayCode: null }))).not.toBeNull();
+    expect(validateStep("location", form({ ...COMPLETE, exactAddress: "" }))).not.toBeNull();
     expect(validateStep("location", COMPLETE)).toBeNull();
   });
 
@@ -121,7 +143,7 @@ describe("canContinue", () => {
 
 describe("stepProgress", () => {
   it("reports a 1-based position and a fraction that ends at 1", () => {
-    const steps = stepsFor(true);
+    const steps = stepsFor();
     expect(stepProgress(steps, steps[0]!)).toMatchObject({ position: 1, total: steps.length });
     expect(stepProgress(steps, "review").fraction).toBe(1);
   });
@@ -129,17 +151,17 @@ describe("stepProgress", () => {
 
 describe("firstIncompleteStep", () => {
   it("finds the earliest step still needing attention", () => {
-    const steps = stepsFor(true);
+    const steps = stepsFor();
     expect(firstIncompleteStep(steps, form())).toBe("title");
   });
 
   it("returns null once every step passes", () => {
-    expect(firstIncompleteStep(stepsFor(true), COMPLETE)).toBeNull();
+    expect(firstIncompleteStep(stepsFor(), COMPLETE)).toBeNull();
   });
 
   it("catches a field edited back into an invalid state after review", () => {
     // The guard that stops the wizard submitting something the server rejects.
     const broken = { ...COMPLETE, budget: "1" };
-    expect(firstIncompleteStep(stepsFor(true), broken)).toBe("budget");
+    expect(firstIncompleteStep(stepsFor(), broken)).toBe("budget");
   });
 });

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { formatPhp } from "@dizkarte/domain";
+import { formatPhp, formatPhpSigned } from "@dizkarte/domain";
 import { requirePageCapability } from "@/lib/guard";
 import { getAdminRepository } from "@/lib/repository";
 import { Breadcrumbs } from "@/components/ui/Field";
@@ -84,7 +84,7 @@ export default async function ReconciliationPage({
     {
       key: "difference",
       header: "Difference",
-      render: (row) => formatPhp(row.differenceCentavos),
+      render: (row) => formatPhpSigned(row.differenceCentavos),
     },
     {
       key: "paymentIntent",

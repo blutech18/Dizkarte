@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { formatPhp } from "@dizkarte/domain";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { formatPhp, formatPhpSigned } from "@dizkarte/domain";
 import { useSession } from "../../providers/SessionProvider";
 import { useMarketplace } from "../../providers/MarketplaceProvider";
 import { TextField } from "../ui/TextField";
 import { Button } from "../ui/Button";
 import { StatusBadge, type BadgeTone } from "../ui/StatusBadge";
 import { LoadingState, ErrorState, EmptyState } from "../ui/AsyncState";
+import { BottomSheetModal } from "../ui/BottomSheetModal";
 import type { WithdrawalRecord } from "../../services/marketplace/types";
 import { theme, spacing, fontSize, radii, MIN_TOUCH_TARGET } from "../../theme";
 
@@ -120,107 +121,99 @@ export function WithdrawalPanel({
   }
 
   return (
-    <Modal visible={visible} animationType="slide" onRequestClose={onClose} transparent>
-      <View style={styles.overlay}>
-        <View style={styles.sheet}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Withdrawals</Text>
-            <Pressable
-              onPress={onClose}
-              accessibilityRole="button"
-              accessibilityLabel="Close withdrawals"
-              style={styles.closeButton}
-            >
-              <Text style={styles.closeLabel}>Close</Text>
-            </Pressable>
-          </View>
-          <ScrollView contentContainerStyle={styles.body}>
-            <Text style={styles.available}>
-              Available for withdrawal: {formatPhp(availableCentavos)}
-            </Text>
-            <View style={styles.providerNotice} accessibilityRole="alert">
-              <Text style={styles.providerNoticeText}>
-                {payoutProviderAvailable
-                  ? "Requests are recorded for testing but never produce a real payout."
-                  : "No payout provider is configured in this environment. Withdrawal requests cannot be initiated — this is not a real payout capability."}
-              </Text>
-            </View>
-            <TextField
-              label="Withdrawal amount (PHP)"
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="numeric"
-              error={formError ?? undefined}
-              editable={payoutProviderAvailable}
-            />
-            <Button
-              label={payoutProviderAvailable ? "Request withdrawal" : "Withdrawal unavailable"}
-              onPress={handleRequest}
-              loading={submitting}
-              disabled={!payoutProviderAvailable || availableCentavos <= 0}
-              {...(payoutProviderAvailable
-                ? {}
-                : { accessibilityHint: "No payout provider is configured in this environment." })}
-              fullWidth
-            />
-            {!payoutProviderAvailable ? (
-              <Text style={styles.disabledNote} accessibilityRole="text">
-                No payout provider is configured. This control cannot initiate a real payout.
-              </Text>
-            ) : availableCentavos <= 0 ? (
-              <Text style={styles.disabledNote}>
-                You have no available balance to withdraw right now.
-              </Text>
-            ) : null}
-            {outcomeMessage ? (
-              <Text
-                style={styles.outcomeText}
-                accessibilityRole="alert"
-                accessibilityLiveRegion="polite"
-              >
-                {outcomeMessage}
-              </Text>
-            ) : null}
-
-            <Text style={styles.sectionTitle}>History</Text>
-            {state === "loading" ? <LoadingState label="Loading withdrawal history" /> : null}
-            {state === "error" ? <ErrorState onRetry={load} /> : null}
-            {state === "loaded" && history.length === 0 ? (
-              <EmptyState
-                title="No withdrawal requests yet"
-                description="Requests you submit will appear here."
-              />
-            ) : null}
-            {state === "loaded" &&
-              history.map((item) => (
-                <View key={item.id} style={styles.historyRow}>
-                  <View style={styles.historyRowHeader}>
-                    <Text style={styles.historyAmount}>{formatPhp(item.amountCentavos)}</Text>
-                    <StatusBadge tone={STATUS_TONE[item.status]} label={item.status} />
-                  </View>
-                  <Text style={styles.historyMeta}>
-                    Requested {new Date(item.requestedAt).toLocaleString()}
-                  </Text>
-                  {item.failureReason ? (
-                    <Text style={styles.historyFailure}>{item.failureReason}</Text>
-                  ) : null}
-                </View>
-              ))}
-          </ScrollView>
-        </View>
+    <BottomSheetModal visible={visible} onClose={onClose}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Withdrawals</Text>
+        <Pressable
+          onPress={onClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close withdrawals"
+          style={({ pressed }) => [
+            styles.closeButton,
+            pressed ? { opacity: 0.7, transform: [{ scale: 0.94 }] } : null,
+          ]}
+        >
+          <Text style={styles.closeLabel}>Close</Text>
+        </Pressable>
       </View>
-    </Modal>
+      <ScrollView contentContainerStyle={styles.body}>
+        <Text style={styles.available}>
+          Available for withdrawal: {formatPhpSigned(availableCentavos)}
+        </Text>
+        <View style={styles.providerNotice} accessibilityRole="alert">
+          <Text style={styles.providerNoticeText}>
+            {payoutProviderAvailable
+              ? "Requests are recorded for testing but never produce a real payout."
+              : "No payout provider is configured in this environment. Withdrawal requests cannot be initiated — this is not a real payout capability."}
+          </Text>
+        </View>
+        <TextField
+          label="Withdrawal amount (PHP)"
+          value={amount}
+          onChangeText={setAmount}
+          keyboardType="numeric"
+          error={formError ?? undefined}
+          editable={payoutProviderAvailable}
+        />
+        <Button
+          label={payoutProviderAvailable ? "Request withdrawal" : "Withdrawal unavailable"}
+          onPress={handleRequest}
+          loading={submitting}
+          disabled={!payoutProviderAvailable || availableCentavos <= 0}
+          {...(payoutProviderAvailable
+            ? {}
+            : { accessibilityHint: "No payout provider is configured in this environment." })}
+          fullWidth
+        />
+        {!payoutProviderAvailable ? (
+          <Text style={styles.disabledNote} accessibilityRole="text">
+            No payout provider is configured. This control cannot initiate a real payout.
+          </Text>
+        ) : availableCentavos <= 0 ? (
+          <Text style={styles.disabledNote}>
+            You have no available balance to withdraw right now.
+          </Text>
+        ) : null}
+        {outcomeMessage ? (
+          <Text
+            style={styles.outcomeText}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+          >
+            {outcomeMessage}
+          </Text>
+        ) : null}
+
+        <Text style={styles.sectionTitle}>History</Text>
+        {state === "loading" ? <LoadingState label="Loading withdrawal history" /> : null}
+        {state === "error" ? <ErrorState onRetry={load} /> : null}
+        {state === "loaded" && history.length === 0 ? (
+          <EmptyState
+            title="No withdrawal requests yet"
+            description="Requests you submit will appear here."
+          />
+        ) : null}
+        {state === "loaded" &&
+          history.map((item) => (
+            <View key={item.id} style={styles.historyRow}>
+              <View style={styles.historyRowHeader}>
+                <Text style={styles.historyAmount}>{formatPhp(item.amountCentavos)}</Text>
+                <StatusBadge tone={STATUS_TONE[item.status]} label={item.status} />
+              </View>
+              <Text style={styles.historyMeta}>
+                Requested {new Date(item.requestedAt).toLocaleString()}
+              </Text>
+              {item.failureReason ? (
+                <Text style={styles.historyFailure}>{item.failureReason}</Text>
+              ) : null}
+            </View>
+          ))}
+      </ScrollView>
+    </BottomSheetModal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
-  sheet: {
-    backgroundColor: theme.surface,
-    borderTopLeftRadius: radii.lg,
-    borderTopRightRadius: radii.lg,
-    maxHeight: "85%",
-  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",

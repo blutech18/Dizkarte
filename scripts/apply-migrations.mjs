@@ -10,8 +10,15 @@
  * token is sent only to api.supabase.com.
  *
  * Usage:
- *   node scripts/apply-migrations.mjs 0020 0021 0022 0023
- *   node scripts/apply-migrations.mjs --pending
+ *   node scripts/apply-migrations.mjs 0039 0040 0041
+ *   node scripts/apply-migrations.mjs --all
+ *
+ * A bare invocation with no arguments is refused: applying every migration to a
+ * live project should be an explicit `--all`, never the default for a typo.
+ *
+ * To find out what a project is missing, run `npm run verify:supabase` — this
+ * script keeps no ledger of what it has applied, so it cannot compute "pending"
+ * itself.
  *
  * Every migration in this repo is written to be re-runnable (`create or
  * replace`, `drop ... if exists`, `on conflict do nothing`), so re-applying one
@@ -52,8 +59,7 @@ if (!SUPABASE_URL) {
 }
 
 const projectRef =
-  process.env.SUPABASE_PROJECT_REF?.trim() ||
-  new URL(SUPABASE_URL).hostname.split(".")[0];
+  process.env.SUPABASE_PROJECT_REF?.trim() || new URL(SUPABASE_URL).hostname.split(".")[0];
 
 /** Run one SQL string. Returns the endpoint's rows, or throws with the detail. */
 async function runSql(sql) {
@@ -94,17 +100,54 @@ function allMigrations() {
 
 function resolveRequested(args) {
   const all = allMigrations();
-  if (args.length === 0 || args.includes("--all")) return all;
+  const flags = args.filter((arg) => arg.startsWith("--"));
+  const names = args.filter((arg) => !arg.startsWith("--"));
+
+  // Unknown flags used to be skipped silently, which made a typo — or the
+  // `--pending` flag this script never implemented — apply ZERO migrations while
+  // still printing a success line. Failing loudly is the only safe behaviour for
+  // a tool that writes schema.
+  const unknown = flags.filter((flag) => flag !== "--all");
+  if (unknown.length > 0) {
+    console.error(
+      `Unknown flag(s): ${unknown.join(", ")}\n\n` +
+        "Supported usage:\n" +
+        "  node scripts/apply-migrations.mjs --all\n" +
+        "  node scripts/apply-migrations.mjs 0039 0040 0041\n\n" +
+        "There is no --pending: this script keeps no record of what it has\n" +
+        "applied. To find out what a project is missing, run\n" +
+        "  npm run verify:supabase\n" +
+        "which reports absent relations, views, RPCs, and columns.",
+    );
+    process.exit(1);
+  }
+
+  if (flags.includes("--all")) return all;
+  if (names.length === 0) {
+    console.error(
+      "Nothing to do: no migration was named.\n\n" +
+        "  node scripts/apply-migrations.mjs --all\n" +
+        "  node scripts/apply-migrations.mjs 0039 0040 0041\n\n" +
+        "Run `npm run verify:supabase` first to see what is actually missing.",
+    );
+    process.exit(1);
+  }
 
   const selected = [];
-  for (const arg of args) {
-    if (arg.startsWith("--")) continue;
-    const match = all.find((name) => name === arg || name.startsWith(`${arg}_`));
-    if (!match) {
+  for (const arg of names) {
+    // A numeric prefix can match MORE than one file: this repo currently has two
+    // 0034_* and two 0035_* migrations. `find` would return only the first and
+    // silently skip the rest, so match ALL of them and report what was resolved.
+    const matches = all.filter((name) => name === arg || name.startsWith(`${arg}_`));
+    if (matches.length === 0) {
       console.error(`No migration matches "${arg}".`);
       process.exit(1);
     }
-    selected.push(match);
+    if (matches.length > 1) {
+      console.log(`"${arg}" matches ${matches.length} migrations; all will be applied:`);
+      for (const name of matches) console.log(`  - ${name}`);
+    }
+    selected.push(...matches);
   }
   // Order by file name, not argument order: migrations depend on their sequence.
   return all.filter((name) => selected.includes(name));

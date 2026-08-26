@@ -7,6 +7,8 @@ import {
   classifyReconciliation,
   derivePaymentIntentStatus,
   displayNameFor,
+  mapCaseSubject,
+  mapReportTriage,
   pageRange,
   toLedgerTransactionType,
   toPayloadHashPreview,
@@ -24,6 +26,7 @@ import {
   type BookingRow,
   type CaseDetailAccess,
   type CaseHistoryEvent,
+  type CaseSubject,
   type CategoryDetail,
   type CategoryHistoryEvent,
   type CategoryRow,
@@ -31,9 +34,11 @@ import {
   type DisputeDetail,
   type DisputeRow,
   type DisputeStatus,
+  type EditableSettingKey,
   type EvidenceMetadata,
   type FinanceProviderAvailability,
   type FinanceSummary,
+  type AdminSettings,
   type PageInput,
   type PaymentEventRow,
   type PaymentIntentDetail,
@@ -45,6 +50,7 @@ import {
   type ReconciliationSummary,
   type ReportDetail,
   type ReportRow,
+  type ReportTriage,
   type ConversationTranscript,
   type MediaModerationStatus,
   type RefundRow,
@@ -157,21 +163,18 @@ export class SupabaseAdminRepository implements AdminRepository {
 
     const [verif, apps, reports, disputes, tickets, quarantined, withdrawals, attention] =
       await Promise.all([
-      db
-        .from("admin_verification_queue")
-        .select("id", head)
-        .in("status", ["SUBMITTED", "IN_REVIEW"]),
-      db
-        .from("tasker_applications")
-        .select("id", head)
-        .in("status", ["SUBMITTED", "IN_REVIEW"]),
-      db.from("admin_report_queue").select("id", head).eq("status", "OPEN"),
-      db.from("admin_dispute_queue").select("id", head).in("status", ["OPEN", "UNDER_REVIEW"]),
-      db.from("admin_ticket_queue").select("id", head).in("status", ["OPEN", "PENDING"]),
-      db.from("provider_events").select("id", head).eq("processing_status", "QUARANTINED"),
-      db.from("withdrawals").select("id", head).in("status", ["REQUESTED", "RESERVED"]),
-      db.from("bookings").select("id", head).in("status", ["DISPUTED", "PAYMENT_FAILED"]),
-    ]);
+        db
+          .from("admin_verification_queue")
+          .select("id", head)
+          .in("status", ["SUBMITTED", "IN_REVIEW"]),
+        db.from("tasker_applications").select("id", head).in("status", ["SUBMITTED", "IN_REVIEW"]),
+        db.from("admin_report_queue").select("id", head).eq("status", "OPEN"),
+        db.from("admin_dispute_queue").select("id", head).in("status", ["OPEN", "UNDER_REVIEW"]),
+        db.from("admin_ticket_queue").select("id", head).in("status", ["OPEN", "PENDING"]),
+        db.from("provider_events").select("id", head).eq("processing_status", "QUARANTINED"),
+        db.from("withdrawals").select("id", head).in("status", ["REQUESTED", "RESERVED"]),
+        db.from("bookings").select("id", head).in("status", ["DISPUTED", "PAYMENT_FAILED"]),
+      ]);
 
     const finance = await this.getFinanceSummary();
     const startOfDay = new Date();
@@ -759,7 +762,9 @@ export class SupabaseAdminRepository implements AdminRepository {
   }
 
   /** Public (approximate) locality only — the exact address is never read here. */
-  private async taskCityCodes(taskIds: ReadonlyArray<string>): Promise<ReadonlyMap<string, string>> {
+  private async taskCityCodes(
+    taskIds: ReadonlyArray<string>,
+  ): Promise<ReadonlyMap<string, string>> {
     const unique = [...new Set(taskIds)];
     const map = new Map<string, string>();
     if (unique.length === 0) return map;
@@ -870,10 +875,7 @@ export class SupabaseAdminRepository implements AdminRepository {
    * `null` otherwise. The queue then shows an explicit unavailable state instead
    * of a broken image.
    */
-  async getMediaPreviewUrl(input: {
-    storagePath: string;
-    actor: string;
-  }): Promise<string | null> {
+  async getMediaPreviewUrl(input: { storagePath: string; actor: string }): Promise<string | null> {
     const db = await this.db();
     const { data, error } = await db.storage
       .from("task-media")
@@ -1236,6 +1238,8 @@ export class SupabaseAdminRepository implements AdminRepository {
 
     let narrative: string | null = null;
     let evidence: ReadonlyArray<EvidenceMetadata> = [];
+    let subject: CaseSubject | null = null;
+    let triage: ReportTriage | null = null;
     if (!access.restricted) {
       const { data: caseData } = await db.rpc("admin_read_report_case", {
         p_report_id: input.reportId,
@@ -1245,6 +1249,17 @@ export class SupabaseAdminRepository implements AdminRepository {
       const rows = (caseData ?? []) as ReadonlyArray<{ narrative: string }>;
       narrative = rows[0]?.narrative ?? null;
       evidence = await this.evidenceFor("report", input.reportId);
+
+      // What the case is ABOUT, resolved from live rows (0049). Reported content
+      // can be deleted after filing, so a failure here must not blank the page:
+      // the mapper degrades to `exists: false` and the decision panel still works.
+      const { data: subjectData } = await db.rpc("admin_read_report_subject", {
+        p_report_id: input.reportId,
+        p_reason: "Admin console report subject review.",
+        p_idempotency_key: `report_subject_${input.reportId}`,
+      });
+      subject = mapCaseSubject(subjectData, queue.resource_type);
+      triage = mapReportTriage(subjectData);
     }
 
     return {
@@ -1252,14 +1267,20 @@ export class SupabaseAdminRepository implements AdminRepository {
       resourceType: queue.resource_type,
       category: queue.category,
       status: queue.status as ReportStatus,
-      reporterDisplayName: "(protected)",
+      // The queue view withholds reporter identity by design; the assignment-scoped
+      // subject read is the only path that discloses it.
+      reporterDisplayName: triage?.reporter.displayName ?? "(protected)",
       createdAt: queue.created_at,
       assignee: queue.assignee_id ? displayNameFor(names, queue.assignee_id) : null,
       access,
       caseSubject: {
         resourceType: queue.resource_type,
-        resourceLabel: `${queue.resource_type} ${queue.resource_id.slice(0, 8)}`,
+        // Falls back to the type + short id only when the subject is unavailable
+        // (an unassigned viewer), never in place of a resolvable label.
+        resourceLabel: subject?.label ?? `${queue.resource_type} ${queue.resource_id.slice(0, 8)}`,
       },
+      subject,
+      triage,
       narrative,
       evidence,
       history,
@@ -1292,6 +1313,7 @@ export class SupabaseAdminRepository implements AdminRepository {
 
     let narrative: string | null = null;
     let evidence: ReadonlyArray<EvidenceMetadata> = [];
+    let subject: CaseSubject | null = null;
     if (!access.restricted) {
       const { data: caseData } = await db.rpc("admin_read_dispute_case", {
         p_dispute_id: input.disputeId,
@@ -1301,6 +1323,13 @@ export class SupabaseAdminRepository implements AdminRepository {
       const rows = (caseData ?? []) as ReadonlyArray<{ reason: string }>;
       narrative = rows[0]?.reason ?? null;
       evidence = await this.evidenceFor("dispute", input.disputeId);
+
+      const { data: subjectData } = await db.rpc("admin_read_dispute_subject", {
+        p_dispute_id: input.disputeId,
+        p_reason: "Admin console dispute subject review.",
+        p_idempotency_key: `dispute_subject_${input.disputeId}`,
+      });
+      subject = mapCaseSubject(subjectData, "booking");
     }
 
     return {
@@ -1313,8 +1342,9 @@ export class SupabaseAdminRepository implements AdminRepository {
       access,
       caseSubject: {
         resourceType: "booking" as const,
-        resourceLabel: `booking ${queue.booking_id.slice(0, 8)}`,
+        resourceLabel: subject?.label ?? `booking ${queue.booking_id.slice(0, 8)}`,
       },
+      subject,
       narrative,
       evidence,
       history,
@@ -1867,13 +1897,15 @@ export class SupabaseAdminRepository implements AdminRepository {
       .select("id,amount_centavos,status,reason,created_at")
       .eq("payment_intent_id", paymentIntentId)
       .order("created_at", { ascending: false });
-    return ((data ?? []) as ReadonlyArray<{
-      id: string;
-      amount_centavos: number;
-      status: string;
-      reason: string | null;
-      created_at: string;
-    }>).map((row) => ({
+    return (
+      (data ?? []) as ReadonlyArray<{
+        id: string;
+        amount_centavos: number;
+        status: string;
+        reason: string | null;
+        created_at: string;
+      }>
+    ).map((row) => ({
       id: row.id,
       amountCentavos: Number(row.amount_centavos),
       status: toRefundStatus(row.status),
@@ -1897,16 +1929,18 @@ export class SupabaseAdminRepository implements AdminRepository {
       .eq("provider", provider)
       .eq("provider_reference", providerReference)
       .order("received_at", { ascending: false });
-    return ((data ?? []) as ReadonlyArray<{
-      id: string;
-      provider: string;
-      event_type: string;
-      provider_reference: string | null;
-      amount_centavos: number | null;
-      processing_status: string;
-      payload_hash: string;
-      received_at: string;
-    }>).map((row) => ({
+    return (
+      (data ?? []) as ReadonlyArray<{
+        id: string;
+        provider: string;
+        event_type: string;
+        provider_reference: string | null;
+        amount_centavos: number | null;
+        processing_status: string;
+        payload_hash: string;
+        received_at: string;
+      }>
+    ).map((row) => ({
       id: row.id,
       bookingId,
       type: row.event_type,
@@ -2435,10 +2469,9 @@ export class SupabaseAdminRepository implements AdminRepository {
     const { from, to } = pageRange(input.page, input.pageSize);
     let query = db
       .from("bookings")
-      .select(
-        "id,task_id,client_id,tasker_id,agreed_centavos,status,created_at,updated_at",
-        { count: "exact" },
-      );
+      .select("id,task_id,client_id,tasker_id,agreed_centavos,status,created_at,updated_at", {
+        count: "exact",
+      });
     if (input.status) query = query.eq("status", input.status);
     const { data, count, error } = await query
       .order("created_at", { ascending: false })
@@ -2589,6 +2622,74 @@ export class SupabaseAdminRepository implements AdminRepository {
       })
       .filter((row) => (input.actor ? row.actor === input.actor : true));
     return paginate(items, input.page, input.pageSize, count ?? items.length);
+  }
+
+  async getSettings(): Promise<AdminSettings> {
+    const db = await this.db();
+    const { data } = await db
+      .from("app_settings")
+      .select("key,typed_value")
+      .in("key", ["review_reveal_days", "platform_fee_bps"]);
+    const rows = (data ?? []) as ReadonlyArray<{ key: string; typed_value: unknown }>;
+    const numberFor = (key: string, fallback: number): number => {
+      const raw = rows.find((row) => row.key === key)?.typed_value;
+      const parsed = typeof raw === "number" ? raw : Number(raw ?? fallback);
+      return Number.isFinite(parsed) ? parsed : fallback;
+    };
+
+    const reviewRevealDays = numberFor("review_reveal_days", 14);
+    const platformFeeBps = numberFor("platform_fee_bps", 0);
+
+    return {
+      editable: [
+        {
+          key: "review_reveal_days",
+          label: "Review reveal window",
+          description:
+            "Days a one-sided review stays hidden before it is revealed automatically. Applies when only one party has reviewed a booking.",
+          value: reviewRevealDays,
+          min: 1,
+          max: 90,
+          unit: "days",
+        },
+      ],
+      policy: [
+        {
+          key: "platform_fee_bps",
+          label: "Platform fee",
+          value: `${platformFeeBps} bps (${(platformFeeBps / 100).toFixed(2)}%)`,
+          note: "Money policy — Client-owned (D3). Not editable until an approved fee model is on file.",
+        },
+        {
+          key: "optional_client_fee_enabled",
+          label: "Optional client fee",
+          value: "Disabled",
+          note: "Money policy — Client-owned (D4). Not editable from the console.",
+        },
+        {
+          key: "auto_release_enabled",
+          label: "Release model",
+          value: "Client-confirmed only",
+          note: "Release policy — Client-owned (D5). Auto-release stays off until approved.",
+        },
+      ],
+    };
+  }
+
+  async updateSetting(input: {
+    key: EditableSettingKey;
+    value: number;
+    reason: string;
+    actor: string;
+    capability: AdminCapability | null;
+  }): Promise<MutationResult> {
+    if (!input.reason.trim()) return { ok: false, message: MISSING_REASON };
+    return this.call("admin_update_setting", {
+      p_key: input.key,
+      p_value: input.value,
+      p_reason: input.reason,
+      p_idempotency_key: `setting_${input.key}_${input.value}_${Date.now()}`,
+    });
   }
 }
 

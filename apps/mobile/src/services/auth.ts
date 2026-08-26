@@ -130,11 +130,7 @@ function extractAuthTokens(url: string): {
   const hashIndex = url.indexOf("#");
   const queryIndex = url.indexOf("?");
   const raw =
-    hashIndex >= 0
-      ? url.slice(hashIndex + 1)
-      : queryIndex >= 0
-        ? url.slice(queryIndex + 1)
-        : "";
+    hashIndex >= 0 ? url.slice(hashIndex + 1) : queryIndex >= 0 ? url.slice(queryIndex + 1) : "";
   const params = new URLSearchParams(raw);
   return {
     accessToken: params.get("access_token"),

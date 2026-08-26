@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { formatPhp } from "@dizkarte/domain";
+import { formatPhpSigned } from "@dizkarte/domain";
 import { requirePageCapability } from "@/lib/guard";
 import { getAdminRepository } from "@/lib/repository";
 import { Breadcrumbs } from "@/components/ui/Field";
@@ -96,7 +96,7 @@ export default async function RevenuePage() {
               {money.map((row) => (
                 <tr key={row.label}>
                   <th scope="row">{row.label}</th>
-                  <td>{formatPhp(row.value)}</td>
+                  <td>{formatPhpSigned(row.value)}</td>
                   <td className="dk-muted">{row.help}</td>
                 </tr>
               ))}
@@ -108,7 +108,7 @@ export default async function RevenuePage() {
           <h2 style={{ marginTop: 0 }}>Ledger integrity</h2>
           <p>
             Net of every ledger entry:{" "}
-            <strong>{formatPhp(summary.ledgerBalanceCentavos)}</strong>{" "}
+            <strong>{formatPhpSigned(summary.ledgerBalanceCentavos)}</strong>{" "}
             {summary.ledgerBalanceCentavos === 0 ? (
               <StatusBadge tone="success" label="Balanced" />
             ) : (

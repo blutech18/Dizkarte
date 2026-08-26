@@ -23,12 +23,15 @@ import {
 } from "@dizkarte/domain";
 import type { MobileMarketplacePort } from "./port";
 import type {
+  AddVerificationDocumentOutcome,
   BookingEventRecord,
   BookingRecord,
   CheckoutSessionRecord,
   CheckoutSimulationChoice,
   CompletionEvidenceItem,
   ConversationRecord,
+  ConversationSummary,
+  ReportRecord,
   DisputeRecord,
   DraftTaskInput,
   LedgerSummary,
@@ -38,6 +41,14 @@ import type {
   MyOfferHistoryItem,
   MyProfileRecord,
   MyProfileUpdateInput,
+  AddPayoutMethodInput,
+  BillingAddressInput,
+  BillingAddressRecord,
+  OfferRegistrationStatus,
+  PayoutMethodSummary,
+  PsgcBarangay,
+  PsgcCity,
+  RegistrationActionOutcome,
   NotificationPreferenceCategory,
   NotificationPreferences,
   SubmitVerificationOutcome,
@@ -48,6 +59,7 @@ import type {
   OfferRecord,
   OpenDisputeInput,
   OwnedTaskRecord,
+  PortfolioItemRecord,
   RequestCompletionInput,
   RequestWithdrawalOutcome,
   ReviewInput,
@@ -55,13 +67,23 @@ import type {
   ReviewRecord,
   SelectOfferOutcome,
   SpecialtyOption,
+  SubmitTaskerApplicationInput,
+  SubmitTaskerApplicationOutcome,
   SupportTicketRecord,
-  TaskerDashboardSnapshot,
+  TaskerApplicationRecord,
+  TaskerWorkSnapshot,
   TaskQuestionRecord,
+  TaskQuestionDefinition,
+  TaskAnswerInput,
+  TaskAnswerRecord,
   UpdateProfileOutcome,
   WithdrawalRecord,
 } from "./types";
-import { SYNTHETIC_CATEGORIES } from "./categories";
+import {
+  SYNTHETIC_CATEGORIES,
+  SYNTHETIC_CATEGORY_QUESTIONS,
+  syntheticQuestionsForCategory,
+} from "./categories";
 import {
   listAllSyntheticTasks,
   getPublicTaskSynthetic,
@@ -72,6 +94,26 @@ import { validateChatMessageInput, type ChatMediaAttachmentInput } from "./chat-
 
 /** Fixed synthetic reveal deadline for blind reviews in development (task R10). */
 const DEV_REVIEW_REVEAL_DEADLINE_MS = 24 * 60 * 60 * 1000; // 24h after first submission
+
+/**
+ * A small PSGC sample for offline development/tests. The live app reads the full
+ * canonical dataset (1,634 cities + 42,046 barangays) from Supabase; this covers
+ * just enough for the locality picker to function without a backend.
+ */
+const SYNTHETIC_CITIES: ReadonlyArray<PsgcCity> = [
+  { code: "137404000", city6: "137404", name: "Quezon City", provinceName: null, isCity: true },
+  { code: "137502000", city6: "137502", name: "Makati City", provinceName: null, isCity: true },
+  { code: "133900000", city6: "133900", name: "City of Manila", provinceName: null, isCity: true },
+  { code: "072217000", city6: "072217", name: "Cebu City", provinceName: "Cebu", isCity: true },
+];
+const SYNTHETIC_BARANGAYS: ReadonlyArray<PsgcBarangay> = [
+  { code: "137404022", name: "Commonwealth", city6: "137404" },
+  { code: "137404014", name: "Batasan Hills", city6: "137404" },
+  { code: "137502001", name: "Bel-Air", city6: "137502" },
+  { code: "137502025", name: "Poblacion", city6: "137502" },
+  { code: "133900001", name: "Barangay 1 (Tondo)", city6: "133900" },
+  { code: "072217050", name: "Lahug", city6: "072217" },
+];
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -273,6 +315,8 @@ function lookupSyntheticActor(userId: string): ActorContext | null {
  */
 export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
   private readonly tasks = new Map<string, OwnedTaskRecord>();
+  /** Structured category-question answers, keyed by task id. */
+  private readonly taskAnswers = new Map<string, ReadonlyArray<TaskAnswerInput>>();
   private readonly questions = new Map<string, TaskQuestionRecord[]>();
   private readonly offers = new Map<string, OfferRecord[]>();
   private readonly bookings = new Map<string, BookingRecord>();
@@ -284,6 +328,10 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
   private readonly conversations = new Map<string, ConversationRecord>();
   private readonly conversationByBooking = new Map<string, string>();
   private readonly messages = new Map<string, MessageRecord[]>();
+  /** `${conversationId}:${userId}` -> that participant's read high-water mark. */
+  private readonly conversationReadAt = new Map<string, string>();
+  /** Trust & safety reports filed through this adapter (0048 mirror). */
+  private readonly reports: ReportRecord[] = [];
   private readonly notifications = new Map<string, NotificationRecord[]>();
   private readonly preferences = new Map<string, NotificationPreferences>();
   private readonly disputes = new Map<string, DisputeRecord>();
@@ -292,7 +340,12 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
   private verificationCase: VerificationCaseRecord | null = null;
   private readonly supportTickets = new Map<string, SupportTicketRecord[]>();
   private readonly profiles = new Map<string, MyProfileRecord>(); // keyed by userId
+  private readonly taskerApplications = new Map<string, TaskerApplicationRecord>(); // keyed by userId
+  private readonly portfolio = new Map<string, PortfolioItemRecord[]>(); // keyed by userId
   private readonly withdrawals = new Map<string, WithdrawalRecord[]>(); // keyed by userId
+  private readonly billingAddresses = new Map<string, BillingAddressRecord>(); // keyed by userId
+  private readonly payoutMethods = new Map<string, PayoutMethodSummary[]>(); // keyed by userId
+  private readonly registrationMobile = new Map<string, string>(); // keyed by userId
 
   // ---------------------------------------------------------------------
   // Client "My Tasks"
@@ -302,14 +355,36 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
     await delay();
     return [...this.tasks.values()]
       .filter((task) => task.clientId === clientId)
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .map((task) => this.withLiveCounts(task));
   }
 
   async getOwnedTask(taskId: TaskId, clientId: string): Promise<OwnedTaskRecord | null> {
     await delay();
     const task = this.tasks.get(taskId as unknown as string);
     if (!task || task.clientId !== clientId) return null;
-    return task;
+    return this.withLiveCounts(task);
+  }
+
+  /**
+   * Returns the task record with `questionCount` and `offerCount` recalculated
+   * live from their respective maps, so the card counts always match the real
+   * state after `askQuestion` / `submitOffer` / `answerQuestion` mutations.
+   *
+   * `offerCount` counts only SUBMITTED offers, matching the Supabase adapter.
+   * It drives "Review N offers", so a selected or rejected offer must not be
+   * counted: a task whose offer was already accepted has nothing left to review,
+   * and counting history there made the same screen mean different things
+   * depending on which adapter was in use.
+   */
+  private withLiveCounts(task: OwnedTaskRecord): OwnedTaskRecord {
+    const key = task.id as unknown as string;
+    const questionCount = this.questions.get(key)?.length ?? 0;
+    const offerCount = (this.offers.get(key) ?? []).filter(
+      (offer) => offer.status === "SUBMITTED",
+    ).length;
+    if (task.questionCount === questionCount && task.offerCount === offerCount) return task;
+    return { ...task, questionCount, offerCount };
   }
 
   async saveDraftTask(
@@ -337,6 +412,14 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
       activeBookingId: existing?.activeBookingId ?? null,
     };
     this.tasks.set(id, record);
+    // `undefined` means the caller collected no answers (the edit form), so
+    // anything already stored is left alone — same rule as the Supabase repo.
+    if (draft.answers) {
+      const provided = draft.answers
+        .map((entry) => ({ questionId: entry.questionId, answer: entry.answer.trim() }))
+        .filter((entry) => entry.answer.length > 0);
+      this.taskAnswers.set(id, provided);
+    }
     return record;
   }
 
@@ -370,6 +453,45 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
     return { ok: true, task: published };
   }
 
+  /**
+   * Retire an unbooked task. Mirrors `cancel_own_task` (0040): owner-only,
+   * DRAFT/OPEN only, idempotent, and every still-live offer is rejected so no
+   * Tasker is left waiting on a task that no longer exists.
+   */
+  async cancelOwnTask(
+    taskId: TaskId,
+    clientId: string,
+  ): Promise<{ readonly ok: boolean; readonly reason?: string }> {
+    await delay();
+    const id = taskId as unknown as string;
+    const task = this.tasks.get(id);
+    if (!task || task.clientId !== clientId) {
+      return { ok: false, reason: "Only the task owner may cancel this task." };
+    }
+    if (task.status === "CANCELLED") {
+      return { ok: true };
+    }
+    if (task.status !== "DRAFT" && task.status !== "OPEN") {
+      return {
+        ok: false,
+        reason: "Only a draft or open task with no booking can be cancelled.",
+      };
+    }
+
+    this.tasks.set(id, { ...task, status: "CANCELLED", updatedAt: nowIso() });
+
+    const offerList = this.offers.get(id) ?? [];
+    if (offerList.length > 0) {
+      this.offers.set(
+        id,
+        offerList.map((offer) =>
+          offer.status === "SUBMITTED" ? { ...offer, status: "REJECTED" as const } : offer,
+        ),
+      );
+    }
+    return { ok: true };
+  }
+
   // ---------------------------------------------------------------------
   // Public discovery — delegates to the existing synthetic feed for parity
   // ---------------------------------------------------------------------
@@ -386,6 +508,8 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
     scheduledFrom?: string;
     scheduledTo?: string;
     sameDayOnly?: boolean;
+    /** Only tasks with zero offers (migration 0047 p_no_offers_only). */
+    noOffersOnly?: boolean;
     nearLat?: number;
     nearLng?: number;
     radiusKm?: number;
@@ -457,6 +581,28 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
     const task = this.tasks.get(key);
     if (task) this.tasks.set(key, { ...task, questionCount: list.length });
     return record;
+  }
+
+  async answerQuestion(
+    questionId: string,
+    taskId: TaskId,
+    clientId: string,
+    answer: string,
+  ): Promise<TaskQuestionRecord> {
+    await delay();
+    const key = taskId as unknown as string;
+    const task = this.tasks.get(key);
+    if (!task || task.clientId !== clientId) {
+      throw new Error("Forbidden: only the task owner may answer questions.");
+    }
+    const list = this.questions.get(key) ?? [];
+    const idx = list.findIndex((q) => q.id === questionId);
+    const existing = idx === -1 ? undefined : list[idx];
+    if (!existing) throw new Error("Question not found.");
+    const updated: TaskQuestionRecord = { ...existing, answer };
+    list[idx] = updated;
+    this.questions.set(key, list);
+    return updated;
   }
 
   /**
@@ -1042,6 +1188,22 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
     return dispute;
   }
 
+  async getDisputeForBooking(
+    bookingId: BookingId,
+    viewerId: string,
+  ): Promise<DisputeRecord | null> {
+    await delay();
+    const booking = this.bookings.get(bookingId as unknown as string);
+    if (!booking) return null;
+    if (booking.clientId !== viewerId && booking.taskerId !== viewerId) return null;
+    for (const dispute of this.disputes.values()) {
+      if ((dispute.bookingId as unknown as string) === (bookingId as unknown as string)) {
+        return dispute;
+      }
+    }
+    return null;
+  }
+
   // ---------------------------------------------------------------------
   // Ledger-derived summary (read-only)
   // ---------------------------------------------------------------------
@@ -1090,10 +1252,10 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
   }
 
   // ---------------------------------------------------------------------
-  // Tasker Dashboard (aggregated, read-only projection)
+  // Tasker work + earnings (aggregated, read-only projection)
   // ---------------------------------------------------------------------
 
-  async getTaskerDashboard(taskerId: string): Promise<TaskerDashboardSnapshot> {
+  async getTaskerWorkSnapshot(taskerId: string): Promise<TaskerWorkSnapshot> {
     await delay();
     const myBookings = (await this.listMyBookings(taskerId)).filter((b) => b.taskerId === taskerId);
     const activeBookings = myBookings.filter(
@@ -1164,6 +1326,113 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
   }
 
   // ---------------------------------------------------------------------
+  // Offer registration ("Finish registration" gate)
+  // ---------------------------------------------------------------------
+
+  async getOfferRegistrationStatus(userId: string): Promise<OfferRegistrationStatus> {
+    await delay();
+    const profile = this.profiles.get(userId);
+    const mobileComplete =
+      this.registrationMobile.has(userId) || Boolean(profile?.mobile && profile.mobile.trim());
+    const bankComplete = (this.payoutMethods.get(userId) ?? []).some((m) => m.status === "active");
+    const billingComplete = this.billingAddresses.has(userId);
+    return { mobileComplete, bankComplete, billingComplete };
+  }
+
+  async saveRegistrationMobile(userId: string, mobile: string): Promise<RegistrationActionOutcome> {
+    await delay();
+    const compact = mobile.replace(/[\s\-()]/g, "");
+    if (!/^(09\d{9}|\+?639\d{9})$/.test(compact)) {
+      return { ok: false, reason: "Enter a valid PH mobile number, e.g. 0917 123 4567." };
+    }
+    const normalized = compact.startsWith("09") ? compact : `0${compact.slice(-10)}`;
+    this.registrationMobile.set(userId, normalized);
+    const existing = this.profiles.get(userId);
+    if (existing) this.profiles.set(userId, { ...existing, mobile: normalized });
+    return { ok: true };
+  }
+
+  async listPayoutMethods(userId: string): Promise<ReadonlyArray<PayoutMethodSummary>> {
+    await delay();
+    return (this.payoutMethods.get(userId) ?? []).slice();
+  }
+
+  async addPayoutMethod(
+    userId: string,
+    input: AddPayoutMethodInput,
+  ): Promise<RegistrationActionOutcome> {
+    await delay();
+    const provider = input.provider.trim();
+    const label = input.maskedLabel.trim();
+    if (!provider) return { ok: false, reason: "Choose a payout provider." };
+    if (label.length < 2 || label.length > 60) {
+      return { ok: false, reason: "Provide the masked account label." };
+    }
+    if (/[0-9]{13,19}/.test(label)) {
+      return { ok: false, reason: "Do not enter a full account number." };
+    }
+    const list = this.payoutMethods.get(userId) ?? [];
+    list.unshift({ id: nextId("PM"), provider, maskedLabel: label, status: "active" });
+    this.payoutMethods.set(userId, list);
+    return { ok: true };
+  }
+
+  async getBillingAddress(userId: string): Promise<BillingAddressRecord | null> {
+    await delay();
+    return this.billingAddresses.get(userId) ?? null;
+  }
+
+  async saveBillingAddress(
+    userId: string,
+    input: BillingAddressInput,
+  ): Promise<RegistrationActionOutcome> {
+    await delay();
+    if (input.line1.trim().length < 3) {
+      return { ok: false, reason: "Enter your street address." };
+    }
+    if (input.city.trim().length < 2) {
+      return { ok: false, reason: "Enter your city." };
+    }
+    this.billingAddresses.set(userId, {
+      line1: input.line1.trim(),
+      line2: input.line2?.trim() ? input.line2.trim() : null,
+      city: input.city.trim(),
+      region: input.region?.trim() ? input.region.trim() : null,
+      postalCode: input.postalCode?.trim() ? input.postalCode.trim() : null,
+      country: input.country?.trim() ? input.country.trim() : "PH",
+    });
+    return { ok: true };
+  }
+
+  // ---------------------------------------------------------------------
+  // PSGC localities (canonical city/barangay lookup — decision D14)
+  // ---------------------------------------------------------------------
+
+  async searchCities(keyword: string): Promise<ReadonlyArray<PsgcCity>> {
+    await delay();
+    const t = keyword.trim().toLowerCase();
+    return SYNTHETIC_CITIES.filter((c) => t.length === 0 || c.name.toLowerCase().includes(t));
+  }
+
+  async searchBarangays(city6: string, keyword: string): Promise<ReadonlyArray<PsgcBarangay>> {
+    await delay();
+    const t = keyword.trim().toLowerCase();
+    return SYNTHETIC_BARANGAYS.filter(
+      (b) => b.city6 === city6 && (t.length === 0 || b.name.toLowerCase().includes(t)),
+    );
+  }
+
+  async getCityByCode(city6: string): Promise<PsgcCity | null> {
+    await delay();
+    return SYNTHETIC_CITIES.find((c) => c.city6 === city6) ?? null;
+  }
+
+  async getBarangayByCode(code: string): Promise<PsgcBarangay | null> {
+    await delay();
+    return SYNTHETIC_BARANGAYS.find((b) => b.code === code) ?? null;
+  }
+
+  // ---------------------------------------------------------------------
   // Messaging
   // ---------------------------------------------------------------------
 
@@ -1208,6 +1477,70 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
     const booking = this.bookings.get(conversation.bookingId as unknown as string);
     if (!booking || !isCommunicationUnlocked(booking.status)) return [];
     return this.messages.get(conversationId as unknown as string) ?? [];
+  }
+
+  /**
+   * Mirrors `public.conversation_summaries()` (migration 0046).
+   *
+   * Only conversations this viewer participates in, ordered by most recent
+   * activity, with the viewer's own unread count — their own messages are never
+   * unread to themselves, and a conversation never opened counts every message
+   * from the counterpart.
+   */
+  async listConversationSummaries(userId: string): Promise<ReadonlyArray<ConversationSummary>> {
+    await delay();
+    const summaries: ConversationSummary[] = [];
+
+    for (const conversation of this.conversations.values()) {
+      if (!conversation.participantIds.includes(userId as never)) continue;
+      const booking = this.bookings.get(conversation.bookingId as unknown as string);
+      if (!booking || !isCommunicationUnlocked(booking.status)) continue;
+
+      const key = conversation.id as unknown as string;
+      const messages = this.messages.get(key) ?? [];
+      // A message still in flight is not yet activity anyone else can see.
+      const settled = messages.filter((m) => m.deliveryStatus === "sent");
+      const last = settled[settled.length - 1] ?? null;
+      const readAt = this.conversationReadAt.get(`${key}:${userId}`) ?? null;
+      const unread = settled.filter(
+        (m) =>
+          (m.senderId as unknown as string) !== userId &&
+          (readAt === null || new Date(m.createdAt).getTime() > new Date(readAt).getTime()),
+      ).length;
+
+      summaries.push({
+        conversationId: conversation.id,
+        bookingId: conversation.bookingId,
+        lastMessageAt: last?.createdAt ?? null,
+        lastMessagePreview: last?.body ? last.body.slice(0, 140) : null,
+        lastMessageSenderId: last?.senderId ?? null,
+        lastMessageHasMedia: (last?.media.length ?? 0) > 0,
+        unreadCount: unread,
+      });
+    }
+
+    return summaries.sort((a, b) => {
+      const at = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+      const bt = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+      return bt - at;
+    });
+  }
+
+  async markConversationRead(conversationId: ConversationId, viewerId: string): Promise<void> {
+    await delay();
+    const key = conversationId as unknown as string;
+    const conversation = this.conversations.get(key);
+    // Participant-only, exactly like the RPC: a stranger marking a conversation
+    // read would otherwise silently create read state for a thread they cannot
+    // even list.
+    if (!conversation || !conversation.participantIds.includes(viewerId as never)) return;
+
+    const mapKey = `${key}:${viewerId}`;
+    const previous = this.conversationReadAt.get(mapKey);
+    const now = nowIso();
+    // Monotonic: never move the high-water mark backwards.
+    if (previous && new Date(previous).getTime() > new Date(now).getTime()) return;
+    this.conversationReadAt.set(mapKey, now);
   }
 
   async sendMessage(
@@ -1406,8 +1739,7 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
     const booking = this.bookings.get(key);
     if (!booking) return null;
     if (booking.clientId !== viewerId && booking.taskerId !== viewerId) return null;
-    const list = this.reviews.get(key) ?? [];
-    const myReview = list.find((r) => r.reviewerId === viewerId) ?? null;
+    let list = this.reviews.get(key) ?? [];
     const bothSubmitted = list.length >= 2;
     const firstSubmittedAt = list[0]?.submittedAt;
     const revealDeadline = firstSubmittedAt
@@ -1417,9 +1749,21 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
       ? new Date(revealDeadline).getTime() <= Date.now()
       : false;
     const revealed = bothSubmitted || deadlinePassed;
-    const counterpartReview = revealed
-      ? (list.find((r) => r.reviewerId !== viewerId) ?? null)
-      : null;
+
+    // Persist the reveal, mirroring `get_review_pair` (migration 0021/0042):
+    // the expiry case must leave the row REVEALED, not merely return it as
+    // readable, or every other reader would still see stale HIDDEN state.
+    if (revealed && list.some((r) => r.status === "HIDDEN")) {
+      const revealedAt = nowIso();
+      list = list.map((r) =>
+        r.status === "HIDDEN" ? { ...r, status: "REVEALED", revealedAt } : r,
+      );
+      this.reviews.set(key, list);
+    }
+
+    const myReview = list.find((r) => r.reviewerId === viewerId) ?? null;
+    const counterpart = list.find((r) => r.reviewerId !== viewerId) ?? null;
+    const counterpartReview = counterpart && counterpart.status === "REVEALED" ? counterpart : null;
     return {
       bookingId,
       myReview,
@@ -1453,24 +1797,45 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
     storagePath: string;
     mimeType: string;
     sizeBytes: number;
-  }): Promise<{ ok: boolean; reason?: string }> {
+  }): Promise<AddVerificationDocumentOutcome> {
     await delay();
     const current = this.verificationCase;
     if (!current || current.id !== input.caseId) {
       return { ok: false, reason: "No verification case is open." };
     }
+    if (current.status !== "DRAFT" && current.status !== "RESUBMISSION_REQUIRED") {
+      return { ok: false, reason: "This verification case cannot accept new documents." };
+    }
+    const document = {
+      id: nextId("G1"),
+      kind: input.kind,
+      storagePath: input.storagePath,
+      createdAt: nowIso(),
+    };
     this.verificationCase = {
       ...current,
-      documents: [
-        ...current.documents,
-        {
-          id: nextId("G1"),
-          kind: input.kind,
-          storagePath: input.storagePath,
-          createdAt: nowIso(),
-        },
-      ],
+      documents: [...current.documents, document],
     };
+    return { ok: true, document };
+  }
+
+  async removeVerificationDocument(input: {
+    caseId: string;
+    documentId: string;
+  }): Promise<{ readonly ok: true } | { readonly ok: false; readonly reason: string }> {
+    await delay();
+    const current = this.verificationCase;
+    if (!current || current.id !== input.caseId) {
+      return { ok: false, reason: "No verification case is open." };
+    }
+    if (current.status !== "DRAFT" && current.status !== "RESUBMISSION_REQUIRED") {
+      return { ok: false, reason: "This verification case cannot remove documents." };
+    }
+    const next = current.documents.filter((document) => document.id !== input.documentId);
+    if (next.length === current.documents.length) {
+      return { ok: false, reason: "Verification document not found." };
+    }
+    this.verificationCase = { ...current, documents: next };
     return { ok: true };
   }
 
@@ -1503,6 +1868,9 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
       messages: { inApp: true, push: true },
       disputes: { inApp: true, push: true },
       reviews: { inApp: true, push: true },
+      nearby: { inApp: true, push: true },
+      promotions: { inApp: true, push: true },
+      safety: { inApp: true, push: true },
     };
   }
 
@@ -1516,6 +1884,7 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
         return "payments";
       case "BOOKING_STARTED":
       case "COMPLETION_REQUESTED":
+      case "COMPLETION_REMINDER":
       case "BOOKING_COMPLETED":
         return "bookings";
       case "MESSAGE_RECEIVED":
@@ -1523,7 +1892,10 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
       case "DISPUTE_OPENED":
         return "disputes";
       case "REVIEW_RECEIVED":
+      case "REVIEW_REMINDER":
         return "reviews";
+      case "NEARBY_TASK":
+        return "nearby";
       case "VERIFICATION_DECISION":
         return "bookings";
       default:
@@ -1592,6 +1964,11 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
     );
   }
 
+  async unreadNotificationCount(userId: string): Promise<number> {
+    await delay();
+    return (this.notifications.get(userId) ?? []).filter((n) => !n.readAt).length;
+  }
+
   /** In-process writes need no stream; see `subscribeToConversation`. */
   subscribeToNotifications(_userId: string, _onChange: () => void): () => void {
     return () => {};
@@ -1641,6 +2018,100 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
   // Support / reports
   // ---------------------------------------------------------------------
 
+  /**
+   * Mirrors `submit_report` (migration 0048), including its refusals: this
+   * adapter re-derives the visibility rule itself rather than trusting the
+   * caller, so a UI bug cannot file a report about something the reporter
+   * could not see.
+   */
+  async submitReport(input: {
+    reporterId: string;
+    resourceType: "task" | "user" | "message" | "offer" | "booking";
+    resourceId: string;
+    category: "fraud" | "harassment" | "inappropriate" | "safety" | "spam" | "other";
+    narrative: string;
+  }): Promise<ReportRecord> {
+    await delay();
+    const narrative = input.narrative.trim();
+    if (narrative.length < 10 || narrative.length > 4000) {
+      throw new Error("VALIDATION_ERROR: a report needs between 10 and 4000 characters.");
+    }
+
+    let allowed = false;
+    if (input.resourceType === "message") {
+      // Participant of that conversation, and never your own message.
+      for (const [conversationId, messages] of this.messages.entries()) {
+        const message = messages.find((m) => (m.id as unknown as string) === input.resourceId);
+        if (!message) continue;
+        const conversation = this.conversations.get(conversationId);
+        allowed =
+          !!conversation &&
+          conversation.participantIds.includes(input.reporterId as never) &&
+          (message.senderId as unknown as string) !== input.reporterId;
+        break;
+      }
+    } else if (input.resourceType === "booking") {
+      const booking = this.bookings.get(input.resourceId);
+      allowed =
+        !!booking &&
+        (booking.clientId === input.reporterId || booking.taskerId === input.reporterId);
+    } else if (input.resourceType === "task") {
+      const owned = this.tasks.get(input.resourceId);
+      const publiclyListed = owned?.status === "OPEN";
+      allowed = Boolean(publiclyListed || owned?.clientId === input.reporterId);
+      if (!allowed) {
+        // A task the reporter is booked on, even once it has left OPEN.
+        for (const booking of this.bookings.values()) {
+          if ((booking.taskId as unknown as string) !== input.resourceId) continue;
+          if (booking.clientId === input.reporterId || booking.taskerId === input.reporterId) {
+            allowed = true;
+            break;
+          }
+        }
+      }
+      // Tasks from the shared synthetic feed are public by definition.
+      if (!allowed) allowed = listAllSyntheticTasks().some((t) => t.id === input.resourceId);
+    } else if (input.resourceType === "offer") {
+      for (const offers of this.offers.values()) {
+        const offer = offers.find((o) => (o.id as unknown as string) === input.resourceId);
+        if (!offer) continue;
+        const task = this.tasks.get(offer.taskId as unknown as string);
+        allowed =
+          (offer.taskerId as unknown as string) === input.reporterId ||
+          task?.clientId === input.reporterId;
+        break;
+      }
+    } else {
+      allowed = input.resourceId !== input.reporterId;
+    }
+
+    if (!allowed) throw new Error("FORBIDDEN: you cannot report this resource.");
+
+    // One live case per (reporter, resource): a second submission returns the
+    // existing report instead of stacking duplicates on the Admin queue.
+    const existing = this.reports.find(
+      (r) =>
+        (r.reporterId as unknown as string) === input.reporterId &&
+        r.resourceType === input.resourceType &&
+        r.resourceId === input.resourceId &&
+        (r.status === "OPEN" || r.status === "TRIAGED"),
+    );
+    if (existing) return existing;
+
+    const record: ReportRecord = {
+      id: nextId("H0") as unknown as ReportRecord["id"],
+      reporterId: input.reporterId as unknown as ReportRecord["reporterId"],
+      resourceType: input.resourceType,
+      resourceId: input.resourceId,
+      category: input.category,
+      narrative,
+      status: "OPEN",
+      createdAt: nowIso(),
+    };
+    this.reports.push(record);
+    return record;
+  }
+
   async submitSupportTicket(input: {
     reporterId: string;
     subjectType: "task" | "booking";
@@ -1681,6 +2152,29 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
   }
 
   // --- Service catalog ---
+
+  async listCategoryQuestions(categoryId: string): Promise<ReadonlyArray<TaskQuestionDefinition>> {
+    await delay();
+    return syntheticQuestionsForCategory(categoryId);
+  }
+
+  async listTaskAnswers(taskId: TaskId): Promise<ReadonlyArray<TaskAnswerRecord>> {
+    await delay();
+    const stored = this.taskAnswers.get(taskId as unknown as string) ?? [];
+    return stored
+      .map((entry) => {
+        const question = SYNTHETIC_CATEGORY_QUESTIONS.find((q) => q.id === entry.questionId);
+        return {
+          questionId: entry.questionId,
+          code: question?.code ?? "",
+          label: question?.label ?? "",
+          answer: entry.answer,
+          sortOrder: question?.sortOrder ?? 0,
+        };
+      })
+      .filter((row) => row.label.length > 0)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+  }
 
   async listCategories(): Promise<ReadonlyArray<MarketplaceCategory>> {
     await delay();
@@ -1771,6 +2265,7 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
       barangayCode: parsed.data.barangayCode ?? current.barangayCode,
       language: parsed.data.language ?? current.language,
       bio: parsed.data.bio ?? current.bio,
+      avatarPath: input.avatarPath !== undefined ? input.avatarPath : current.avatarPath,
       tasker: current.tasker
         ? {
             publicBio: input.publicBio ?? current.tasker.publicBio,
@@ -1779,7 +2274,11 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
               ? [...new Set(input.specialtyIds)]
               : current.tasker.specialtyIds,
             serviceCityCodes: input.serviceCityCodes
-              ? [...new Set(input.serviceCityCodes.filter((code: string) => code.trim().length > 0))]
+              ? [
+                  ...new Set(
+                    input.serviceCityCodes.filter((code: string) => code.trim().length > 0),
+                  ),
+                ]
               : current.tasker.serviceCityCodes,
           }
         : null,
@@ -1791,6 +2290,68 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
   async listSpecialtyOptions(): Promise<ReadonlyArray<SpecialtyOption>> {
     await delay();
     return SYNTHETIC_SPECIALTIES;
+  }
+
+  async getMyTaskerApplication(userId: string): Promise<TaskerApplicationRecord | null> {
+    await delay();
+    return this.taskerApplications.get(userId) ?? null;
+  }
+
+  async submitTaskerApplication(
+    userId: string,
+    input: SubmitTaskerApplicationInput,
+  ): Promise<SubmitTaskerApplicationOutcome> {
+    await delay();
+    // An already-approved Tasker has nothing to apply for.
+    const profile = await this.getMyProfile(userId);
+    if (profile?.tasker) {
+      return { ok: false, message: "you are already an approved Tasker." };
+    }
+    const existing = this.taskerApplications.get(userId);
+    // Already queued: return it rather than re-queuing the reviewers.
+    if (existing && (existing.status === "SUBMITTED" || existing.status === "IN_REVIEW")) {
+      return { ok: true, application: existing };
+    }
+
+    const bio = input.bio.trim();
+    const experience = input.experience.trim();
+    const city = input.cityCode.trim();
+    const specialtyIds = [...new Set(input.specialtyIds)];
+    // Messages mirror the RPC after its `CLASS: ` prefix is stripped, so the
+    // synthetic path surfaces the same copy the real backend would.
+    if (bio.length < 20 || bio.length > 2000) {
+      return { ok: false, message: "your bio must be between 20 and 2000 characters." };
+    }
+    if (experience.length < 1 || experience.length > 2000) {
+      return { ok: false, message: "describe your experience (up to 2000 characters)." };
+    }
+    if (city.length === 0) {
+      return { ok: false, message: "enter the city you can work in." };
+    }
+    if (specialtyIds.length === 0) {
+      return { ok: false, message: "choose at least one specialty." };
+    }
+    const valid = new Set(SYNTHETIC_SPECIALTIES.map((option) => option.id));
+    if (!specialtyIds.every((id) => valid.has(id))) {
+      return { ok: false, message: "one or more selected specialties are unavailable." };
+    }
+
+    const barangay = input.barangayCode?.trim();
+    const provider = input.payoutProvider?.trim();
+    const application: TaskerApplicationRecord = {
+      id: existing?.id ?? `synthetic-application-${userId}`,
+      status: "SUBMITTED",
+      bio,
+      experience,
+      specialtyIds,
+      cityCode: city,
+      barangayCode: barangay && barangay.length > 0 ? barangay : null,
+      payoutProvider: provider && provider.length > 0 ? provider : null,
+      decisionReason: null,
+      submittedAt: new Date().toISOString(),
+    };
+    this.taskerApplications.set(userId, application);
+    return { ok: true, application };
   }
 
   async getPublicTaskerProfile(userId: string): Promise<PublicTaskerProfile | null> {
@@ -1808,6 +2369,50 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
       publicExperience: edited.tasker.publicExperience,
       serviceCityCodes: edited.tasker.serviceCityCodes,
     };
+  }
+
+  async listMyPortfolio(userId: string): Promise<ReadonlyArray<PortfolioItemRecord>> {
+    await delay();
+    return this.portfolio.get(userId) ?? [];
+  }
+
+  /**
+   * Approved items only — a work sample still in moderation (or rejected) is
+   * visible to its owner via `listMyPortfolio`, never to another user.
+   */
+  async listPublicPortfolio(userId: string): Promise<ReadonlyArray<PortfolioItemRecord>> {
+    await delay();
+    return (this.portfolio.get(userId) ?? []).filter(
+      (item) => item.moderationStatus === "APPROVED",
+    );
+  }
+
+  async addPortfolioItem(
+    userId: string,
+    input: { storagePath: string; caption?: string | null },
+  ): Promise<{ ok: boolean; reason?: string }> {
+    await delay();
+    const items = this.portfolio.get(userId) ?? [];
+    const caption = input.caption?.trim() ? input.caption.trim().slice(0, 280) : null;
+    const item: PortfolioItemRecord = {
+      id: `synthetic-portfolio-${userId}-${items.length + 1}`,
+      storagePath: input.storagePath,
+      caption,
+      moderationStatus: "PENDING",
+      createdAt: new Date().toISOString(),
+    };
+    this.portfolio.set(userId, [item, ...items]);
+    return { ok: true };
+  }
+
+  async removePortfolioItem(userId: string, itemId: string): Promise<{ ok: boolean }> {
+    await delay();
+    const items = this.portfolio.get(userId) ?? [];
+    this.portfolio.set(
+      userId,
+      items.filter((item) => item.id !== itemId),
+    );
+    return { ok: true };
   }
 }
 
@@ -1886,6 +2491,7 @@ function validateSearchBounds(input: {
   scheduledFrom?: string;
   scheduledTo?: string;
   sameDayOnly?: boolean;
+  noOffersOnly?: boolean;
   nearLat?: number;
   nearLng?: number;
   radiusKm?: number;

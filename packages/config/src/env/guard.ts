@@ -57,9 +57,10 @@ export function collectViolations(input: {
   requireForNonSynthetic(violations, adapterModes.push, "push", [
     ["pushCredentials", credentials.pushCredentials, "PUSH_CREDENTIALS"],
   ]);
-  requireForNonSynthetic(violations, adapterModes.map, "map", [
-    ["mapPublicKey", credentials.mapPublicKey, "MAP_PUBLIC_KEY"],
-  ]);
+  // Map geocoding runs server-side through the `geocode` Edge Function — the
+  // Google key is a server secret and is never bundled into a client — so live
+  // map mode requires no client-side credential here. The server key's presence
+  // is enforced at the Edge Function, not in client/public configuration.
   requireForNonSynthetic(violations, adapterModes.monitoring, "monitoring", [
     ["monitoringDsn", credentials.monitoringDsn, "MONITORING_DSN"],
   ]);

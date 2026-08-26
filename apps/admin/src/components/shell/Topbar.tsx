@@ -84,41 +84,65 @@ export function Topbar({
         >
           <MenuIcon width={20} height={20} />
         </button>
-        <div className="dk-app-topbar-brand" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div
+          className="dk-app-topbar-brand"
+          style={{ display: "flex", alignItems: "center", gap: 10 }}
+        >
           <a href="/dashboard" style={{ display: "inline-flex", alignItems: "center" }}>
-            <img src="/brand/text-icon-logo.png" alt="Dizkarte" style={{ height: 24, width: "auto", display: "block" }} />
+            <img
+              src="/brand/text-icon-logo.png"
+              alt="Dizkarte"
+              style={{ height: 24, width: "auto", display: "block" }}
+            />
           </a>
-          <span style={{ display: "inline-flex", alignItems: "center", color: "var(--dk-textSecondary)", opacity: 0.4 }} aria-hidden="true">
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              color: "var(--dk-textSecondary)",
+              opacity: 0.4,
+            }}
+            aria-hidden="true"
+          >
             <ChevronRightIcon width={14} height={14} />
           </span>
-          <span style={{ display: "inline-flex", alignItems: "center", fontWeight: 700, fontSize: 14, color: "var(--dk-textPrimary)", lineHeight: "1" }}>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              fontWeight: 700,
+              fontSize: 14,
+              color: "var(--dk-textPrimary)",
+              lineHeight: "1",
+            }}
+          >
             {currentPageTitle}
           </span>
         </div>
       </div>
-        <div className="dk-topbar-user-menu" ref={menuRef}>
-          <button
-            type="button"
-            className="dk-avatar-btn"
-            onClick={() => setMenuOpen((v) => !v)}
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-          >
-            <span className="dk-avatar-circle" aria-hidden="true">
-              {initialsFor(session.displayName)}
-            </span>
-            <span className="dk-avatar-name">{session.displayName}</span>
-          </button>
-          {menuOpen ? (
-            <div className="dk-user-menu-panel" role="menu">
-              <div className="dk-user-menu-header">
-                <strong>{session.displayName}</strong>
-                <span>{capabilityText}</span>
-              </div>
-              <SignOutButton />
+      <div className="dk-topbar-user-menu" ref={menuRef}>
+        <button
+          type="button"
+          className="dk-avatar-btn"
+          onClick={() => setMenuOpen((v) => !v)}
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+        >
+          <span className="dk-avatar-circle" aria-hidden="true">
+            {initialsFor(session.displayName)}
+          </span>
+          <span className="dk-avatar-name">{session.displayName}</span>
+        </button>
+        {menuOpen ? (
+          <div className="dk-user-menu-panel" role="menu">
+            <div className="dk-user-menu-header">
+              <strong>{session.displayName}</strong>
+              <span>{capabilityText}</span>
             </div>
-          ) : null}
-        </div>
-      </header>
+            <SignOutButton />
+          </div>
+        ) : null}
+      </div>
+    </header>
   );
 }

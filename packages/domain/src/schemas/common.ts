@@ -28,7 +28,7 @@ export const phMobileSchema = z
     return `+63${local}`;
   });
 
-/** PSGC-style locality codes (city/barangay). Source/version pending approval. */
+/** PSGC-style locality codes (city/barangay). Source: PSA PSGC (decision D14). */
 export const localityCodeSchema = z
   .string()
   .trim()

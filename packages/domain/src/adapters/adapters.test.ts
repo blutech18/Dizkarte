@@ -114,6 +114,18 @@ describe("synthetic map/push/media adapters", () => {
     expect(km).toBeLessThan(12);
   });
 
+  it("map provider returns ranked place suggestions for a non-empty query", async () => {
+    const map = new SyntheticMapProvider("development");
+    const results = await map.searchPlaces("Cebu");
+    expect(results.length).toBeGreaterThan(0);
+    for (const suggestion of results) {
+      expect(suggestion.description).toContain("Cebu");
+      expect(Number.isFinite(suggestion.lat)).toBe(true);
+      expect(Number.isFinite(suggestion.lng)).toBe(true);
+    }
+    expect(await map.searchPlaces("   ")).toEqual([]);
+  });
+
   it("push provider returns a labeled synthetic delivery outcome", async () => {
     const push = new SyntheticPushProvider("development");
     const result = await push.send({ tokenReference: "t", title: "Hi", body: "Body" });

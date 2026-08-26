@@ -15,8 +15,10 @@ import type {
   ReviewStatus,
   SupportTicketId,
   TaskId,
+  TaskLocationType,
   TaskQuestionId,
   TaskStatus,
+  TaskTimeOfDay,
   UserId,
   VerificationStatus,
 } from "@dizkarte/domain";
@@ -45,7 +47,24 @@ export type DraftTaskInput = {
   readonly budgetCentavos: number;
   readonly scheduledFor: string | null;
   readonly sameDay: boolean;
+  /**
+   * Coarse preferred time of day, or null/absent when the Client is flexible
+   * within the day. Optional so existing callers/records that predate the field
+   * remain valid — an absent value is read as "no specific time".
+   */
+  readonly timeOfDay?: TaskTimeOfDay | null;
+  /**
+   * Whether the work happens at a place or can be done remotely. Optional so
+   * records that predate the field stay valid — absent reads as `in_person`,
+   * which is what every task posted before it was physical.
+   */
+  readonly locationType?: TaskLocationType;
   readonly landmark: string;
+  /**
+   * Public, area-level drop-off for a removals/delivery task, or null when the
+   * task has a single location. Never an exact address.
+   */
+  readonly dropoffLandmark?: string | null;
   readonly cityCode: string;
   readonly barangayCode: string;
   readonly approximateLat: number;
@@ -54,6 +73,50 @@ export type DraftTaskInput = {
   readonly exactLat: number;
   readonly exactLng: number;
   readonly media: ReadonlyArray<TaskMediaAttachment>;
+  /**
+   * Answers to the category-guided questions.
+   *
+   * Optional on purpose: `undefined` means "leave whatever is stored alone".
+   * The single-page edit form does not collect answers, so an absent list must
+   * never be read as "the Client cleared them".
+   */
+  readonly answers?: ReadonlyArray<TaskAnswerInput>;
+};
+
+/** How a category question is rendered and answered. */
+export type TaskQuestionInputKind = "select" | "boolean" | "number" | "text";
+
+/**
+ * A category-guided question, defined in the database
+ * (`task_question_definitions`) rather than hard-coded in the app, so the set
+ * can be reworded or extended without shipping a release.
+ */
+export type TaskQuestionDefinition = {
+  readonly id: string;
+  readonly categoryId: string;
+  readonly code: string;
+  readonly label: string;
+  readonly inputKind: TaskQuestionInputKind;
+  /** Ordered choice labels; empty unless `inputKind` is "select". */
+  readonly options: ReadonlyArray<string>;
+  readonly placeholder: string | null;
+  readonly required: boolean;
+  readonly sortOrder: number;
+};
+
+/** One answer written against a task. */
+export type TaskAnswerInput = {
+  readonly questionId: string;
+  readonly answer: string;
+};
+
+/** A stored answer joined to the question it belongs to, ready to display. */
+export type TaskAnswerRecord = {
+  readonly questionId: string;
+  readonly code: string;
+  readonly label: string;
+  readonly answer: string;
+  readonly sortOrder: number;
 };
 
 export type TaskMediaAttachment = {
@@ -212,6 +275,26 @@ export type MessageRecord = {
   readonly clientNonce: string;
 };
 
+/**
+ * One conversation's activity, for a list that must not fetch whole threads.
+ *
+ * Mirrors `public.conversation_summaries()` (migration 0046). The preview is
+ * already truncated server-side, and `unreadCount` counts only the counterpart's
+ * messages newer than this viewer's own read high-water mark — a participant's
+ * own message is never unread to themselves.
+ */
+export type ConversationSummary = {
+  readonly conversationId: ConversationId;
+  readonly bookingId: BookingId;
+  /** Null only for a conversation that exists with no message yet. */
+  readonly lastMessageAt: string | null;
+  /** Truncated body; null when the last message carried media only. */
+  readonly lastMessagePreview: string | null;
+  readonly lastMessageSenderId: UserId | null;
+  readonly lastMessageHasMedia: boolean;
+  readonly unreadCount: number;
+};
+
 // --- Notifications ---
 
 export type NotificationType =
@@ -221,11 +304,19 @@ export type NotificationType =
   | "PAYMENT_FAILED"
   | "BOOKING_STARTED"
   | "COMPLETION_REQUESTED"
+  /** Completion is waiting on the Client (migration 0044 timeout sweep). */
+  | "COMPLETION_REMINDER"
   | "BOOKING_COMPLETED"
   | "DISPUTE_OPENED"
   | "REVIEW_RECEIVED"
+  /** The blind review window is still open and this user has not reviewed (0043). */
+  | "REVIEW_REMINDER"
+  /** A task was published in an area this Tasker serves (0043). */
+  | "NEARBY_TASK"
   | "MESSAGE_RECEIVED"
-  | "VERIFICATION_DECISION";
+  | "VERIFICATION_DECISION"
+  // A trust & safety report the Dizkarte team decided (0050).
+  | "REPORT_RESOLVED";
 
 export type NotificationRecord = {
   readonly id: NotificationId;
@@ -233,7 +324,14 @@ export type NotificationRecord = {
   readonly type: NotificationType;
   readonly title: string;
   readonly body: string;
-  readonly resourceType: "task" | "booking" | "conversation" | "dispute" | "review" | null;
+  readonly resourceType:
+    | "task"
+    | "booking"
+    | "conversation"
+    | "dispute"
+    | "review"
+    | "report"
+    | null;
   readonly resourceId: string | null;
   readonly readAt: string | null;
   readonly createdAt: string;
@@ -245,7 +343,10 @@ export type NotificationPreferenceCategory =
   | "bookings"
   | "messages"
   | "disputes"
-  | "reviews";
+  | "reviews"
+  | "nearby"
+  | "promotions"
+  | "safety";
 
 export type NotificationPreferences = Readonly<
   Record<NotificationPreferenceCategory, { readonly inApp: boolean; readonly push: boolean }>
@@ -335,6 +436,10 @@ export type VerificationDocumentRecord = {
   readonly createdAt: string;
 };
 
+export type AddVerificationDocumentOutcome =
+  | { readonly ok: true; readonly document: VerificationDocumentRecord }
+  | { readonly ok: false; readonly reason: string };
+
 /**
  * The caller's own verification case.
  *
@@ -381,6 +486,24 @@ export type SupportTicketRecord = {
 };
 
 export type ReportId_ = ReportId;
+
+/**
+ * A trust & safety report, as returned by `submit_report` (migration 0048).
+ *
+ * `status` is the Admin case state; the app only ever creates OPEN reports and
+ * re-submitting returns the existing open case, so a client never sees a
+ * duplicate.
+ */
+export type ReportRecord = {
+  readonly id: ReportId;
+  readonly reporterId: UserId;
+  readonly resourceType: "task" | "user" | "message" | "offer" | "booking";
+  readonly resourceId: string;
+  readonly category: "fraud" | "harassment" | "inappropriate" | "safety" | "spam" | "other";
+  readonly narrative: string;
+  readonly status: "OPEN" | "TRIAGED" | "ACTIONED" | "DISMISSED";
+  readonly createdAt: string;
+};
 
 // --- Ledger-facing summaries (read-only, derived) ---
 
@@ -432,9 +555,9 @@ export type MyOfferHistoryItem = {
   readonly canWithdraw: boolean;
 };
 
-// --- Tasker Dashboard projection ---
+// --- Tasker work + earnings projection (the signed-in Tasker's own read model) ---
 
-export type TaskerDashboardSnapshot = {
+export type TaskerWorkSnapshot = {
   readonly availableWork: ReadonlyArray<PublicTaskFeedItem>;
   readonly activeBookings: ReadonlyArray<BookingRecord>;
   readonly completionRequested: ReadonlyArray<BookingRecord>;
@@ -498,6 +621,7 @@ export type MyProfileUpdateInput = {
   readonly barangayCode?: string;
   readonly language?: "en" | "fil";
   readonly bio?: string;
+  readonly avatarPath?: string | null;
   readonly publicBio?: string;
   readonly publicExperience?: string;
   readonly specialtyIds?: ReadonlyArray<string>;
@@ -507,6 +631,138 @@ export type MyProfileUpdateInput = {
 export type UpdateProfileOutcome =
   | { readonly ok: true; readonly profile: MyProfileRecord }
   | { readonly ok: false; readonly message: string };
+
+// --- Offer registration ("Finish registration" gate) ---
+
+/**
+ * Completion flags for the three self-service items a Tasker must provide before
+ * they can make an offer (mirrors the Airtasker "Finish registration" gate).
+ * Read live from `my_offer_registration_status`, so the checklist is dynamic.
+ */
+export type OfferRegistrationStatus = {
+  readonly mobileComplete: boolean;
+  readonly bankComplete: boolean;
+  readonly billingComplete: boolean;
+};
+
+/** True only when every required registration item is complete. */
+export function isOfferRegistrationComplete(status: OfferRegistrationStatus): boolean {
+  return status.mobileComplete && status.bankComplete && status.billingComplete;
+}
+
+export type BillingAddressRecord = {
+  readonly line1: string;
+  readonly line2: string | null;
+  readonly city: string;
+  readonly region: string | null;
+  readonly postalCode: string | null;
+  readonly country: string;
+};
+
+export type BillingAddressInput = {
+  readonly line1: string;
+  readonly line2?: string | null;
+  readonly city: string;
+  readonly region?: string | null;
+  readonly postalCode?: string | null;
+  readonly country?: string;
+};
+
+/**
+ * A Tasker payout method as shown to its owner. Only the provider and a masked
+ * label are ever exposed — never a raw wallet/card/account credential (the raw
+ * value never leaves the device; the server stores an opaque token).
+ */
+export type PayoutMethodSummary = {
+  readonly id: string;
+  readonly provider: string;
+  readonly maskedLabel: string;
+  readonly status: "active" | "disabled";
+};
+
+export type AddPayoutMethodInput = {
+  /** Provider key, e.g. `PH_GCASH`, `PH_MAYA`, `PH_BANK`. */
+  readonly provider: string;
+  /** Masked, display-only label, e.g. `GCash ••••4567`. Never the full number. */
+  readonly maskedLabel: string;
+};
+
+/** Result of a registration write that fails closed with a user-facing reason. */
+export type RegistrationActionOutcome =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly reason: string };
+
+// --- PSGC localities (canonical city/barangay reference, decision D14) ---
+
+/** A PSGC city or municipality. `city6` is the 6-digit code stored as `city_code`. */
+export type PsgcCity = {
+  readonly code: string;
+  readonly city6: string;
+  readonly name: string;
+  readonly provinceName: string | null;
+  readonly isCity: boolean;
+};
+
+/** A PSGC barangay. `code` is the 9-digit code stored as `barangay_code`. */
+export type PsgcBarangay = {
+  readonly code: string;
+  readonly name: string;
+  readonly city6: string;
+};
+
+// --- Tasker application (self-service onboarding) ---
+
+/**
+ * The signed-in user's current Tasker application, as they can see it.
+ *
+ * Present only once the user has submitted one. The public trust signals set at
+ * approval time (rating, completion count) live in `PublicTaskerProfile`, never
+ * here, and the payout token itself is never exposed — only which provider was
+ * chosen.
+ */
+export type TaskerApplicationRecord = {
+  readonly id: string;
+  readonly status:
+    | "DRAFT"
+    | "SUBMITTED"
+    | "IN_REVIEW"
+    | "APPROVED"
+    | "REJECTED"
+    | "RESUBMISSION_REQUIRED"
+    | "SUSPENDED";
+  readonly bio: string;
+  readonly experience: string;
+  readonly specialtyIds: ReadonlyArray<string>;
+  readonly cityCode: string | null;
+  readonly barangayCode: string | null;
+  readonly payoutProvider: string | null;
+  readonly decisionReason: string | null;
+  readonly submittedAt: string | null;
+};
+
+/** Everything the Tasker application form collects in a single submission. */
+export type SubmitTaskerApplicationInput = {
+  readonly bio: string;
+  readonly experience: string;
+  readonly specialtyIds: ReadonlyArray<string>;
+  readonly cityCode: string;
+  readonly barangayCode?: string;
+  /** Preferred payout provider label only — never a raw wallet/card credential. */
+  readonly payoutProvider?: string | null;
+};
+
+export type SubmitTaskerApplicationOutcome =
+  | { readonly ok: true; readonly application: TaskerApplicationRecord }
+  | { readonly ok: false; readonly message: string };
+
+/** A Tasker portfolio work sample. Images live in the private `portfolios` bucket. */
+export type PortfolioItemRecord = {
+  readonly id: string;
+  readonly storagePath: string;
+  readonly caption: string | null;
+  readonly moderationStatus: "PENDING" | "APPROVED" | "REJECTED" | "HIDDEN";
+  readonly createdAt: string;
+};
 
 // --- Service catalog ---
 

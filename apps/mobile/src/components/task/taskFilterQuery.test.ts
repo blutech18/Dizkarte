@@ -2,152 +2,109 @@ import { describe, expect, it } from "vitest";
 import {
   buildTaskSearchQuery,
   DEFAULT_TASK_FILTERS,
-  DEV_REFERENCE_AREAS,
-  findReferenceArea,
+  describeActiveFilters,
+  SORT_OPTIONS,
   validateTaskFilterDraft,
   type TaskFilterState,
 } from "./taskFilterQuery";
 
+const EMPTY_DRAFT = {
+  minBudget: "",
+  maxBudget: "",
+  scheduledFrom: "",
+  scheduledTo: "",
+} as const;
+
 describe("validateTaskFilterDraft", () => {
   it("accepts an empty draft", () => {
-    const result = validateTaskFilterDraft({
-      minBudget: "",
-      maxBudget: "",
-      scheduledFrom: "",
-      scheduledTo: "",
-      radiusKm: "",
-    });
-    expect(result.ok).toBe(true);
+    expect(validateTaskFilterDraft(EMPTY_DRAFT).ok).toBe(true);
   });
 
   it("rejects a minimum budget greater than the maximum", () => {
     const result = validateTaskFilterDraft({
+      ...EMPTY_DRAFT,
       minBudget: "1000",
       maxBudget: "500",
-      scheduledFrom: "",
-      scheduledTo: "",
-      radiusKm: "",
     });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.errors.maxBudget).toBeTruthy();
   });
 
   it("accepts a minimum budget equal to the maximum", () => {
-    const result = validateTaskFilterDraft({
-      minBudget: "500",
-      maxBudget: "500",
-      scheduledFrom: "",
-      scheduledTo: "",
-      radiusKm: "",
-    });
-    expect(result.ok).toBe(true);
+    expect(validateTaskFilterDraft({ ...EMPTY_DRAFT, minBudget: "500", maxBudget: "500" }).ok).toBe(
+      true,
+    );
   });
 
-  it("rejects a radius outside the shared schema bounds", () => {
-    const tooSmall = validateTaskFilterDraft({
-      minBudget: "",
-      maxBudget: "",
-      scheduledFrom: "",
-      scheduledTo: "",
-      radiusKm: "0.1",
-    });
-    expect(tooSmall.ok).toBe(false);
-
-    const tooLarge = validateTaskFilterDraft({
-      minBudget: "",
-      maxBudget: "",
-      scheduledFrom: "",
-      scheduledTo: "",
-      radiusKm: "500",
-    });
-    expect(tooLarge.ok).toBe(false);
-  });
-
-  it("rejects a scheduled 'from' date after the 'to' date", () => {
+  it("rejects a scheduled from date after the to date", () => {
     const result = validateTaskFilterDraft({
-      minBudget: "",
-      maxBudget: "",
+      ...EMPTY_DRAFT,
       scheduledFrom: "2026-08-01",
       scheduledTo: "2026-07-01",
-      radiusKm: "",
     });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.errors.scheduledTo).toBeTruthy();
   });
 
-  it("accepts a scheduled 'from' date equal to the 'to' date", () => {
-    const result = validateTaskFilterDraft({
-      minBudget: "",
-      maxBudget: "",
-      scheduledFrom: "2026-07-25",
-      scheduledTo: "2026-07-25",
-      radiusKm: "",
-    });
-    expect(result.ok).toBe(true);
+  it("accepts equal scheduled dates", () => {
+    expect(
+      validateTaskFilterDraft({
+        ...EMPTY_DRAFT,
+        scheduledFrom: "2026-07-25",
+        scheduledTo: "2026-07-25",
+      }).ok,
+    ).toBe(true);
   });
 
   it("rejects a malformed scheduled date", () => {
-    const result = validateTaskFilterDraft({
-      minBudget: "",
-      maxBudget: "",
-      scheduledFrom: "not-a-date",
-      scheduledTo: "",
-      radiusKm: "",
-    });
+    const result = validateTaskFilterDraft({ ...EMPTY_DRAFT, scheduledFrom: "not-a-date" });
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.errors.scheduledFrom).toBeTruthy();
   });
 });
 
-describe("findReferenceArea", () => {
-  it("resolves a known deterministic development reference area", () => {
-    const area = findReferenceArea("quezon_city");
-    expect(area).toBeDefined();
-    expect(area?.label).toContain("approximate");
-  });
-
-  it("returns undefined for an unknown/undefined id", () => {
-    expect(findReferenceArea(undefined)).toBeUndefined();
-    expect(findReferenceArea("nonexistent")).toBeUndefined();
-  });
-
-  it("every reference area is labeled as approximate and never exposes precise-looking coordinates", () => {
-    for (const area of DEV_REFERENCE_AREAS) {
-      expect(area.label.toLowerCase()).toContain("approximate");
-    }
-  });
-});
-
 describe("buildTaskSearchQuery", () => {
   it("omits unset optional keys entirely", () => {
-    const query = buildTaskSearchQuery(1, 20, "", DEFAULT_TASK_FILTERS);
-    expect(query).toEqual({ page: 1, pageSize: 20, sort: "newest" });
-    expect("nearLat" in query).toBe(false);
-    expect("nearLng" in query).toBe(false);
+    expect(buildTaskSearchQuery(1, 20, "", DEFAULT_TASK_FILTERS)).toEqual({
+      page: 1,
+      pageSize: 20,
+      sort: "newest",
+    });
   });
 
-  it("includes nearLat/nearLng whenever an area + radius is set", () => {
-    const filters: TaskFilterState = { sort: "newest", areaId: "quezon_city", radiusKm: 5 };
-    const query = buildTaskSearchQuery(1, 20, "", filters);
-    const area = findReferenceArea("quezon_city")!;
-    expect(query.nearLat).toBe(area.approximateLat);
-    expect(query.nearLng).toBe(area.approximateLng);
-    expect(query.radiusKm).toBe(5);
+  it("emits the no-offers filter only when it is on", () => {
+    // Off (or absent) must not appear on the wire at all: an explicit
+    // `noOffersOnly: false` would still be a different query object from the
+    // default one, and both surfaces compare these queries for feed/map parity.
+    expect("noOffersOnly" in buildTaskSearchQuery(1, 20, "", DEFAULT_TASK_FILTERS)).toBe(false);
+
+    const query = buildTaskSearchQuery(1, 20, "", { sort: "newest", noOffersOnly: true });
+    expect(query.noOffersOnly).toBe(true);
   });
 
-  it("includes nearLat/nearLng whenever an area + nearest sort is set, even without an explicit radius", () => {
-    const filters: TaskFilterState = { sort: "nearby", areaId: "bgc_taguig" };
+  it("carries a canonical PSGC city code into task search", () => {
+    const filters: TaskFilterState = {
+      sort: "newest",
+      cityCode: "137404",
+      cityName: "Quezon City",
+    };
     const query = buildTaskSearchQuery(1, 20, "", filters);
-    const area = findReferenceArea("bgc_taguig")!;
-    expect(query.nearLat).toBe(area.approximateLat);
-    expect(query.nearLng).toBe(area.approximateLng);
+    expect(query.cityCode).toBe("137404");
+    expect("cityName" in query).toBe(false);
   });
 
-  it("never includes nearLat/nearLng when no area is selected", () => {
-    const filters: TaskFilterState = { sort: "nearby", radiusKm: 5 };
+  it("carries a barangay code together with its parent city", () => {
+    const filters: TaskFilterState = {
+      sort: "newest",
+      cityCode: "137404",
+      barangayCode: "137404001",
+      cityName: "Quezon City",
+      barangayName: "Alicia",
+    };
     const query = buildTaskSearchQuery(1, 20, "", filters);
-    expect("nearLat" in query).toBe(false);
-    expect("nearLng" in query).toBe(false);
+    expect(query.cityCode).toBe("137404");
+    expect(query.barangayCode).toBe("137404001");
+    expect("barangayName" in query).toBe(false);
   });
 
   it("carries the schedule window through unchanged", () => {
@@ -161,10 +118,57 @@ describe("buildTaskSearchQuery", () => {
     expect(query.scheduledTo).toBe(filters.scheduledTo);
   });
 
-  it("trims and includes a non-empty keyword, and omits a blank one", () => {
-    const withKeyword = buildTaskSearchQuery(1, 20, "  faucet  ", DEFAULT_TASK_FILTERS);
-    expect(withKeyword.keyword).toBe("faucet");
-    const blank = buildTaskSearchQuery(1, 20, "   ", DEFAULT_TASK_FILTERS);
-    expect("keyword" in blank).toBe(false);
+  it("trims a non-empty keyword and omits a blank one", () => {
+    expect(buildTaskSearchQuery(1, 20, "  faucet  ", DEFAULT_TASK_FILTERS).keyword).toBe("faucet");
+    expect("keyword" in buildTaskSearchQuery(1, 20, "   ", DEFAULT_TASK_FILTERS)).toBe(false);
+  });
+
+  it("adds a coordinate origin and switches to the nearby sort", () => {
+    const query = buildTaskSearchQuery(1, 100, "", { sort: "newest" }, { lat: 14.6, lng: 121.03 });
+    expect(query.nearLat).toBe(14.6);
+    expect(query.nearLng).toBe(121.03);
+    expect(query.sort).toBe("nearby");
+  });
+
+  it("ignores a non-finite origin and keeps the chosen sort (no geo keys)", () => {
+    const query = buildTaskSearchQuery(
+      1,
+      100,
+      "",
+      { sort: "highest_budget" },
+      { lat: Number.NaN, lng: 121 },
+    );
+    expect("nearLat" in query).toBe(false);
+    expect("nearLng" in query).toBe(false);
+    expect(query.sort).toBe("highest_budget");
+  });
+
+  it("omits geo keys and keeps the chosen sort when no origin is given (set parity)", () => {
+    const query = buildTaskSearchQuery(1, 100, "", { sort: "newest" });
+    expect("nearLat" in query).toBe(false);
+    expect("nearLng" in query).toBe(false);
+    expect(query.sort).toBe("newest");
+  });
+});
+
+describe("dynamic locality summaries", () => {
+  it("uses resolved city and barangay names rather than exposing PSGC codes", () => {
+    const chips = describeActiveFilters(
+      {
+        sort: "newest",
+        cityCode: "137404",
+        cityName: "Quezon City",
+        barangayCode: "137404001",
+        barangayName: "Alicia",
+      },
+      () => undefined,
+    );
+    expect(chips).toContain("Quezon City");
+    expect(chips).toContain("Alicia");
+    expect(chips.join(" ")).not.toContain("137404");
+  });
+
+  it("does not offer nearest sorting without a coordinate-bearing origin", () => {
+    expect(SORT_OPTIONS.map((option) => option.key)).toEqual(["newest", "highest_budget"]);
   });
 });

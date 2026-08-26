@@ -11,8 +11,13 @@ import {
 import { router } from "expo-router";
 import type { MobileSession } from "../services/session-types";
 import { getSupabaseClient } from "../lib/supabase";
-import { buildMobileSession, register as authRegister, signIn as authSignIn } from "../services/auth";
+import {
+  buildMobileSession,
+  register as authRegister,
+  signIn as authSignIn,
+} from "../services/auth";
 import { decideAuthAction, mayDowngradeToSignedOut } from "../services/session-events";
+import { releasePushRegistration } from "../services/push";
 
 type SessionStatus = "loading" | "signed-out" | "signed-in";
 
@@ -233,9 +238,17 @@ export function SessionProvider({ children }: { readonly children: ReactNode }) 
     // Invalidate any in-flight derivation first so a late response cannot
     // resurrect the session the user just ended.
     derivation.current += 1;
+    // Revoke this device's push registration while the user's JWT is still
+    // valid: `devices` writes are RLS-scoped to the caller's own rows, so after
+    // `auth.signOut()` the row could never be disabled and the previous user's
+    // pushes would keep arriving on a phone somebody else may sign into.
+    const previousUserId = session?.userId ?? null;
+    if (previousUserId) {
+      await releasePushRegistration(previousUserId);
+    }
     await getSupabaseClient().auth.signOut();
     if (mounted.current) publish(null, "signed-out");
-  }, [publish]);
+  }, [publish, session]);
 
   const value = useMemo<SessionContextValue>(
     () => ({ session, status, signIn, register, signOut }),

@@ -97,6 +97,12 @@ async function verifyLiveSignature(
   const header = req.headers.get(headerName)?.trim();
   if (!header) return false;
 
+  // Static shared-token schemes (e.g. Xendit's `x-callback-token`) carry a
+  // constant verification token rather than an HMAC of the body.
+  if (scheme === "static_token") {
+    return timingSafeEqual(secret, header);
+  }
+
   if (scheme === "hmac_sha256_hex") {
     const expected = await hmacSha256Hex(secret, rawBody);
     return timingSafeEqual(expected, header.toLowerCase());
@@ -116,6 +122,106 @@ function json(status: number, body: unknown): Response {
     status,
     headers: { "content-type": "application/json" },
   });
+}
+
+/**
+ * Canonical event the ledger consumes. Providers whose payloads are not already
+ * canonical (e.g. Xendit) are translated into this shape before processing.
+ */
+type CanonicalEvent = {
+  externalEventId: string;
+  type: string;
+  providerReference: string;
+  amountCentavos: number;
+  currency: string;
+};
+
+/** Centavos for a Xendit peso amount (mirror of the tested domain helper). */
+function centavosFromXenditAmount(amount: number): number {
+  return Math.round(amount * 100);
+}
+
+const XENDIT_STATUS_MAP: Record<string, string> = {
+  PAID: "payment.confirmed",
+  SETTLED: "payment.confirmed",
+  EXPIRED: "payment.failed",
+  FAILED: "payment.failed",
+  COMPLETED: "payout.succeeded",
+  SUCCEEDED: "refund.succeeded",
+};
+
+/**
+ * Translate a Xendit webhook body into the canonical event, or `null` for a
+ * status we intentionally ignore (e.g. a PENDING invoice update). Mirrors
+ * `@dizkarte/domain`'s tested `translateXenditWebhook`.
+ */
+function translateXenditWebhook(body: Record<string, unknown>): CanonicalEvent | null {
+  const id = typeof body.id === "string" ? body.id : "";
+  const rawStatus = typeof body.status === "string" ? body.status.toUpperCase() : "";
+  if (id.length === 0 || rawStatus.length === 0) return null;
+  const type = XENDIT_STATUS_MAP[rawStatus];
+  if (!type) return null;
+  const amountPesos =
+    typeof body.paid_amount === "number"
+      ? body.paid_amount
+      : typeof body.amount === "number"
+        ? body.amount
+        : 0;
+  return {
+    externalEventId: `${id}:${type}`,
+    type,
+    providerReference: id,
+    amountCentavos: centavosFromXenditAmount(amountPesos),
+    currency: typeof body.currency === "string" ? body.currency : "PHP",
+  };
+}
+
+/** Xendit refund webhook → process_refund_event inputs. Mirrors the domain helper. */
+function translateXenditRefund(body: Record<string, unknown>): {
+  externalEventId: string;
+  refundIdempotencyKey: string;
+  providerReference: string;
+  amountCentavos: number;
+} | null {
+  const id = typeof body.id === "string" ? body.id : "";
+  const referenceId = typeof body.reference_id === "string" ? body.reference_id : "";
+  const rawStatus = typeof body.status === "string" ? body.status.toUpperCase() : "";
+  if (id.length === 0 || referenceId.length === 0) return null;
+  const type =
+    rawStatus === "SUCCEEDED"
+      ? "refund.succeeded"
+      : rawStatus === "FAILED"
+        ? "refund.failed"
+        : null;
+  if (!type) return null;
+  const amountPesos = typeof body.amount === "number" ? body.amount : 0;
+  return {
+    externalEventId: `${id}:${type}`,
+    refundIdempotencyKey: referenceId,
+    providerReference: id,
+    amountCentavos: centavosFromXenditAmount(amountPesos),
+  };
+}
+
+/** Xendit disbursement webhook → process_payout_result inputs. Mirrors the domain helper. */
+function translateXenditDisbursement(body: Record<string, unknown>): {
+  withdrawalId: string;
+  result: "PAID" | "FAILED";
+  providerReference: string;
+  failureReason: string | null;
+} | null {
+  const id = typeof body.id === "string" ? body.id : "";
+  const externalId = typeof body.external_id === "string" ? body.external_id : "";
+  const rawStatus = typeof body.status === "string" ? body.status.toUpperCase() : "";
+  if (id.length === 0 || externalId.length === 0) return null;
+  const result = rawStatus === "COMPLETED" ? "PAID" : rawStatus === "FAILED" ? "FAILED" : null;
+  if (!result) return null;
+  return {
+    withdrawalId: externalId,
+    result,
+    providerReference: id,
+    failureReason: typeof body.failure_code === "string" ? body.failure_code : null,
+  };
 }
 
 Deno.serve(async (req: Request) => {
@@ -176,13 +282,119 @@ Deno.serve(async (req: Request) => {
   });
 
   const payloadHash = fnv1a(rawBody);
+  const providerLower = (providerName ?? "").toLowerCase();
+  const providerForRpc = providerName ?? (paymentMode === "synthetic" ? "synthetic" : "unknown");
+  // The finalizer is selected by the `kind` query param so refund/disbursement
+  // callbacks (whose status vocabularies overlap "FAILED") are never confused
+  // with invoice callbacks. Defaults to invoice payments.
+  const kind = new URL(req.url).searchParams.get("kind") ?? "payment";
+
+  // ---- Refund finalization ----
+  if (kind === "refund") {
+    let refundIdempotencyKey: string;
+    let providerReference: string;
+    let externalEventId: string;
+    let amountCentavos: number;
+    if (providerLower === "xendit") {
+      const r = translateXenditRefund(parsed);
+      if (!r) return json(200, { success: true, data: { processingStatus: "IGNORED" } });
+      refundIdempotencyKey = r.refundIdempotencyKey;
+      providerReference = r.providerReference;
+      externalEventId = r.externalEventId;
+      amountCentavos = r.amountCentavos;
+    } else {
+      refundIdempotencyKey = String(parsed.refundIdempotencyKey ?? "");
+      providerReference = String(parsed.providerReference ?? "");
+      externalEventId = String(parsed.externalEventId ?? "");
+      amountCentavos = Number(parsed.amountCentavos ?? 0);
+    }
+    const { data, error } = await client.rpc("process_refund_event", {
+      p_provider: providerForRpc,
+      p_external_event_id: externalEventId,
+      p_refund_idempotency_key: refundIdempotencyKey,
+      p_provider_reference: providerReference,
+      p_amount_centavos: amountCentavos,
+      p_signature_valid: signatureValid,
+      p_payload_hash: payloadHash,
+    });
+    if (error) {
+      return json(502, {
+        success: false,
+        error: { code: "PROVIDER_UNAVAILABLE", message: "Event could not be processed." },
+      });
+    }
+    return json(200, {
+      success: true,
+      data: { processingStatus: data?.processing_status ?? "RECEIVED" },
+    });
+  }
+
+  // ---- Payout (disbursement) finalization ----
+  if (kind === "payout") {
+    // A payout webhook is only trusted when its token is valid; an invalid
+    // signature is dropped (no reservation reversal from a spoofed failure).
+    if (!signatureValid) {
+      return json(200, { success: true, data: { processingStatus: "QUARANTINED" } });
+    }
+    let withdrawalId: string;
+    let result: string;
+    let providerReference: string;
+    let failureReason: string | null;
+    if (providerLower === "xendit") {
+      const d = translateXenditDisbursement(parsed);
+      if (!d) return json(200, { success: true, data: { processingStatus: "IGNORED" } });
+      withdrawalId = d.withdrawalId;
+      result = d.result;
+      providerReference = d.providerReference;
+      failureReason = d.failureReason;
+    } else {
+      withdrawalId = String(parsed.withdrawalId ?? "");
+      result = String(parsed.result ?? "");
+      providerReference = String(parsed.providerReference ?? "");
+      failureReason = parsed.failureReason ? String(parsed.failureReason) : null;
+    }
+    const { error } = await client.rpc("process_payout_result", {
+      p_withdrawal_id: withdrawalId,
+      p_result: result,
+      p_provider_reference: providerReference,
+      p_failure_reason: failureReason,
+    });
+    if (error) {
+      return json(502, {
+        success: false,
+        error: { code: "PROVIDER_UNAVAILABLE", message: "Event could not be processed." },
+      });
+    }
+    return json(200, { success: true, data: { processingStatus: "PROCESSED" } });
+  }
+
+  // ---- Payment (invoice) confirmation — default ----
+  let canonical: CanonicalEvent;
+  if (providerLower === "xendit") {
+    const translated = translateXenditWebhook(parsed);
+    if (!translated) {
+      // A non-terminal or ignored status (e.g. PENDING): acknowledge without
+      // processing so the provider does not retry, and no domain effect occurs.
+      return json(200, { success: true, data: { processingStatus: "IGNORED" } });
+    }
+    canonical = translated;
+  } else {
+    canonical = {
+      externalEventId: String(parsed.externalEventId ?? ""),
+      type: String(parsed.type ?? ""),
+      providerReference: String(parsed.providerReference ?? ""),
+      amountCentavos: Number(parsed.amountCentavos ?? 0),
+      currency: String(parsed.currency ?? "PHP"),
+    };
+  }
+
   const { data, error } = await client.rpc("process_payment_event", {
-    p_provider: providerName ?? (paymentMode === "synthetic" ? "synthetic" : "unknown"),
-    p_external_event_id: String(parsed.externalEventId ?? ""),
-    p_type: String(parsed.type ?? ""),
-    p_provider_reference: String(parsed.providerReference ?? ""),
-    p_amount_centavos: Number(parsed.amountCentavos ?? 0),
-    p_currency: String(parsed.currency ?? "PHP"),
+    p_provider: providerForRpc,
+    p_external_event_id: canonical.externalEventId,
+    p_type: canonical.type,
+    p_provider_reference: canonical.providerReference,
+    p_amount_centavos: canonical.amountCentavos,
+    p_currency: canonical.currency,
     p_signature_valid: signatureValid,
     p_payload_hash: payloadHash,
   });

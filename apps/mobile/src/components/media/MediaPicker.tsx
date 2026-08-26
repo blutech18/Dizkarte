@@ -119,14 +119,18 @@ export function MediaPicker({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>{label}</Text>
+      {label ? <Text style={styles.label}>{label}</Text> : null}
       {hint ? <Text style={styles.hint}>{hint}</Text> : null}
 
       {value.length > 0 ? (
         <View style={styles.list}>
           {value.map((item) => (
             <View key={item.path} style={styles.row}>
-              <Icon name={item.kind === "video" ? "video" : "image"} size={18} color={theme.primary} />
+              <Icon
+                name={item.kind === "video" ? "video" : "image"}
+                size={18}
+                color={theme.primary}
+              />
               <Text style={styles.rowName} numberOfLines={1}>
                 {item.fileName}
               </Text>
@@ -135,7 +139,10 @@ export function MediaPicker({
                 accessibilityRole="button"
                 accessibilityLabel={`Remove ${item.fileName}`}
                 hitSlop={8}
-                style={styles.removeButton}
+                style={({ pressed }) => [
+                  styles.removeButton,
+                  pressed ? { opacity: 0.7, transform: [{ scale: 0.9 }] } : null,
+                ]}
                 disabled={disabled || busy}
               >
                 <Icon name="close" size={16} color={theme.textSecondary} />

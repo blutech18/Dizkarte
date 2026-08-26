@@ -29,6 +29,14 @@ export const publicLocationSchema = z.object({
   landmark: landmarkSchema,
   approximateLat: approximateLatSchema,
   approximateLng: approximateLngSchema,
+  /**
+   * Where a removals/delivery task ends, at the same public precision as
+   * `landmark` — an area label, never a street address. The exact drop-off, if
+   * one is ever needed, belongs in the private location alongside
+   * `exactAddress`; keeping this field area-level means publishing it cannot
+   * leak a second precise address (requirement R4).
+   */
+  dropoffLandmark: landmarkSchema.nullable().optional(),
 });
 
 /** Private exact location — never included in any public projection. */
@@ -37,6 +45,22 @@ export const privateLocationSchema = z.object({
   exactLat: exactLatSchema,
   exactLng: exactLngSchema,
 });
+
+/**
+ * Whether the work happens at a place or can be done remotely.
+ *
+ * An online task still records the Client's own city/barangay: the locality is
+ * what makes the task discoverable regionally, and `publicLocationSchema`
+ * requires it. What changes is the meaning — for an online task the locality is
+ * where the Client is, not where the Tasker must show up.
+ */
+export const taskLocationTypeSchema = z.enum(["in_person", "online"]);
+export type TaskLocationType = z.infer<typeof taskLocationTypeSchema>;
+
+/** Coarse preferred time of day, from the posting wizard's "I need a certain
+ * time of day" option. Null/absent means the Client is flexible within the day. */
+export const taskTimeOfDaySchema = z.enum(["morning", "midday", "afternoon", "evening"]);
+export type TaskTimeOfDay = z.infer<typeof taskTimeOfDaySchema>;
 
 export const createTaskSchema = z.object({
   categoryId: idSchema<"CategoryId">(),
@@ -48,6 +72,8 @@ export const createTaskSchema = z.object({
   }),
   scheduledFor: isoDateTimeSchema.optional(),
   sameDay: z.boolean().default(false),
+  timeOfDay: taskTimeOfDaySchema.nullable().optional(),
+  locationType: taskLocationTypeSchema.default("in_person"),
   publicLocation: publicLocationSchema,
   privateLocation: privateLocationSchema,
   media: z.array(taskMediaSchema).max(MEDIA_LIMITS.maxTaskMediaCount).default([]),
@@ -78,6 +104,13 @@ export const taskSearchSchema = paginationSchema.extend({
   scheduledFrom: isoDateTimeSchema.optional(),
   scheduledTo: isoDateTimeSchema.optional(),
   sameDayOnly: z.boolean().optional(),
+  /**
+   * Only tasks that have attracted no offer yet.
+   *
+   * A supply-side filter: it exists so a Tasker can find winnable work, which is
+   * why it is not exposed as "hide popular tasks" to Clients.
+   */
+  noOffersOnly: z.boolean().optional(),
   // Distance filter only applies when a map provider is configured.
   nearLat: approximateLatSchema.optional(),
   nearLng: approximateLngSchema.optional(),

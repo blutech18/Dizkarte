@@ -55,7 +55,10 @@ insert into public.profiles (id, display_name) values
   ('77777777-7777-7777-7777-777777777777', 'Super Unassigned'),
   ('88888888-8888-8888-8888-888888888888', 'Support Assigned'),
   ('99999999-9999-9999-9999-999999999999', 'Finance Assigned'),
-  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Verification Assigned');
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Verification Assigned')
+-- Migration 0015 (`handle_new_user`) creates a profile for every auth user, so
+-- these fixtures set the display names instead of inserting fresh rows.
+on conflict (id) do update set display_name = excluded.display_name;
 
 insert into public.user_capabilities (user_id, capability) values
   ('44444444-4444-4444-4444-444444444444', 'ADMIN_SUPPORT'),

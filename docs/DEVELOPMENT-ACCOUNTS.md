@@ -67,12 +67,19 @@ Run `npm run start --workspace apps/mobile`. The sign-in screen has a
 | Account | State | Use it to test |
 | --- | --- | --- |
 | `client@dev.dizkarte.invalid` | Identity APPROVED. Owns the seeded OPEN tasks. | Posting, editing and publishing tasks; browsing; selecting an offer |
-| `tasker@dev.dizkarte.invalid` | Identity APPROVED, Tasker application APPROVED, not suspended. Holds `CLIENT` and `TASKER`. | Submitting and withdrawing offers; Tasker Dashboard; editing the public Tasker profile |
+| `tasker@dev.dizkarte.invalid` | Identity APPROVED, Tasker application APPROVED, not suspended. Holds `CLIENT` and `TASKER`. | Submitting and withdrawing offers; Earnings & payouts (Profile → Earnings & payouts); editing the public Tasker profile |
 | `tasker-applicant@dev.dizkarte.invalid` | Identity APPROVED, Tasker application `IN_REVIEW`. | The Admin Tasker-applications queue. Cannot submit offers yet — that is correct |
 | `new-user@dev.dizkarte.invalid` | `CLIENT` only, no verification case. | Confirming the gates refuse: publishing a task and submitting an offer both fail |
 
 Every account also holds `CLIENT`, because one person can be both a Client and
 a Tasker on Dizkarte. Admin capabilities are add-ons, not replacements.
+
+Every account therefore signs in to the **same app**: the tabs are
+`Home · Browse · My Tasks · Bookings · Profile` for everyone, with no role
+switch and no separate Tasker home or dashboard. Tasker approval changes what
+those surfaces contain, not which surfaces exist — Browse shows the live work
+feed instead of the application on-ramp, and Profile → **Earnings & payouts**
+shows the ledger-derived balance instead of the on-ramp. See decisions D8/D15.
 
 ## Notes
 

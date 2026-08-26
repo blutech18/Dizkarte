@@ -9,66 +9,38 @@ import { taskSearchSchema } from "@dizkarte/domain";
 
 export type TaskFeedSort = "newest" | "highest_budget" | "nearby";
 
-/**
- * Deterministic development-only reference areas used to anchor a
- * distance/"nearby" filter. Each center is an approximate public landmark —
- * never a user's or task's exact coordinate — and is always presented with
- * an explicit "approximate" label. This lets radius/nearest filtering
- * actually change results (it needs *some* `nearLat`/`nearLng` origin)
- * without inventing device geolocation that isn't wired in this pass.
- */
-export type ReferenceAreaId = "quezon_city" | "bgc_taguig";
-
-export type ReferenceArea = {
-  readonly id: ReferenceAreaId;
-  readonly label: string;
-  readonly approximateLat: number;
-  readonly approximateLng: number;
-};
-
-export const DEV_REFERENCE_AREAS: ReadonlyArray<ReferenceArea> = [
-  {
-    id: "quezon_city",
-    label: "Quezon City (approximate)",
-    approximateLat: 14.676,
-    approximateLng: 121.0437,
-  },
-  {
-    id: "bgc_taguig",
-    label: "BGC, Taguig (approximate)",
-    approximateLat: 14.5507,
-    approximateLng: 121.0494,
-  },
-];
-
-export function findReferenceArea(id: string | undefined): ReferenceArea | undefined {
-  return DEV_REFERENCE_AREAS.find((area) => area.id === id);
-}
-
 export type TaskFilterState = {
   readonly categoryId?: string;
   readonly minBudgetCentavos?: number;
   readonly maxBudgetCentavos?: number;
   readonly sameDayOnly?: boolean;
+  /** Supply-side filter: only tasks nobody has quoted yet. */
+  readonly noOffersOnly?: boolean;
   readonly scheduledFrom?: string;
   readonly scheduledTo?: string;
-  readonly areaId?: ReferenceAreaId;
-  readonly radiusKm?: number;
+  /** Canonical 6-digit PSGC city/municipality code used by task search. */
+  readonly cityCode?: string;
+  /** Display-only locality label retained for the applied-filter summary. */
+  readonly cityName?: string;
+  /** Canonical 9-digit PSGC barangay code, scoped to `cityCode`. */
+  readonly barangayCode?: string;
+  /** Display-only barangay label retained for the applied-filter summary. */
+  readonly barangayName?: string;
   readonly sort: TaskFeedSort;
 };
 
 export const DEFAULT_TASK_FILTERS: TaskFilterState = { sort: "newest" };
 
+/** Sorts that remain truthful without a coordinate-bearing search origin. */
 export const SORT_OPTIONS: ReadonlyArray<{ key: TaskFeedSort; label: string }> = [
   { key: "newest", label: "Newest" },
   { key: "highest_budget", label: "Highest budget" },
-  { key: "nearby", label: "Distance (nearest)" },
 ];
 
 /**
  * Validates a draft filter form against the shared `taskSearchSchema` bounds
- * (min/max budget, radius, schedule datetimes) plus the cross-field rules
- * the schema does not itself express (min<=max, from<=to) before it is
+ * (min/max budget and schedule datetimes) plus the cross-field rules the
+ * schema does not itself express (min<=max, from<=to) before it is
  * applied, so the mobile feed/map never sends a query the backend contract
  * would also reject.
  */
@@ -77,12 +49,10 @@ export function validateTaskFilterDraft(draft: {
   maxBudget: string;
   scheduledFrom: string;
   scheduledTo: string;
-  radiusKm: string;
 }): { ok: true } | { ok: false; errors: Record<string, string> } {
   const errors: Record<string, string> = {};
   const min = draft.minBudget.trim() ? Number(draft.minBudget) * 100 : undefined;
   const max = draft.maxBudget.trim() ? Number(draft.maxBudget) * 100 : undefined;
-  const radius = draft.radiusKm.trim() ? Number(draft.radiusKm) : undefined;
   const scheduledFrom = draft.scheduledFrom.trim() ? toIsoDateTime(draft.scheduledFrom) : undefined;
   const scheduledTo = draft.scheduledTo.trim() ? toIsoDateTime(draft.scheduledTo) : undefined;
 
@@ -111,10 +81,6 @@ export function validateTaskFilterDraft(draft: {
     scheduledFrom > scheduledTo
   ) {
     errors.scheduledTo = "\u201cTo\u201d date must be on or after the \u201cfrom\u201d date.";
-  }
-  if (radius !== undefined) {
-    const result = taskSearchSchema.shape.radiusKm.safeParse(radius);
-    if (!result.success) errors.radiusKm = "Enter a distance between 0.5 and 100 km.";
   }
   if (Object.keys(errors).length > 0) return { ok: false, errors };
   return { ok: true };
@@ -150,13 +116,18 @@ export type TaskSearchQuery = {
   readonly keyword?: string;
   readonly categoryId?: string;
   readonly cityCode?: string;
+  readonly barangayCode?: string;
   readonly minBudgetCentavos?: number;
   readonly maxBudgetCentavos?: number;
   readonly scheduledFrom?: string;
   readonly scheduledTo?: string;
   readonly sameDayOnly?: boolean;
+  readonly noOffersOnly?: boolean;
+  /** Search origin latitude; present only for a coordinate-bearing "near me" search. */
   readonly nearLat?: number;
+  /** Search origin longitude; paired with `nearLat`. */
   readonly nearLng?: number;
+  /** Optional radius (km) around the origin; omitted here so the result set stays feed-parity. */
   readonly radiusKm?: number;
   readonly sort: TaskFeedSort;
 };
@@ -164,31 +135,38 @@ export type TaskSearchQuery = {
 /**
  * Builds a `searchOpenTasks` query, omitting any unset optional key rather
  * than setting it to `undefined` (required under `exactOptionalPropertyTypes`
- * and so an absent filter is never confused with an explicit "undefined"
- * value on the wire). This is the single builder shared by both the task
- * feed (`app/(tabs)/home.tsx`) and the approximate map
- * (`app/map/nearby.tsx`), so both surfaces always issue byte-for-byte the
- * same query for the same filter state.
+ * and so an absent filter is never confused with an explicit `undefined`
+ * value on the wire). Browse and the map both use this builder, preserving
+ * result parity for dynamic PSGC city and barangay filters.
  *
- * Whenever a radius or "nearest" sort is requested, the reference area's
- * approximate public center is included as `nearLat`/`nearLng` — otherwise
- * distance filtering/sorting would be a no-op with nothing to measure from.
+ * An optional coordinate `origin` (e.g. the device's current location) makes
+ * distance meaningful: when a finite origin is supplied the query switches to
+ * the `nearby` sort and carries `nearLat`/`nearLng`, so results come back with
+ * a real distance and ordered by proximity. No radius is applied, so *which*
+ * tasks match is unchanged from the feed — only their order and the distance
+ * readout differ. Without an origin the caller's chosen sort stands and no geo
+ * key is emitted.
  */
 export function buildTaskSearchQuery(
   page: number,
   pageSize: number,
   keyword: string,
   filters: TaskFilterState,
+  origin?: { readonly lat: number; readonly lng: number } | null,
 ): TaskSearchQuery {
-  const query: TaskSearchQuery = { page, pageSize, sort: filters.sort };
   const trimmedKeyword = keyword.trim();
-  const area = findReferenceArea(filters.areaId);
-  const needsDistanceOrigin =
-    area && (typeof filters.radiusKm === "number" || filters.sort === "nearby");
+  const originPart =
+    origin && Number.isFinite(origin.lat) && Number.isFinite(origin.lng)
+      ? { nearLat: origin.lat, nearLng: origin.lng }
+      : undefined;
   return {
-    ...query,
+    page,
+    pageSize,
+    sort: originPart ? "nearby" : filters.sort,
     ...(trimmedKeyword ? { keyword: trimmedKeyword } : {}),
     ...(filters.categoryId ? { categoryId: filters.categoryId } : {}),
+    ...(filters.cityCode ? { cityCode: filters.cityCode } : {}),
+    ...(filters.barangayCode ? { barangayCode: filters.barangayCode } : {}),
     ...(typeof filters.minBudgetCentavos === "number"
       ? { minBudgetCentavos: filters.minBudgetCentavos }
       : {}),
@@ -196,10 +174,10 @@ export function buildTaskSearchQuery(
       ? { maxBudgetCentavos: filters.maxBudgetCentavos }
       : {}),
     ...(filters.sameDayOnly ? { sameDayOnly: true } : {}),
+    ...(filters.noOffersOnly ? { noOffersOnly: true } : {}),
     ...(filters.scheduledFrom ? { scheduledFrom: filters.scheduledFrom } : {}),
     ...(filters.scheduledTo ? { scheduledTo: filters.scheduledTo } : {}),
-    ...(needsDistanceOrigin ? { nearLat: area.approximateLat, nearLng: area.approximateLng } : {}),
-    ...(typeof filters.radiusKm === "number" ? { radiusKm: filters.radiusKm } : {}),
+    ...(originPart ?? {}),
   };
 }
 
@@ -223,16 +201,20 @@ export function describeActiveFilters(
     chips.push(`Max \u20b1${(filters.maxBudgetCentavos / 100).toFixed(2)}`);
   }
   if (filters.sameDayOnly) chips.push("Same-day only");
+  if (filters.noOffersOnly) chips.push("No offers yet");
   if (filters.scheduledFrom || filters.scheduledTo) {
     const from = isoToDateOnly(filters.scheduledFrom) || "any";
     const to = isoToDateOnly(filters.scheduledTo) || "any";
     chips.push(`Scheduled ${from} \u2192 ${to}`);
   }
-  const area = findReferenceArea(filters.areaId);
-  if (area) chips.push(area.label);
-  if (typeof filters.radiusKm === "number") chips.push(`Within ${filters.radiusKm} km`);
+  if (filters.cityCode) {
+    chips.push(filters.cityName ?? "City / municipality");
+  }
+  if (filters.barangayCode) {
+    chips.push(filters.barangayName ?? "Barangay");
+  }
   if (filters.sort !== "newest") {
-    chips.push(SORT_OPTIONS.find((o) => o.key === filters.sort)?.label ?? filters.sort);
+    chips.push(SORT_OPTIONS.find((option) => option.key === filters.sort)?.label ?? filters.sort);
   }
   return chips;
 }

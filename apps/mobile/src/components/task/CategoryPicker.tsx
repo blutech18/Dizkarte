@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
     backgroundColor: theme.surface,
   },
   itemSelected: { backgroundColor: theme.primarySoft },
-  itemPressed: { backgroundColor: theme.surfaceSubtle },
+  itemPressed: { backgroundColor: theme.surfaceSubtle, transform: [{ scale: 0.98 }] },
   itemText: { color: theme.textPrimary, fontSize: fontSize.md },
   itemTextSelected: { color: theme.primaryPressed, fontSize: fontSize.md, fontWeight: "600" },
 });

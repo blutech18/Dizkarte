@@ -24,13 +24,14 @@ export function Sidebar({
         onClick={onClose}
         aria-hidden="true"
       />
-      <nav
-        className={`dk-sidebar ${open ? "dk-sidebar-open" : ""}`}
-        aria-label="Admin navigation"
-      >
+      <nav className={`dk-sidebar ${open ? "dk-sidebar-open" : ""}`} aria-label="Admin navigation">
         <div className="dk-sidebar-header">
           <div className="dk-sidebar-brand">
-            <img src="/brand/app-icon-logo.png" alt="Dizkarte" style={{ height: 32, width: 32, display: "block" }} />
+            <img
+              src="/brand/app-icon-logo.png"
+              alt="Dizkarte"
+              style={{ height: 32, width: 32, display: "block" }}
+            />
             <strong>Dizkarte Admin</strong>
           </div>
           <button

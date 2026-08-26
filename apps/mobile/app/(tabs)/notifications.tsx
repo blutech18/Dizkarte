@@ -5,7 +5,12 @@ import { Screen } from "../../src/components/ui/Screen";
 import { AppHeader } from "../../src/components/ui/AppHeader";
 import { Button } from "../../src/components/ui/Button";
 import { Icon, type IconName } from "../../src/components/ui/Icon";
-import { LoadingState, ErrorState, EmptyState, DeniedState } from "../../src/components/ui/AsyncState";
+import {
+  LoadingState,
+  ErrorState,
+  EmptyState,
+  DeniedState,
+} from "../../src/components/ui/AsyncState";
 import { useSession } from "../../src/providers/SessionProvider";
 import { useMarketplace } from "../../src/providers/MarketplaceProvider";
 import type { NotificationRecord } from "../../src/services/marketplace/types";
@@ -17,6 +22,19 @@ function resourceRoute(
   notification: NotificationRecord,
 ): { pathname: string; params: Record<string, string> } | null {
   if (!notification.resourceId) return null;
+
+  // Type-specific destinations first: the same `resourceType` can belong to a
+  // screen the recipient owns or one they merely browse. A nearby-task alert goes
+  // to a Tasker who does NOT own that task, so the owner screen would deny them.
+  switch (notification.type) {
+    case "NEARBY_TASK":
+      return { pathname: "/task/[id]", params: { id: notification.resourceId } };
+    case "REVIEW_REMINDER":
+      return { pathname: "/review/[bookingId]", params: { bookingId: notification.resourceId } };
+    default:
+      break;
+  }
+
   switch (notification.resourceType) {
     case "booking":
       return { pathname: "/booking/[id]", params: { id: notification.resourceId } };
@@ -29,6 +47,7 @@ function resourceRoute(
 
 /** A real vector icon per notification resource type (never an emoji). */
 function iconFor(notification: NotificationRecord): IconName {
+  if (notification.type === "REVIEW_REMINDER") return "star";
   switch (notification.resourceType) {
     case "booking":
       return "calendar";
@@ -37,6 +56,11 @@ function iconFor(notification: NotificationRecord): IconName {
     case "conversation":
       return "chat";
     case "dispute":
+      return "shield";
+    // A trust & safety outcome (REPORT_RESOLVED). It has no destination screen —
+    // there is no "my reports" list — so it stays informational, and the icon is
+    // the only thing that marks it as a safety message rather than generic noise.
+    case "report":
       return "shield";
     case "review":
       return "star";
@@ -152,7 +176,12 @@ export default function NotificationsScreen() {
 
       {unreadCount > 0 ? (
         <View style={styles.markAllRow}>
-          <Button label="Mark all read" icon="check-circle" onPress={handleMarkAllRead} variant="text" />
+          <Button
+            label="Mark all read"
+            icon="check-circle"
+            onPress={handleMarkAllRead}
+            variant="text"
+          />
         </View>
       ) : null}
 
@@ -245,7 +274,7 @@ const styles = StyleSheet.create({
     borderBottomColor: theme.borderSubtle,
   },
   rowUnread: { backgroundColor: theme.primarySoft },
-  rowPressed: { opacity: 0.85 },
+  rowPressed: { opacity: 0.85, transform: [{ scale: 0.985 }] },
   iconCircle: {
     width: 44,
     height: 44,

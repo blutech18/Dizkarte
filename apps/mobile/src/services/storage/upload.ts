@@ -1,4 +1,5 @@
 import { File } from "expo-file-system";
+import { Platform } from "react-native";
 import { getSupabaseClient } from "../../lib/supabase";
 import {
   buildObjectPath,
@@ -51,12 +52,28 @@ export type UploadOutcome =
 /**
  * Read a local file's bytes and true size. Supabase needs a body, not a handle.
  *
- * Uses the SDK 54+ `File` object API. The legacy `readAsStringAsync` helpers
- * still typecheck but throw at runtime in this SDK, and going through base64
- * also allocated the payload three times over.
+ * The read path is platform-aware because `expo-file-system`'s `File` API is
+ * native-only and throws "expo-file-system is not supported on web". On web the
+ * picker hands back a `blob:`/`data:` URL, which the `fetch` API can read
+ * directly; on native we use the SDK 54+ `File` object (the legacy
+ * `readAsStringAsync` helpers still typecheck but throw at runtime in this SDK,
+ * and going through base64 also allocated the payload three times over).
  */
-function localFile(uri: string): File {
-  return new File(uri);
+async function readLocalBytes(
+  uri: string,
+  fallbackSizeBytes: number,
+): Promise<{ readonly bytes: Uint8Array; readonly sizeBytes: number }> {
+  if (Platform.OS === "web") {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    return { bytes, sizeBytes: blob.size > 0 ? blob.size : fallbackSizeBytes };
+  }
+  const handle = new File(uri);
+  // Trust the filesystem over the picker's optional metadata.
+  const sizeBytes = handle.size > 0 ? handle.size : fallbackSizeBytes;
+  const bytes = await handle.bytes();
+  return { bytes, sizeBytes };
 }
 
 /**
@@ -76,10 +93,9 @@ export async function uploadFile(input: {
   let bytes: Uint8Array;
   let sizeBytes: number;
   try {
-    const handle = localFile(input.file.uri);
-    // Trust the filesystem over the picker's optional metadata.
-    sizeBytes = handle.size > 0 ? handle.size : input.file.sizeBytes;
-    bytes = await handle.bytes();
+    const read = await readLocalBytes(input.file.uri, input.file.sizeBytes);
+    bytes = read.bytes;
+    sizeBytes = read.sizeBytes;
   } catch {
     return { ok: false, message: "Could not read that file. Try choosing it again." };
   }
@@ -98,14 +114,12 @@ export async function uploadFile(input: {
     unique: String(Date.now()),
   });
 
-  const { error } = await getSupabaseClient()
-    .storage.from(input.bucket)
-    .upload(path, bytes, {
-      contentType: input.file.mimeType,
-      // Paths carry a timestamp, so a collision means something is wrong;
-      // failing is safer than silently replacing another object.
-      upsert: false,
-    });
+  const { error } = await getSupabaseClient().storage.from(input.bucket).upload(path, bytes, {
+    contentType: input.file.mimeType,
+    // Paths carry a timestamp, so a collision means something is wrong;
+    // failing is safer than silently replacing another object.
+    upsert: false,
+  });
 
   if (error) {
     return {
@@ -147,6 +161,10 @@ export async function createSignedUrl(
 
 /** Remove an object the user just uploaded, e.g. after they undo an attachment. */
 export async function removeObject(bucket: StorageBucket, path: string): Promise<boolean> {
-  const { error } = await getSupabaseClient().storage.from(bucket).remove([path]);
-  return !error;
+  try {
+    const { error } = await getSupabaseClient().storage.from(bucket).remove([path]);
+    return !error;
+  } catch {
+    return false;
+  }
 }

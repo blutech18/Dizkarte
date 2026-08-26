@@ -1,9 +1,10 @@
 # Production-Readiness Review
 
-Date: 2026-07-22. Scope: full Dizkarte monorepo (shared packages, mobile app,
-Admin app, Supabase backend). This review is **evidence-based**: every "verified"
-claim below cites a command run in this repository. It deliberately separates
-three states:
+Date: 2026-07-22; **re-verified 2026-08-23** at migration head `0044` (Milestone 3
+gap closure — see `change-log.md`). Scope: full Dizkarte monorepo (shared packages,
+mobile app, Admin app, Supabase backend). This review is **evidence-based**: every
+"verified" claim below cites a command run in this repository. It deliberately
+separates three states:
 
 - **VERIFIED** — implemented and confirmed by a command/output in this repo.
 - **AUTHORED (not executed)** — source written and statically reviewed, but not
@@ -27,17 +28,17 @@ live payment, map, push, store, or "production-ready" status is claimed.
 | Formatting                | `npm run format`              | VERIFIED — all files pass Prettier                           |
 | Lint                      | `npm run lint`                | VERIFIED — ESLint clean                                      |
 | Types (all workspaces)    | `npm run typecheck:all`       | VERIFIED — shared + Admin + mobile pass                      |
-| Unit/integration tests    | `npm run test:all`            | VERIFIED — 316 passed (93 + 83 + 140)                        |
+| Unit/integration tests    | `npm run test:all`            | VERIFIED — 629 passed (178 + 145 + 306), 3 skipped           |
 | Shared build              | `npm run build`               | VERIFIED — tsc project refs build                            |
 | Admin production build    | `npm run admin:build`         | VERIFIED — compiled + static pages                           |
 | Expo config               | `npm run mobile:config-check` | VERIFIED — public config resolves                            |
-| Mobile static export      | `npm run mobile:export`       | VERIFIED — 38 static routes exported                         |
-| Database migrations + SQL | `supabase db reset` + tests   | VERIFIED — 0001–0014 apply; suites pass 4/4, 3/3, 30/30 (§7) |
+| Mobile static export      | `npm run mobile:export`       | VERIFIED — static web routes exported                        |
+| Database migrations + SQL | migrations + 4 SQL suites     | VERIFIED — 0001–0044 apply; 4/4, 3/3, 30/30, 13/13 (§7)      |
 
-Test breakdown: shared domain/config **93**, Admin **83** (incl. new Admin E2E),
-mobile **140** (incl. new mobile E2E). Two deterministic end-to-end lifecycle
-tests were added this session (user journey + Admin resolution); the Admin E2E
-surfaced and fixed a real ticket-lifecycle defect (see change-log).
+Test breakdown (2026-08-23): shared domain/config/adapter **178** (3 live-integration
+tests skipped in hermetic CI), Admin **145**, mobile **306** — including the two
+deterministic end-to-end lifecycle tests (user journey + Admin resolution) and the
+Milestone 3 gap-closure tests (push device registration, push retry schedule,
 
 ## 2. Security, authorization, RLS, storage
 
@@ -135,6 +136,34 @@ the two equivalent environments in which these suites can be run are:
    the suites. Applying schema to a hosted DB is a schema-mutating action and is
    not performed without confirmation.
 
+### 7a. Re-execution at head `0044` (2026-08-23)
+
+Repeated at the Milestone 3 gap-closure head, on a **disposable
+`supabase/postgres:17.6.1.147` container** rather than `supabase start` — the CLI
+(v2.109.1) could not bind port `54322` on this host ("an attempt was made to
+access a socket in a way forbidden by its access permissions", i.e. a reserved
+Windows port range), so an equivalent real PostgreSQL 17.6 with the Supabase
+`auth` schema and `authenticated`/`service_role` roles was used instead.
+
+- **All 46 migration files (`0001`–`0044`) apply cleanly from an empty database.**
+- **Four suites pass:** `ledger_and_constraints` 4/4, `rls_enabled` 3/3,
+  `security_hardening` 30/30, `milestone3_reviews_notifications` **13/13** (new —
+  review-secrecy aggregates, the expiry-reveal timeout case, the unauthorised
+  read, moderation recount, both new notification producers, the completion
+  timeout, and bounded push retry).
+- **`supabase/tests/_local_storage_shim.sql`** was added so the suites can run on a
+  bare image, which ships the `storage` schema but not its tables (storage-api
+  normally creates them). It is a test harness only and never part of the app
+  schema.
+- **Two suites had rotted** against migrations added after `0014` and were
+  repaired: `ledger_and_constraints` (0036's `ck_ledger_tx_booking_scoped` rejects
+  a booking-less `FEE_CHARGE`) and `security_hardening` (0015's `handle_new_user`
+  already creates the `profiles` rows the fixtures inserted). Both were test-side
+  defects, not product defects.
+- **A latent product defect was surfaced by the new suite:** `admin_moderate_review`'s
+  `restore` branch could never execute (its `CASE` resolved to `text`, and there is
+  no implicit cast to `review_status`). Fixed in `0042` and now covered.
+
 ## 8. Operations: backup, restore, rollback, runbooks
 
 Documented in `docs/operations/deployment-backup-rollback.md`: forward-only
@@ -156,11 +185,12 @@ executed agreement + document versions (B10). None are resolvable in source.
 | Dimension                     | State                              |
 | ----------------------------- | ---------------------------------- |
 | Code quality (fmt/lint/type)  | VERIFIED green                     |
-| Automated tests (316)         | VERIFIED green                     |
+| Automated tests (629)         | VERIFIED green                     |
 | Frontend builds/exports       | VERIFIED green                     |
 | Backend security design       | VERIFIED — RLS/authz suites pass   |
-| Database/RLS execution        | VERIFIED — 0001–0014 + suites pass |
+| Database/RLS execution        | VERIFIED — 0001–0044 + suites pass |
 | Live payments/maps/push/store | BLOCKED — client-owned (B1–B10)    |
+| Milestone 3 exit-gate cases   | VERIFIED — 13/13 SQL + app tests   |
 | Accessibility formal audit    | Recommended before acceptance      |
 
 **Decision: NO-GO for production.** The code, tests, frontend builds, and the

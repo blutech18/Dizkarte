@@ -30,6 +30,9 @@ export const LEDGER_TRANSACTION_TYPES = [
   "WITHDRAWAL_REVERSE",
   "FREEZE",
   "UNFREEZE",
+  // Append-only correction of a previously recorded error. Never a new
+  // business event: it reverses entries that should not have been posted.
+  "ADJUSTMENT",
 ] as const;
 export type LedgerTransactionType = (typeof LEDGER_TRANSACTION_TYPES)[number];
 

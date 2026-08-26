@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { EvidenceList } from "@/components/ui/EvidenceList";
 import { RestrictedCaseNotice } from "@/components/ui/AsyncState";
 import { CaseActionsPanel } from "@/components/ui/CaseActionsPanel";
+import { CaseSubjectCard } from "@/components/ui/CaseSubjectCard";
 import { PaymentActionsPanel } from "../../payments/PaymentActionsPanel";
 import { ConversationPanel } from "../ConversationPanel";
 import { disputeStatusLabel, disputeStatusTone, DISPUTE_STATUS_TRANSITIONS } from "../status";
@@ -110,10 +111,10 @@ export default async function DisputeDetailPage({
         </div>
       ) : (
         <>
+          <CaseSubjectCard subject={detail.subject} title="Disputed booking" />
+
           <div className="dk-card">
-            <h2 style={{ marginTop: 0 }}>Subject</h2>
-            <p>{detail.caseSubject.resourceLabel}</p>
-            <h3>Narrative</h3>
+            <h2 style={{ marginTop: 0 }}>Narrative</h2>
             <p>{detail.narrative}</p>
           </div>
 

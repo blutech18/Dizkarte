@@ -199,6 +199,58 @@ export type CaseHistoryEvent = {
 };
 
 /**
+ * What an Admin case is actually about, resolved from live app rows by
+ * `admin_read_report_subject` / `admin_read_dispute_subject` (migration 0049).
+ *
+ * Before this existed, a case subject was its type plus eight characters of a
+ * UUID, so triaging a reported message meant querying the database by hand. The
+ * payload deliberately carries display names, statuses, amounts, and aggregate
+ * counts only — never a mobile number, email, exact location, or storage path.
+ *
+ * `exists: false` is a normal outcome, not an error: content can be deleted after
+ * a case is filed, and the case must still open and still be decidable.
+ */
+export type CaseSubject = {
+  readonly exists: boolean;
+  readonly kind: string;
+  /** Human summary, e.g. `Message from "Tasker Dos" in booking 3f2a1b9c`. */
+  readonly label: string;
+  readonly status: string | null;
+  /** Reported message body, task description, or offer message. */
+  readonly body: string | null;
+  readonly occurredAt: string | null;
+  readonly subjectUserId: string | null;
+  readonly subjectUserName: string | null;
+  readonly counterpartyName: string | null;
+  readonly taskId: string | null;
+  readonly taskTitle: string | null;
+  readonly bookingId: string | null;
+  readonly amountCentavos: number | null;
+  /** Type-specific extras (category name, offer count, rating aggregate, …). */
+  readonly extra: Readonly<Record<string, string | number | boolean | null>>;
+};
+
+/**
+ * Reporter identity plus triage signal, disclosed to the ASSIGNED Admin only.
+ *
+ * A single complaint and a coordinated pile-on are indistinguishable without
+ * counts, so both are carried. Who *else* reported the resource is not disclosed —
+ * only how many distinct people did.
+ */
+export type ReportTriage = {
+  readonly reporter: {
+    readonly id: string;
+    readonly displayName: string;
+    readonly accountStatus: string;
+    readonly reportsFiled: number;
+    readonly reportsDismissed: number;
+  };
+  readonly distinctReporters: number;
+  readonly openCases: number;
+  readonly actionedCases: number;
+};
+
+/**
  * Sensitive-detail access is assignment-gated (requirement 4.6.6): only the
  * explicitly assigned Admin may read `narrative`/`evidence`. Callers that are
  * not the assignee receive `restricted: true` and zero narrative/evidence,
@@ -212,6 +264,12 @@ export type CaseDetailAccess =
 export type ReportDetail = ReportRow & {
   readonly access: CaseDetailAccess;
   readonly caseSubject: { readonly resourceType: string; readonly resourceLabel: string };
+  /**
+   * The reported content itself, resolved live. `null` when the caller is not the
+   * assigned Admin (assignment gates sensitive detail, same as `narrative`).
+   */
+  readonly subject: CaseSubject | null;
+  readonly triage: ReportTriage | null;
   readonly narrative: string | null;
   readonly evidence: ReadonlyArray<EvidenceMetadata>;
   readonly history: ReadonlyArray<CaseHistoryEvent>;
@@ -220,6 +278,8 @@ export type ReportDetail = ReportRow & {
 export type DisputeDetail = DisputeRow & {
   readonly access: CaseDetailAccess;
   readonly caseSubject: { readonly resourceType: "booking"; readonly resourceLabel: string };
+  /** The disputed booking, resolved live; `null` unless the caller is the assignee. */
+  readonly subject: CaseSubject | null;
   readonly narrative: string | null;
   readonly evidence: ReadonlyArray<EvidenceMetadata>;
   readonly history: ReadonlyArray<CaseHistoryEvent>;
@@ -390,6 +450,7 @@ export type LedgerTransactionType =
   | "WITHDRAWAL_SETTLE"
   | "WITHDRAWAL_REVERSE"
   | "UNFREEZE"
+  | "ADJUSTMENT"
   | "PROTECT"
   | "CAPTURE"
   | "RELEASE"
@@ -425,6 +486,36 @@ export type FinanceSummary = {
   readonly platformFeeCentavos: number;
   readonly platformFeeBps: number;
   readonly ledgerBalanceCentavos: number;
+};
+
+/** The operator-editable operational settings. Money/release policy is excluded. */
+export type EditableSettingKey = "review_reveal_days";
+
+export type EditableSetting = {
+  readonly key: EditableSettingKey;
+  readonly label: string;
+  readonly description: string;
+  readonly value: number;
+  readonly min: number;
+  readonly max: number;
+  readonly unit: string;
+};
+
+/**
+ * A read-only money/release policy value. These are Client-owned decisions
+ * (decision register D3/D5/D13) and are never editable from the console; they
+ * are shown for transparency with a pending-approval note.
+ */
+export type ReadOnlyPolicy = {
+  readonly key: string;
+  readonly label: string;
+  readonly value: string;
+  readonly note: string;
+};
+
+export type AdminSettings = {
+  readonly editable: ReadonlyArray<EditableSetting>;
+  readonly policy: ReadonlyArray<ReadOnlyPolicy>;
 };
 
 export type ReconciliationStatus =
@@ -847,4 +938,21 @@ export interface AdminRepository {
   getBooking(bookingId: string): Promise<BookingDetail | null>;
 
   listAuditLogs(input: PageInput): Promise<Paginated<AuditLogRow>>;
+
+  /**
+   * App settings for the console: the operator-editable operational settings and
+   * the read-only money/release policy values (Client-owned, D3/D5/D13).
+   */
+  getSettings(): Promise<AdminSettings>;
+  /**
+   * Update a single operational setting. Only allow-listed operational keys are
+   * accepted server-side; money/release policy keys are refused.
+   */
+  updateSetting(input: {
+    key: EditableSettingKey;
+    value: number;
+    reason: string;
+    actor: string;
+    capability: AdminCapability | null;
+  }): Promise<{ ok: boolean; message?: string }>;
 }

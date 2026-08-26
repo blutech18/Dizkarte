@@ -335,6 +335,56 @@ describe("SyntheticAdminRepository", () => {
       expect(otherTicket?.access.restricted).toBe(true);
       expect(otherTicket?.evidence).toEqual([]);
     });
+
+    it("withholds the resolved case subject and reporter identity from a non-assignee", async () => {
+      const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
+      const repo = new SyntheticAdminRepository();
+
+      // The subject carries the reported message body and the reporter's name.
+      // Leaking it to a non-assignee would defeat the assignment gate even though
+      // `narrative` is correctly withheld.
+      const unassigned = await repo.getReport({
+        reportId: "rpt-3001",
+        actor: "support-admin@dev.dizkarte.invalid",
+      });
+      expect(unassigned?.access.restricted).toBe(true);
+      expect(unassigned?.subject).toBeNull();
+      expect(unassigned?.triage).toBeNull();
+
+      const otherAdmin = await repo.getReport({
+        reportId: "rpt-3002",
+        actor: "super-admin@dev.dizkarte.invalid",
+      });
+      expect(otherAdmin?.subject).toBeNull();
+      expect(otherAdmin?.triage).toBeNull();
+
+      const unassignedDispute = await repo.getDispute({
+        disputeId: "dsp-4001",
+        actor: "finance-admin@dev.dizkarte.invalid",
+      });
+      expect(unassignedDispute?.subject).toBeNull();
+    });
+
+    it("resolves the reported content and triage counts for the assignee", async () => {
+      const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
+      const repo = new SyntheticAdminRepository();
+      const detail = await repo.getReport({
+        reportId: "rpt-3002",
+        actor: "support-admin@dev.dizkarte.invalid",
+      });
+
+      expect(detail?.subject?.exists).toBe(true);
+      expect(detail?.subject?.kind).toBe("message");
+      // The whole point of 0049: the moderator can read the reported words.
+      expect(detail?.subject?.body).toContain("pay in cash");
+      expect(detail?.subject?.subjectUserName).toBe("R. Bautista");
+      expect(detail?.subject?.bookingId).toBe("bkg-5002");
+      // Two different people reported the same message.
+      expect(detail?.triage?.distinctReporters).toBe(2);
+      expect(detail?.triage?.reporter.displayName).toBe("P. Villanueva");
+      // The list label now names the subject instead of a truncated id.
+      expect(detail?.caseSubject.resourceLabel).toContain("R. Bautista");
+    });
   });
 
   describe("assignCase", () => {

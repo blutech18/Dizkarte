@@ -1,6 +1,15 @@
 import { useId, useState } from "react";
-import { Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
-import { theme, radii, spacing, fontSize, MIN_TOUCH_TARGET } from "../../theme";
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type StyleProp,
+  type TextInputProps,
+  type ViewStyle,
+} from "react-native";
+import { theme, radii, spacing, fontSize, MIN_TOUCH_TARGET, noWebOutline } from "../../theme";
 import { Icon } from "./Icon";
 
 export type TextFieldProps = Omit<TextInputProps, "style"> & {
@@ -8,6 +17,7 @@ export type TextFieldProps = Omit<TextInputProps, "style"> & {
   readonly error?: string | undefined;
   readonly description?: string | undefined;
   readonly required?: boolean;
+  readonly containerStyle?: StyleProp<ViewStyle>;
 };
 
 /**
@@ -15,27 +25,56 @@ export type TextFieldProps = Omit<TextInputProps, "style"> & {
  * validation error announced via `accessibilityLiveRegion`. Includes an interactive
  * eye icon button to toggle password visibility when `secureTextEntry` is enabled.
  */
-export function TextField({ label, error, description, required, secureTextEntry, ...inputProps }: TextFieldProps) {
+export function TextField({
+  label,
+  error,
+  description,
+  required,
+  containerStyle,
+  secureTextEntry,
+  multiline,
+  textAlignVertical,
+  ...inputProps
+}: TextFieldProps) {
   const fieldId = useId();
   const isPasswordField = secureTextEntry !== undefined;
   const [isSecure, setIsSecure] = useState(Boolean(secureTextEntry));
+  const [isFocused, setIsFocused] = useState(false);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, containerStyle]}>
       <Text style={styles.label} nativeID={`${fieldId}-label`}>
         {label}
         {required ? <Text style={styles.required}> *</Text> : null}
       </Text>
       {description ? <Text style={styles.description}>{description}</Text> : null}
 
-      <View style={[styles.inputWrapper, error ? styles.inputError : null]}>
+      <View
+        style={[
+          styles.inputWrapper,
+          multiline ? styles.inputWrapperMultiline : null,
+          isFocused ? styles.inputWrapperFocused : null,
+          error ? styles.inputError : null,
+        ]}
+      >
         <TextInput
+          spellCheck={false}
           {...inputProps}
+          onFocus={(e) => {
+            setIsFocused(true);
+            inputProps.onFocus?.(e);
+          }}
+          onBlur={(e) => {
+            setIsFocused(false);
+            inputProps.onBlur?.(e);
+          }}
           secureTextEntry={isPasswordField ? isSecure : false}
+          multiline={multiline}
+          textAlignVertical={multiline ? "top" : textAlignVertical}
           accessibilityLabel={label}
           accessibilityLabelledBy={`${fieldId}-label`}
           accessibilityHint={description}
-          style={styles.input}
+          style={[styles.input, multiline ? styles.inputMultiline : null, noWebOutline]}
           placeholderTextColor={theme.textSecondary}
         />
         {isPasswordField ? (
@@ -88,6 +127,14 @@ const styles = StyleSheet.create({
     backgroundColor: theme.surface,
     paddingRight: spacing.xs,
   },
+  inputWrapperFocused: {
+    borderColor: theme.primary,
+  },
+  inputWrapperMultiline: {
+    minHeight: 136,
+    alignItems: "flex-start",
+    paddingVertical: spacing.sm,
+  },
   inputError: {
     borderColor: theme.errorSolid,
   },
@@ -97,6 +144,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     color: theme.textPrimary,
     fontSize: fontSize.md,
+  },
+  inputMultiline: {
+    minHeight: 116,
+    lineHeight: 22,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
   },
   eyeButton: {
     minWidth: MIN_TOUCH_TARGET - 8,

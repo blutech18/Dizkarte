@@ -54,16 +54,25 @@ export function pushCategoryForType(type: string): string {
       return "payments";
     case "BOOKING_STARTED":
     case "COMPLETION_REQUESTED":
+    case "COMPLETION_REMINDER":
     case "BOOKING_COMPLETED":
       return "bookings";
     case "DISPUTE_OPENED":
       return "disputes";
     case "REVIEW_RECEIVED":
+    case "REVIEW_REMINDER":
       return "reviews";
     case "MESSAGE_RECEIVED":
       return "messages";
     case "VERIFICATION_DECISION":
       return "verification";
+    case "NEARBY_TASK":
+      return "nearby";
+    // Listed explicitly even though `system` is the fallback: this mirrors
+    // `app.notification_category` (0050), where the same event is spelled out so a
+    // later rename cannot silently move it to a different user toggle.
+    case "REPORT_RESOLVED":
+      return "system";
     default:
       return "system";
   }
@@ -118,4 +127,34 @@ export function chunkExpoMessages(
     batches.push(messages.slice(i, i + size));
   }
   return batches;
+}
+
+/** Default attempt ceiling; the database setting `push_max_attempts` wins at runtime. */
+export const PUSH_MAX_ATTEMPTS_DEFAULT = 3;
+
+/**
+ * Backoff for the next push attempt, in minutes: 2, 4, 8, 16, 32, 60, 60 …
+ *
+ * Mirrors `public.record_push_delivery` in migration 0044 exactly. The database
+ * remains the authority (it is what a second dispatcher or a manual replay
+ * reads); this exists so the schedule is unit-testable and so a caller can
+ * explain "try again in N minutes" without a round trip.
+ */
+export function pushRetryBackoffMinutes(attempts: number): number {
+  const bounded = Math.max(1, Math.min(6, Math.trunc(attempts)));
+  return Math.min(60, 2 ** bounded);
+}
+
+/**
+ * Whether a failed push may be attempted again.
+ *
+ * A push that has exhausted its attempts is allowed to stay failed: the in-app
+ * notification is the durable channel, push is best-effort. Retrying forever
+ * would turn one unreachable device into an unbounded background workload.
+ */
+export function canRetryPush(
+  attempts: number,
+  maxAttempts: number = PUSH_MAX_ATTEMPTS_DEFAULT,
+): boolean {
+  return Math.trunc(attempts) < Math.max(1, Math.trunc(maxAttempts));
 }

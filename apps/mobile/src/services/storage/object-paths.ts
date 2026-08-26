@@ -18,6 +18,7 @@ export const STORAGE_BUCKETS = [
   "portfolios",
   "chat-media",
   "evidence",
+  "avatars",
 ] as const;
 
 export type StorageBucket = (typeof STORAGE_BUCKETS)[number];
@@ -67,7 +68,9 @@ export function isOwnedBy(path: string, userId: string): boolean {
   return path.split("/")[0] === userId;
 }
 
-export type UploadValidationResult = { readonly ok: true } | { readonly ok: false; readonly message: string };
+export type UploadValidationResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly message: string };
 
 function allowedMimeTypes(kind: UploadKind): ReadonlyArray<string> {
   switch (kind) {

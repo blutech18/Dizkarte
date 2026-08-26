@@ -1,10 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  hmacSha256Hex,
-  timingSafeEqual,
-  verifyWebhookSignature,
-} from "./webhook-signature.js";
+import { hmacSha256Hex, timingSafeEqual, verifyWebhookSignature } from "./webhook-signature.js";
 
 const SECRET = "whsec_test_0123456789";
 const BODY = '{"type":"payment.confirmed","providerReference":"pi_abc","amountCentavos":150000}';
@@ -12,10 +8,7 @@ const BODY = '{"type":"payment.confirmed","providerReference":"pi_abc","amountCe
 describe("hmacSha256Hex", () => {
   it("matches a known HMAC-SHA256 vector", async () => {
     // RFC-style check: HMAC-SHA256("key", "The quick brown fox jumps over the lazy dog")
-    const hex = await hmacSha256Hex(
-      "key",
-      "The quick brown fox jumps over the lazy dog",
-    );
+    const hex = await hmacSha256Hex("key", "The quick brown fox jumps over the lazy dog");
     expect(hex).toBe("f7bc83f430538424b13298e6aa6fb143ef4d59a14946175997479dbc2d1a3cd8");
   });
 
@@ -72,20 +65,24 @@ describe("verifyWebhookSignature — hmac_sha256_hex", () => {
 
   it("rejects a missing header or missing secret", async () => {
     expect(
-      (await verifyWebhookSignature({
-        rawBody: BODY,
-        signatureHeader: null,
-        secret: SECRET,
-        scheme: "hmac_sha256_hex",
-      })).valid,
+      (
+        await verifyWebhookSignature({
+          rawBody: BODY,
+          signatureHeader: null,
+          secret: SECRET,
+          scheme: "hmac_sha256_hex",
+        })
+      ).valid,
     ).toBe(false);
     expect(
-      (await verifyWebhookSignature({
-        rawBody: BODY,
-        signatureHeader: "deadbeef",
-        secret: "",
-        scheme: "hmac_sha256_hex",
-      })).valid,
+      (
+        await verifyWebhookSignature({
+          rawBody: BODY,
+          signatureHeader: "deadbeef",
+          secret: "",
+          scheme: "hmac_sha256_hex",
+        })
+      ).valid,
     ).toBe(false);
   });
 });

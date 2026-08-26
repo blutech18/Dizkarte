@@ -1,34 +1,39 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { Stack, router, useLocalSearchParams } from "expo-router";
+import * as Location from "expo-location";
 import type { PublicTaskFeedItem } from "@dizkarte/domain";
-import { formatPhp } from "@dizkarte/domain";
 import { Screen } from "../../src/components/ui/Screen";
-import { Button } from "../../src/components/ui/Button";
+import { Icon } from "../../src/components/ui/Icon";
+import { AnimatedFilterPressable } from "../../src/components/ui/AnimatedFilterPressable";
 import {
   LoadingState,
   EmptyState,
   ErrorState,
   DeniedState,
 } from "../../src/components/ui/AsyncState";
-import { StatusBadge } from "../../src/components/ui/StatusBadge";
-import { Icon } from "../../src/components/ui/Icon";
+import { TaskMapSurface } from "../../src/components/map/TaskMapSurface";
+import { TaskFilterPanel, useActiveFilterChips } from "../../src/components/task/TaskFilterPanel";
 import {
   buildTaskSearchQuery,
-  findReferenceArea,
-  type ReferenceAreaId,
   type TaskFeedSort,
   type TaskFilterState,
 } from "../../src/components/task/taskFilterQuery";
 import { useMarketplace } from "../../src/providers/MarketplaceProvider";
 import { useConnectivity } from "../../src/providers/ConnectivityProvider";
 import { getMapProvider } from "../../src/services/map/factory";
-import { theme, spacing, fontSize, radii, MIN_TOUCH_TARGET } from "../../src/theme";
+import { theme, spacing, fontSize, lineHeight, radii, MIN_TOUCH_TARGET } from "../../src/theme";
 
 type LoadState = "loading" | "loaded" | "error";
 
+/** Opt-in device-location states for the "near me" search origin. */
+type LocationState = "off" | "locating" | "denied" | "unavailable" | "on";
+
 /** All matching items are fetched in one bounded page for the map surface. */
 const MAP_PAGE_SIZE = 100;
+
+/** Cap the search so a stalled request surfaces as an error instead of spinning forever. */
+const LOAD_TIMEOUT_MS = 12000;
 
 /**
  * Approximate nearby map/schematic view.
@@ -49,6 +54,13 @@ const MAP_PAGE_SIZE = 100;
  * issued via the shared `MobileMarketplacePort` — this is what guarantees
  * feed/map consistency. Parsing never throws on malformed/unexpected params;
  * anything unrecognized is treated as absent rather than crashing the screen.
+ *
+ * Opt-in device location: tapping "Use my location" resolves the device's
+ * coordinates and passes them to the same builder as a search origin, so the
+ * same query returns a real distance per task and orders by proximity
+ * (`nearby`). No radius is applied, so the matching set stays identical to the
+ * feed — only ordering and the distance readout change. A denied permission or
+ * an unavailable fix leaves the origin unset and the screen behaves as before.
  */
 export default function NearbyMapScreen() {
   const params = useLocalSearchParams<{
@@ -59,15 +71,18 @@ export default function NearbyMapScreen() {
     sameDayOnly?: string;
     scheduledFrom?: string;
     scheduledTo?: string;
-    areaId?: string;
-    radiusKm?: string;
+    cityCode?: string;
+    barangayCode?: string;
     sort?: string;
   }>();
   const { repository } = useMarketplace();
   const { retryTick, retry } = useConnectivity();
   const [items, setItems] = useState<ReadonlyArray<PublicTaskFeedItem>>([]);
-  const [total, setTotal] = useState(0);
   const [state, setState] = useState<LoadState>("loading");
+  const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
+  const [locState, setLocState] = useState<LocationState>("off");
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  const requestIdRef = useRef(0);
 
   const mapProvider = useMemo(() => getMapProvider(), []);
 
@@ -75,13 +90,20 @@ export default function NearbyMapScreen() {
   // safe (falling back to "unset"/default) on any malformed or out-of-range
   // value rather than throwing — a corrupted deep link must never crash
   // this screen.
+  //
+  // Depend on the individual primitive params, NOT the `params` object:
+  // `useLocalSearchParams()` returns a fresh object every render, so keying
+  // this memo on `[params]` rebuilt `filters` -> `query` -> `load` each render
+  // and made the load effect re-fire in an endless loop (the screen sat on
+  // "loading" forever). The rest of the app extracts primitives for the same
+  // reason.
   const keyword = params.keyword ?? "";
-  const filters: TaskFilterState = useMemo(() => {
+  const routeFilters: TaskFilterState = useMemo(() => {
     const minBudget = parsePositiveInt(params.minBudgetCentavos);
     const maxBudget = parsePositiveInt(params.maxBudgetCentavos);
-    const radius = parsePositiveFloat(params.radiusKm);
     const sort = parseSort(params.sort);
-    const areaId = parseAreaId(params.areaId);
+    const cityCode = parseLocalityCode(params.cityCode, 6);
+    const barangayCode = cityCode ? parseLocalityCode(params.barangayCode, 9) : undefined;
     return {
       sort,
       ...(params.categoryId ? { categoryId: params.categoryId } : {}),
@@ -90,10 +112,29 @@ export default function NearbyMapScreen() {
       ...(params.sameDayOnly === "1" ? { sameDayOnly: true } : {}),
       ...(isValidIsoDateTime(params.scheduledFrom) ? { scheduledFrom: params.scheduledFrom } : {}),
       ...(isValidIsoDateTime(params.scheduledTo) ? { scheduledTo: params.scheduledTo } : {}),
-      ...(areaId ? { areaId } : {}),
-      ...(typeof radius === "number" ? { radiusKm: radius } : {}),
+      ...(cityCode ? { cityCode } : {}),
+      ...(barangayCode ? { barangayCode } : {}),
     };
-  }, [params]);
+  }, [
+    params.categoryId,
+    params.minBudgetCentavos,
+    params.maxBudgetCentavos,
+    params.sameDayOnly,
+    params.scheduledFrom,
+    params.scheduledTo,
+    params.cityCode,
+    params.barangayCode,
+    params.sort,
+  ]);
+
+  const [filters, setFilters] = useState<TaskFilterState>(routeFilters);
+  const activeChips = useActiveFilterChips(filters);
+
+  // Keep deep-link/browser-history changes authoritative, while map-side
+  // edits remain local until the route itself changes.
+  useEffect(() => {
+    setFilters(routeFilters);
+  }, [routeFilters]);
 
   // The exact same builder the feed uses, so the map issues byte-for-byte
   // the same query for the same filter state (feed/map parity). Only
@@ -101,30 +142,89 @@ export default function NearbyMapScreen() {
   // enough to contain every matching item as approximate markers, rather
   // than paginating like the list view.
   const query = useMemo(
-    () => buildTaskSearchQuery(1, MAP_PAGE_SIZE, keyword, filters),
-    [keyword, filters],
+    () => buildTaskSearchQuery(1, MAP_PAGE_SIZE, keyword, filters, origin),
+    [keyword, filters, origin],
   );
 
   const load = useCallback(() => {
+    const requestId = ++requestIdRef.current;
     setState("loading");
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled || requestId !== requestIdRef.current) return;
+      settled = true;
+      setState("error");
+    }, LOAD_TIMEOUT_MS);
     repository
       .searchOpenTasks(query)
       .then((result) => {
+        if (settled || requestId !== requestIdRef.current) return;
+        settled = true;
+        clearTimeout(timer);
         setItems(result.items);
-        setTotal(result.total);
         setState("loaded");
       })
-      .catch(() => setState("error"));
+      .catch(() => {
+        if (settled || requestId !== requestIdRef.current) return;
+        settled = true;
+        clearTimeout(timer);
+        setState("error");
+      });
+
+    return () => {
+      settled = true;
+      clearTimeout(timer);
+    };
   }, [repository, query]);
 
+  // Opt-in: resolve the device's location and use it as the search origin.
+  // Fails safe — a denied permission or an unavailable fix keeps the origin
+  // unset, so the screen behaves exactly as it does today (feed-parity, no
+  // distances). Works on web too (expo-location proxies navigator.geolocation).
+  const useMyLocation = useCallback(async () => {
+    setLocState("locating");
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        setOrigin(null);
+        setLocState("denied");
+        return;
+      }
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const { latitude, longitude } = position.coords;
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        setOrigin(null);
+        setLocState("unavailable");
+        return;
+      }
+      setOrigin({ lat: latitude, lng: longitude });
+      setLocState("on");
+    } catch {
+      setOrigin(null);
+      setLocState("unavailable");
+    }
+  }, []);
+
+  const clearMyLocation = useCallback(() => {
+    setOrigin(null);
+    setLocState("off");
+  }, []);
+
+  const handleApplyFilters = useCallback((next: TaskFilterState) => {
+    setFilters(next);
+    setFilterPanelOpen(false);
+  }, []);
+
   useEffect(() => {
-    load();
+    return load();
   }, [load, retryTick]);
 
   if (!mapProvider) {
     return (
-      <Screen>
-        <Stack.Screen options={{ headerShown: true, title: "Nearby map" }} />
+      <Screen subPageTitle="Nearby map">
+        <Stack.Screen options={{ headerShown: false }} />
         <DeniedState
           title="Map unavailable"
           description="Map view is unavailable until a map provider is configured. Browse nearby work from the task list instead."
@@ -134,97 +234,138 @@ export default function NearbyMapScreen() {
   }
 
   return (
-    <Screen scroll={false}>
-      <Stack.Screen options={{ headerShown: true, title: "Nearby map" }} />
-      {/*
-        Locations are intentionally approximate: the feed only ever exposes a
-        rounded point, never a task's exact address. Turn-by-turn navigation is
-        not part of this view.
-      */}
-      <View style={styles.banner}>
-        <Text style={styles.bannerText}>
-          Approximate locations only — exact addresses are shared after booking
-        </Text>
+    <Screen scroll={false} padded={false} subPageTitle="Nearby map">
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={styles.page}>
+        {state === "loading" ? (
+          <View style={styles.stateContainer}>
+            <LoadingState label="Loading map results" />
+          </View>
+        ) : null}
+        {state === "error" ? (
+          <View style={styles.stateContainer}>
+            <ErrorState onRetry={retry} />
+          </View>
+        ) : null}
+        {state === "loaded" && items.length === 0 ? (
+          <View style={styles.stateContainer}>
+            <EmptyState
+              title="No tasks in this area"
+              description="Try widening your filters from the task list."
+              actionLabel="Adjust filters"
+              onAction={() => setFilterPanelOpen(true)}
+            />
+          </View>
+        ) : null}
+        {state === "loaded" && items.length > 0 ? (
+          <View style={styles.mapStage}>
+            <TaskMapSurface
+              items={items}
+              origin={origin}
+              onSelectTask={(taskId) => router.push(`/task/${taskId}`)}
+            />
+            <View style={styles.mapActions}>
+              <AnimatedFilterPressable
+                selected={activeChips.length > 0}
+                onPress={() => setFilterPanelOpen(true)}
+                accessibilityLabel={`Open map filters${activeChips.length > 0 ? `, ${activeChips.length} active` : ""}`}
+                accessibilityState={{ expanded: filterPanelOpen }}
+                selectionAccessibilityState="none"
+                style={styles.filterButton}
+                inactiveBackgroundColor={theme.surface}
+                selectedBackgroundColor={theme.primarySoft}
+                inactiveBorderColor={theme.borderSubtle}
+                selectedBorderColor={theme.primary}
+                pressScale={0.94}
+              >
+                <Icon
+                  name="filter"
+                  size={19}
+                  color={activeChips.length > 0 ? theme.primary : theme.textSecondary}
+                />
+                {activeChips.length > 0 ? (
+                  <View style={styles.filterCountBadge}>
+                    <Text style={styles.filterCountText}>{activeChips.length}</Text>
+                  </View>
+                ) : null}
+              </AnimatedFilterPressable>
+              <MapLocationButton
+                active={locState === "on"}
+                loading={locState === "locating"}
+                onPress={locState === "on" ? clearMyLocation : () => void useMyLocation()}
+              />
+            </View>
+            {locState === "denied" || locState === "unavailable" ? (
+              <View style={styles.locationFeedback}>
+                <Text style={styles.locationFeedbackText} accessibilityRole="alert">
+                  {locState === "denied" ? "Location access is blocked" : "Location is unavailable"}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
       </View>
-      {state === "loading" ? <LoadingState label="Loading map results" /> : null}
-      {state === "error" ? <ErrorState onRetry={retry} /> : null}
-      {state === "loaded" && items.length === 0 ? (
-        <EmptyState
-          title="No tasks in this area"
-          description="Try widening your filters from the task list."
-        />
-      ) : null}
-      {state === "loaded" && items.length > 0 ? (
-        <ScrollView contentContainerStyle={styles.listContent}>
-          <Text style={styles.countLabel}>
-            {items.length} of {total} matching task{total === 1 ? "" : "s"} shown as approximate
-            markers
-          </Text>
-          <SchematicMapSurface items={items} />
-          <Button label="Back to list view" onPress={() => router.back()} variant="secondary" />
-        </ScrollView>
-      ) : null}
+      <TaskFilterPanel
+        visible={filterPanelOpen}
+        filters={filters}
+        onApply={handleApplyFilters}
+        onClose={() => setFilterPanelOpen(false)}
+      />
     </Screen>
   );
 }
 
-/**
- * Deterministic schematic marker surface: each task is rendered as a labeled
- * card carrying only its approximate coordinates (never a live tile/vector
- * map SDK). This intentionally is not pixel-accurate cartography — it exists
- * to prove the map/feed consistency contract, not to provide real navigation.
- */
-function SchematicMapSurface({ items }: { readonly items: ReadonlyArray<PublicTaskFeedItem> }) {
+function MapLocationButton({
+  active,
+  loading,
+  onPress,
+}: {
+  readonly active: boolean;
+  readonly loading: boolean;
+  readonly onPress: () => void;
+}) {
   return (
-    <View
-      style={styles.schematicSurface}
-      accessibilityRole="list"
-      accessibilityLabel="Approximate task markers"
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={active ? "Clear location" : "Use my location"}
+      accessibilityHint={
+        active
+          ? "Stops sorting tasks by your location"
+          : "Sorts matching tasks by distance from your location"
+      }
+      accessibilityState={{ busy: loading, disabled: loading, selected: active }}
+      disabled={loading}
+      hitSlop={6}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.locationButton,
+        active ? styles.locationButtonActive : null,
+        pressed
+          ? active
+            ? styles.locationButtonActivePressed
+            : styles.locationButtonPressed
+          : null,
+        loading ? styles.locationButtonDisabled : null,
+      ]}
     >
-      {items.map((task) => (
-        <MarkerCard key={task.id} task={task} />
-      ))}
-    </View>
+      {loading ? (
+        <ActivityIndicator size="small" color={theme.primary} />
+      ) : (
+        <Icon
+          name={active ? "close" : "map-pin"}
+          size={20}
+          color={active ? theme.onPrimary : theme.primary}
+        />
+      )}
+    </Pressable>
   );
 }
 
 /**
- * Distance to the approximate area, not to the exact address.
- *
- * `search_task_feed` rounds to 100 m, so sub-kilometre values are shown in
- * hundreds of metres and anything further in one decimal of a kilometre. Never
- * presented as a precise travel distance, because the origin point is fuzzed.
+ * Parse route params back into a `TaskFilterState`, failing safe on any
+ * malformed value rather than throwing — a corrupted deep link must never crash
+ * this screen.
  */
-function formatDistance(meters: number): string {
-  return meters < 1000 ? `${meters} m away` : `${(meters / 1000).toFixed(1)} km away`;
-}
-
-function MarkerCard({ task }: { readonly task: PublicTaskFeedItem }) {
-  const distance = task.distanceMeters === null ? null : formatDistance(task.distanceMeters);
-  return (
-    <View
-      style={styles.markerCard}
-      accessibilityRole="summary"
-      accessibilityLabel={`${task.title}, approximate area ${task.landmark}${distance ? `, ${distance}` : ""}, budget ${formatPhp(task.budgetCentavos)}`}
-    >
-      <View style={styles.markerHeader}>
-        <Icon name="map-pin" size={16} color={theme.primary} />
-        <Text style={styles.markerTitle}>{task.title}</Text>
-        {task.sameDay ? <StatusBadge tone="warning" label="Same-day" /> : null}
-      </View>
-      <Text style={styles.markerMeta}>
-        {task.landmark} · {task.approximateLat.toFixed(3)}, {task.approximateLng.toFixed(3)}{" "}
-        (approximate)
-      </Text>
-      {distance ? <Text style={styles.markerMeta}>{distance}</Text> : null}
-      <View style={styles.markerFooter}>
-        <Text style={styles.markerBudget}>{formatPhp(task.budgetCentavos)}</Text>
-        <Button label="View task" onPress={() => router.push(`/task/${task.id}`)} variant="text" />
-      </View>
-    </View>
-  );
-}
-
 function parsePositiveInt(value: string | undefined): number | undefined {
   if (!value) return undefined;
   const parsed = Number(value);
@@ -232,21 +373,14 @@ function parsePositiveInt(value: string | undefined): number | undefined {
   return parsed;
 }
 
-function parsePositiveFloat(value: string | undefined): number | undefined {
+function parseLocalityCode(value: string | undefined, length: 6 | 9): string | undefined {
   if (!value) return undefined;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed) || parsed <= 0) return undefined;
-  return parsed;
+  return new RegExp(`^\\d{${length}}$`).test(value) ? value : undefined;
 }
 
 function parseSort(value: string | undefined): TaskFeedSort {
-  if (value === "newest" || value === "highest_budget" || value === "nearby") return value;
+  if (value === "highest_budget") return value;
   return "newest";
-}
-
-function parseAreaId(value: string | undefined): ReferenceAreaId | undefined {
-  if (!value) return undefined;
-  return findReferenceArea(value)?.id;
 }
 
 function isValidIsoDateTime(value: string | undefined): value is string {
@@ -256,42 +390,112 @@ function isValidIsoDateTime(value: string | undefined): value is string {
 }
 
 const styles = StyleSheet.create({
-  banner: {
-    backgroundColor: theme.warningSoft,
-    padding: spacing.sm,
-    borderRadius: radii.sm,
-    marginBottom: spacing.md,
+  page: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 0,
+    overflow: "hidden",
   },
-  bannerText: {
-    color: theme.warningOnSoft,
-    fontSize: fontSize.xs,
-    fontWeight: "700",
-    textAlign: "center",
+  stateContainer: {
+    flex: 1,
+    padding: spacing.lg,
   },
-  listContent: { paddingBottom: spacing.xl, gap: spacing.md },
-  countLabel: { fontSize: fontSize.xs, color: theme.textSecondary },
-  schematicSurface: {
+  mapStage: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 0,
+    overflow: "hidden",
     backgroundColor: theme.surfaceSubtle,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    gap: spacing.sm,
   },
-  markerCard: {
-    backgroundColor: theme.surface,
+  mapActions: {
+    position: "absolute",
+    top: spacing.md,
+    right: spacing.md,
+    zIndex: 1100,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    elevation: 8,
+  },
+  filterButton: {
+    position: "relative",
+    width: MIN_TOUCH_TARGET,
+    height: MIN_TOUCH_TARGET,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderRadius: radii.pill,
+    shadowColor: theme.shadow,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  filterCountBadge: {
+    position: "absolute",
+    top: -5,
+    right: -5,
+    minWidth: 18,
+    height: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+    borderWidth: 2,
+    borderColor: theme.surface,
+    borderRadius: 9,
+    backgroundColor: theme.primary,
+  },
+  filterCountText: {
+    color: theme.onPrimary,
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  locationButton: {
+    width: MIN_TOUCH_TARGET,
+    height: MIN_TOUCH_TARGET,
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
     borderColor: theme.borderSubtle,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    gap: spacing.xs,
+    borderRadius: radii.pill,
+    backgroundColor: theme.surface,
+    shadowColor: theme.shadow,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 10,
+    elevation: 5,
   },
-  markerHeader: { flexDirection: "row", alignItems: "center", gap: spacing.xs },
-  markerTitle: { fontSize: fontSize.md, fontWeight: "700", color: theme.textPrimary, flex: 1 },
-  markerMeta: { fontSize: fontSize.xs, color: theme.textSecondary },
-  markerFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    minHeight: MIN_TOUCH_TARGET,
+  locationButtonActive: {
+    borderColor: theme.primary,
+    backgroundColor: theme.primary,
   },
-  markerBudget: { fontSize: fontSize.sm, fontWeight: "700", color: theme.textPrimary },
+  locationButtonPressed: {
+    backgroundColor: theme.surfaceSubtle,
+    transform: [{ scale: 0.96 }],
+  },
+  locationButtonActivePressed: {
+    backgroundColor: theme.primaryPressed,
+    transform: [{ scale: 0.96 }],
+  },
+  locationButtonDisabled: {
+    opacity: 0.72,
+  },
+  locationFeedback: {
+    position: "absolute",
+    top: 72,
+    right: spacing.md,
+    zIndex: 1100,
+    maxWidth: 220,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: theme.errorSoft,
+    elevation: 8,
+  },
+  locationFeedbackText: {
+    color: theme.errorOnSoft,
+    fontSize: fontSize.xs,
+    lineHeight: lineHeight.xs,
+    fontWeight: "700",
+  },
 });

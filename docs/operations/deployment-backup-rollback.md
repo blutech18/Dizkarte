@@ -3,6 +3,10 @@
 > These runbooks describe procedure. Production execution is blocked until
 > Client-owned Supabase/hosting/provider accounts and approved policies exist
 > (see `docs/acceptance/risk-register.md`).
+>
+> Recurring server jobs (checkout expiry, review reminders, completion-timeout
+> escalation, push retry) have their own runbook: `scheduled-jobs.md`. A
+> production deployment is not complete until that schedule is enabled.
 
 ## Deployment
 
@@ -13,6 +17,9 @@
    destructive database migration without an approved restoration plan.
 4. Mobile: Expo EAS profiles separate development / preview / production.
    Signing remains Client-owned.
+5. Enable the recurring job schedule on the target project
+   (`select app.ensure_scheduled_jobs();` after enabling `pg_cron` — see
+   `scheduled-jobs.md`) and confirm `cron.job` lists all four jobs as active.
 
 ## Backup and PITR restore
 
@@ -29,7 +36,6 @@
 - Destructive DB changes require the approved restoration plan first.
 
 ## Webhook reconciliation
-
 `provider_events` is the source of truth for provider deliveries.
 
 1. Every event is stored with `signature_valid`, `payload_hash`, and a

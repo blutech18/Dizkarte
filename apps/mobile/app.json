@@ -6,30 +6,18 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "icon": "./assets/app-icon-logo.png",
-    "splash": {
-      "image": "./assets/app-icon-logo.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FFFFFF"
-    },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "icon": "./assets/app-icon-square.png",
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "invalid.dizkarte.mobile"
+      "bundleIdentifier": "com.dizkarte.mobile"
     },
     "android": {
-      "package": "invalid.dizkarte.mobile",
+      "package": "com.dizkarte.mobile",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/app-icon-logo.png",
+        "foregroundImage": "./assets/app-icon-square.png",
         "backgroundColor": "#FFFFFF"
       }
-    },
-    "androidStatusBar": {
-      "barStyle": "dark-content",
-      "backgroundColor": "#F8F7FC"
     },
     "web": {
       "bundler": "metro",
@@ -38,7 +26,29 @@
     "plugins": [
       "expo-router",
       "expo-status-bar",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Dizkarte uses your location to set your task's pickup and drop-off addresses."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Dizkarte uses your photo library so you can attach real task photos.",
+          "cameraPermission": "Dizkarte uses your camera so you can photograph the task area.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/app-icon-logo.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

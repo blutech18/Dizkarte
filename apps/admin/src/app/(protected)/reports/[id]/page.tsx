@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requirePageCapability } from "@/lib/guard";
 import { getAdminRepository } from "@/lib/repository";
@@ -7,6 +8,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { EvidenceList } from "@/components/ui/EvidenceList";
 import { RestrictedCaseNotice } from "@/components/ui/AsyncState";
 import { CaseActionsPanel } from "@/components/ui/CaseActionsPanel";
+import { CaseSubjectCard } from "@/components/ui/CaseSubjectCard";
 import { reportStatusLabel, reportStatusTone, REPORT_STATUS_TRANSITIONS } from "../status";
 import { assignReportAction, transitionReportStatusAction } from "../actions";
 
@@ -80,6 +82,38 @@ export default async function ReportDetailPage({
         </div>
       ) : (
         <>
+          <CaseSubjectCard subject={detail.subject} />
+
+          {detail.triage ? (
+            <div className="dk-card">
+              <h2 style={{ marginTop: 0 }}>Reporter and volume</h2>
+              <dl>
+                <dt>Reporter</dt>
+                <dd>
+                  <Link href={`/users/${detail.triage.reporter.id}`}>
+                    {detail.triage.reporter.displayName}
+                  </Link>{" "}
+                  ({detail.triage.reporter.accountStatus})
+                </dd>
+                <dt>Reports filed by this user</dt>
+                <dd>
+                  {detail.triage.reporter.reportsFiled} total,{" "}
+                  {detail.triage.reporter.reportsDismissed} dismissed
+                </dd>
+                <dt>Distinct reporters on this resource</dt>
+                <dd>{detail.triage.distinctReporters}</dd>
+                <dt>Open cases on this resource</dt>
+                <dd>{detail.triage.openCases}</dd>
+                <dt>Previously actioned</dt>
+                <dd>{detail.triage.actionedCases}</dd>
+              </dl>
+              <p className="dk-muted">
+                Counts only. Who else reported this resource is not disclosed — how many did is what
+                distinguishes a single complaint from a coordinated one.
+              </p>
+            </div>
+          ) : null}
+
           <div className="dk-card">
             <h2 style={{ marginTop: 0 }}>Subject</h2>
             <p>{detail.caseSubject.resourceLabel}</p>

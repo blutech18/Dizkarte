@@ -5,11 +5,7 @@ import { LinkButton } from "@/components/ui/Button";
  * login page. Airtasker-style: logo left, a couple of pill-shaped actions
  * right, sticky white bar with a subtle bottom border.
  */
-export function PublicHeader({
-  variant = "landing",
-}: {
-  readonly variant?: "landing" | "login";
-}) {
+export function PublicHeader({ variant = "landing" }: { readonly variant?: "landing" | "login" }) {
   return (
     <header className="dk-public-header">
       <a href="/" className="dk-public-header-brand">

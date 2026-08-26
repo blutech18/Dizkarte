@@ -1,6 +1,7 @@
 import type {
   BookingId,
   BookingStatus,
+  ConversationId,
   DisputeId,
   DisputeStatus,
   OfferId,
@@ -13,6 +14,7 @@ import type {
 } from "@dizkarte/domain";
 import type {
   BookingEventRecord,
+  ConversationSummary,
   DisputeRecord,
   MessageDeliveryStatus,
   NotificationPreferenceCategory,
@@ -123,7 +125,9 @@ export function toWithdrawalStatus(value: string | null | undefined): Withdrawal
 }
 
 /** `booking_events.source` allows 'provider'; the app models that as 'webhook'. */
-export function toBookingEventSource(value: string | null | undefined): BookingEventRecord["source"] {
+export function toBookingEventSource(
+  value: string | null | undefined,
+): BookingEventRecord["source"] {
   switch (value) {
     case "client":
     case "tasker":
@@ -143,11 +147,15 @@ const NOTIFICATION_TYPES: ReadonlyArray<NotificationType> = [
   "PAYMENT_FAILED",
   "BOOKING_STARTED",
   "COMPLETION_REQUESTED",
+  "COMPLETION_REMINDER",
   "BOOKING_COMPLETED",
   "DISPUTE_OPENED",
   "REVIEW_RECEIVED",
+  "REVIEW_REMINDER",
+  "NEARBY_TASK",
   "MESSAGE_RECEIVED",
   "VERIFICATION_DECISION",
+  "REPORT_RESOLVED",
 ];
 
 /**
@@ -183,6 +191,7 @@ const NOTIFICATION_RESOURCE_TYPES = [
   "conversation",
   "dispute",
   "review",
+  "report",
 ] as const;
 
 export function toNotificationResourceType(
@@ -200,6 +209,9 @@ export const NOTIFICATION_CATEGORIES: ReadonlyArray<NotificationPreferenceCatego
   "messages",
   "disputes",
   "reviews",
+  "nearby",
+  "promotions",
+  "safety",
 ];
 
 /**
@@ -345,6 +357,39 @@ export function mapNotification(row: {
     resourceId: row.resource_id,
     readAt: row.read_at,
     createdAt: row.created_at,
+  };
+}
+
+/**
+ * A row from `public.conversation_summaries()` (migration 0046).
+ *
+ * The function already truncates the preview and scopes the unread count to the
+ * calling participant, so this projection only normalises types — it must never
+ * be the place where "which conversation may I see?" is decided.
+ */
+export type ConversationSummaryRow = {
+  conversation_id: string;
+  booking_id: string;
+  last_message_at: string | null;
+  last_message_preview: string | null;
+  last_message_sender_id: string | null;
+  last_message_has_media: boolean | null;
+  unread_count: number | null;
+};
+
+export function toConversationSummary(row: ConversationSummaryRow): ConversationSummary {
+  const unread = Number(row.unread_count ?? 0);
+  return {
+    conversationId: row.conversation_id as ConversationId,
+    bookingId: row.booking_id as BookingId,
+    lastMessageAt: row.last_message_at,
+    // A media-only message has a null body; the UI renders an attachment label
+    // rather than inventing preview text.
+    lastMessagePreview: row.last_message_preview,
+    lastMessageSenderId: (row.last_message_sender_id as UserId | null) ?? null,
+    lastMessageHasMedia: row.last_message_has_media === true,
+    // Defensive: a negative or non-finite count would corrupt a badge.
+    unreadCount: Number.isFinite(unread) && unread > 0 ? Math.trunc(unread) : 0,
   };
 }
 

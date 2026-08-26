@@ -1,22 +1,49 @@
-import { Redirect, Tabs } from "expo-router";
-import type { ColorValue } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Redirect, Tabs, usePathname } from "expo-router";
+import type { BottomTabBarButtonProps } from "expo-router/js-tabs";
+import { PlatformPressable } from "expo-router/build/react-navigation/elements";
+import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { StatusBar } from "expo-status-bar";
 import { useSession } from "../../src/providers/SessionProvider";
-import { isTasker } from "../../src/services/session-types";
 import { theme } from "../../src/theme";
 import { LoadingState } from "../../src/components/ui/AsyncState";
 import { Icon, type IconName } from "../../src/components/ui/Icon";
+import { BrandTopNavbar } from "../../src/components/ui/AppHeader";
+
+const TAB_ICON_LIFT_DURATION_MS = 70;
+const TAB_ICON_SETTLE_DURATION_MS = 100;
+const USE_NATIVE_DRIVER = Platform.OS !== "web";
+
+function useReducedMotionPreference(): boolean {
+  const [reduceMotion, setReduceMotion] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void AccessibilityInfo.isReduceMotionEnabled()
+      .then((enabled) => {
+        if (active) setReduceMotion(enabled);
+      })
+      .catch(() => undefined);
+    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduceMotion);
+    return () => {
+      active = false;
+      subscription.remove();
+    };
+  }, []);
+
+  return reduceMotion;
+}
 
 /**
  * Capability-aware main navigation.
- *
- * The work/earnings tab shows "Tasker Dashboard" for approved Taskers and
- * "My Tasks" for everyone else, matching the design doc's capability-aware
- * tab requirement. Every user still sees Home, Bookings, Notifications, and
- * Profile regardless of capability. Every tab icon is a real vector icon
- * (`Icon`, via react-native-svg) — never an emoji glyph.
+ * Stationed top brand navbar sits above <Tabs> so the header remains completely
+ * fixed and stationary while the tab content switches underneath.
  */
 export default function TabsLayout() {
   const { session, status } = useSession();
+  const pathname = usePathname();
+  const reduceMotion = useReducedMotionPreference();
 
   if (status === "loading") {
     return <LoadingState />;
@@ -25,56 +52,194 @@ export default function TabsLayout() {
     return <Redirect href="/(auth)/welcome" />;
   }
 
-  const workTabLabel = isTasker(session) ? "Dashboard" : "My Tasks";
+  const isHome = pathname === "/home" || pathname === "/";
+  const activeTab = isHome ? "home" : pathname.split("/")[1];
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: theme.primary,
-        tabBarInactiveTintColor: theme.textSecondary,
-        tabBarStyle: { backgroundColor: theme.surface, borderTopColor: theme.borderSubtle },
-      }}
-    >
-      <Tabs.Screen
-        name="home"
-        options={{
-          title: "Home",
-          tabBarIcon: ({ color }) => <TabIcon name="home" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="work"
-        options={{
-          title: workTabLabel,
-          tabBarIcon: ({ color }) => <TabIcon name="briefcase" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="bookings"
-        options={{
-          title: "Bookings",
-          tabBarIcon: ({ color }) => <TabIcon name="calendar" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="notifications"
-        options={{
-          title: "Notifications",
-          tabBarIcon: ({ color }) => <TabIcon name="bell" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarIcon: ({ color }) => <TabIcon name="user" color={color} />,
-        }}
-      />
-    </Tabs>
+    <SafeAreaView style={styles.container} edges={["left", "right"]}>
+      {/*
+        The header bar (below) is purple all the way behind the status bar
+        on every tab, which needs light (white) status bar icons for
+        contrast — the app default set in the root layout is "dark", tuned
+        for the light background regular screens use. This local StatusBar
+        overrides that default for as long as any tab screen is mounted, and
+        automatically reverts to "dark" once the user navigates away from
+        the tabs (expo-status-bar merges nested instances in mount order).
+      */}
+      <StatusBar style="light" />
+      {/* Stationed, fixed top header bar — never moves during tab transitions.
+          "top" is deliberately excluded from this SafeAreaView's edges:
+          BrandTopNavbar insets its own top edge (so its purple background
+          extends behind the status bar). If this SafeAreaView also reserved
+          the top inset, the padding would stack, AND the gap it reserves
+          renders in this View's own `theme.background` (light) colour, not
+          purple — showing a light-coloured strip above the header instead of
+          a seamless purple sweep behind the status bar. */}
+      <BrandTopNavbar isHero={isHome} />
+      <View style={styles.tabContent}>
+        <Tabs
+          screenOptions={{
+            headerShown: false,
+            animation: "none",
+            tabBarActiveTintColor: theme.textSecondary,
+            tabBarInactiveTintColor: theme.textSecondary,
+            tabBarActiveBackgroundColor: "transparent",
+            tabBarInactiveBackgroundColor: "transparent",
+            tabBarButton: (props) => <PlainTabBarButton {...props} />,
+            tabBarStyle: {
+              backgroundColor: theme.surface,
+              borderTopColor: theme.borderSubtle,
+              elevation: 4,
+              shadowColor: "#000",
+              shadowOffset: { width: 0, height: -2 },
+              shadowOpacity: 0.05,
+              shadowRadius: 4,
+            },
+          }}
+        >
+          <Tabs.Screen
+            name="home"
+            options={{
+              title: "Home",
+              tabBarIcon: () => (
+                <TabIcon name="home" selected={activeTab === "home"} reduceMotion={reduceMotion} />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="browse"
+            options={{
+              title: "Browse",
+              tabBarIcon: () => (
+                <TabIcon
+                  name="search"
+                  selected={activeTab === "browse"}
+                  reduceMotion={reduceMotion}
+                />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="my-tasks"
+            options={{
+              title: "My Tasks",
+              tabBarIcon: () => (
+                <TabIcon
+                  name="briefcase"
+                  selected={activeTab === "my-tasks"}
+                  reduceMotion={reduceMotion}
+                />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="bookings"
+            options={{
+              title: "Bookings",
+              tabBarIcon: () => (
+                <TabIcon
+                  name="calendar"
+                  selected={activeTab === "bookings"}
+                  reduceMotion={reduceMotion}
+                />
+              ),
+            }}
+          />
+          <Tabs.Screen
+            name="profile"
+            options={{
+              title: "Profile",
+              tabBarIcon: () => (
+                <TabIcon
+                  name="user"
+                  selected={activeTab === "profile"}
+                  reduceMotion={reduceMotion}
+                />
+              ),
+            }}
+          />
+          {/*
+            Notifications is intentionally NOT a bottom tab: it stays reachable
+            from the fixed header bell (BrandTopNavbar) on every screen, matching
+            the Airtasker layout. `href: null` keeps the /(tabs)/notifications
+            route mounted and navigable while hiding it from the tab bar.
+          */}
+          <Tabs.Screen name="notifications" options={{ href: null }} />
+        </Tabs>
+      </View>
+    </SafeAreaView>
   );
 }
 
-function TabIcon({ name, color }: { readonly name: IconName; readonly color: ColorValue }) {
-  return <Icon name={name} size={22} color={String(color)} />;
+/** Keep the native/web tab semantics while suppressing all container press color. */
+function PlainTabBarButton(props: BottomTabBarButtonProps) {
+  return (
+    <PlatformPressable
+      {...props}
+      android_ripple={{ ...props.android_ripple, borderless: false, color: "transparent" }}
+      pressColor="transparent"
+      pressOpacity={1}
+    />
+  );
 }
+
+type TabIconProps = {
+  readonly name: IconName;
+  readonly selected: boolean;
+  readonly reduceMotion: boolean;
+};
+
+/** Briefly lift the newly selected icon, then leave color as its only selected treatment. */
+function TabIcon({ name, selected, reduceMotion }: TabIconProps) {
+  const pulseProgress = useRef(new Animated.Value(0)).current;
+  const wasSelected = useRef(selected);
+
+  useEffect(() => {
+    const becameSelected = selected && !wasSelected.current;
+    wasSelected.current = selected;
+    pulseProgress.stopAnimation();
+    pulseProgress.setValue(0);
+
+    if (!becameSelected || reduceMotion) return;
+
+    Animated.sequence([
+      Animated.timing(pulseProgress, {
+        toValue: 1,
+        duration: TAB_ICON_LIFT_DURATION_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: USE_NATIVE_DRIVER,
+      }),
+      Animated.timing(pulseProgress, {
+        toValue: 0,
+        duration: TAB_ICON_SETTLE_DURATION_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: USE_NATIVE_DRIVER,
+      }),
+    ]).start();
+  }, [pulseProgress, reduceMotion, selected]);
+
+  const iconTranslateY = pulseProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -2],
+  });
+  const iconScale = pulseProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.08],
+  });
+
+  return (
+    <Animated.View style={{ transform: [{ translateY: iconTranslateY }, { scale: iconScale }] }}>
+      <Icon name={name} size={22} color={selected ? theme.primary : theme.textSecondary} />
+    </Animated.View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: theme.background,
+  },
+  tabContent: {
+    flex: 1,
+  },
+});

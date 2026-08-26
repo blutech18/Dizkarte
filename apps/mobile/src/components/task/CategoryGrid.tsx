@@ -53,6 +53,15 @@ export function CategoryGrid({ limit }: CategoryGridProps) {
 
   const shown = typeof limit === "number" ? illustrated.slice(0, limit) : illustrated;
 
+  const handleCategoryPress = (categoryId: string) => {
+    requestAnimationFrame(() => {
+      router.push({
+        pathname: "/task/create",
+        params: { category: categoryId },
+      });
+    });
+  };
+
   return (
     <View style={styles.section}>
       <Text style={styles.title}>Need something done?</Text>
@@ -65,12 +74,7 @@ export function CategoryGrid({ limit }: CategoryGridProps) {
             accessibilityRole="button"
             accessibilityLabel={`Post a ${category.name} task`}
             accessibilityHint="Opens the task form with this category selected"
-            onPress={() =>
-              router.push({
-                pathname: "/task/create",
-                params: { category: category.id },
-              })
-            }
+            onPress={() => handleCategoryPress(category.id)}
             style={({ pressed }) => [styles.tile, pressed ? styles.tilePressed : null]}
           >
             <Image
@@ -91,10 +95,10 @@ export function CategoryGrid({ limit }: CategoryGridProps) {
 }
 
 const styles = StyleSheet.create({
-  section: {
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-  },
+  // No outer margin: the Home screen positions this section using a
+  // consistent gap between top-level sections instead of a component-owned
+  // margin, so the rhythm stays uniform regardless of what renders before it.
+  section: {},
   title: {
     fontSize: fontSize.xxl,
     fontWeight: "800",
@@ -119,22 +123,24 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.sm,
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.md,
+    gap: spacing.xs + 2,
+    paddingVertical: spacing.md + 4,
+    paddingHorizontal: spacing.sm + 2,
     backgroundColor: theme.surfaceSubtle,
-    borderRadius: radii.lg,
+    borderRadius: radii.md + 2,
   },
   tilePressed: {
     backgroundColor: theme.surfaceBrand,
+    opacity: 0.92,
+    transform: [{ scale: 0.97 }],
   },
   art: {
-    width: 64,
-    height: 64,
+    width: 38,
+    height: 38,
   },
   tileLabel: {
-    fontSize: fontSize.md,
-    fontWeight: "600",
+    fontSize: fontSize.sm,
+    fontWeight: "700",
     color: theme.textPrimary,
     textAlign: "center",
   },

@@ -1,10 +1,11 @@
 import { useCallback, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
-import { Stack, router, useLocalSearchParams } from "expo-router";
+import { Redirect, Stack, router, useLocalSearchParams } from "expo-router";
 import type { BookingId } from "@dizkarte/domain";
 import { Screen } from "../../../src/components/ui/Screen";
 import { Button } from "../../../src/components/ui/Button";
 import { TextField } from "../../../src/components/ui/TextField";
+import { LoadingState } from "../../../src/components/ui/AsyncState";
 import { MediaPicker } from "../../../src/components/media/MediaPicker";
 import type { UploadedObject } from "../../../src/services/storage/upload";
 import { useSession } from "../../../src/providers/SessionProvider";
@@ -20,7 +21,7 @@ import { theme, spacing, fontSize, radii } from "../../../src/theme";
  */
 export default function RequestCompletionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { session } = useSession();
+  const { session, status } = useSession();
   const { repository, notifyChanged } = useMarketplace();
   const [note, setNote] = useState("");
   const [evidence, setEvidence] = useState<ReadonlyArray<UploadedObject>>([]);
@@ -62,12 +63,13 @@ export default function RequestCompletionScreen() {
     }
   }, [session, note, evidence, id, repository, notifyChanged]);
 
-  if (!session) return null;
+  if (status === "loading") return <LoadingState label="Loading" />;
+  if (!session) return <Redirect href="/(auth)/welcome" />;
 
   if (done) {
     return (
-      <Screen>
-        <Stack.Screen options={{ headerShown: true, title: "Completion requested" }} />
+      <Screen subPageTitle="Completion requested">
+        <Stack.Screen options={{ headerShown: false }} />
         <View style={styles.successCard}>
           <Text style={styles.successText}>
             Completion request sent. The Client will review your evidence and confirm.
@@ -83,8 +85,8 @@ export default function RequestCompletionScreen() {
   }
 
   return (
-    <Screen>
-      <Stack.Screen options={{ headerShown: true, title: "Request completion" }} />
+    <Screen subPageTitle="Request completion">
+      <Stack.Screen options={{ headerShown: false }} />
       <TextField
         label="Note to Client"
         multiline

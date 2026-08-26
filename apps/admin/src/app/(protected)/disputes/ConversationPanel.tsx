@@ -51,8 +51,8 @@ export function ConversationPanel({ disputeId, disabled }: ConversationPanelProp
   return (
     <div role="group" aria-label="Booking conversation">
       <p className="dk-muted" style={{ marginTop: 0 }}>
-        Reading this conversation is recorded against your Admin account together with the reason you
-        give. Only the Admin assigned to this dispute may read it.
+        Reading this conversation is recorded against your Admin account together with the reason
+        you give. Only the Admin assigned to this dispute may read it.
       </p>
       <div className="dk-field" style={{ maxWidth: 420 }}>
         <label className="dk-label" htmlFor={reasonId}>

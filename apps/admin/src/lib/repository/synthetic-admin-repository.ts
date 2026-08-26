@@ -13,6 +13,8 @@ import type {
   DashboardSnapshot,
   DisputeDetail,
   DisputeRow,
+  AdminSettings,
+  EditableSettingKey,
   EvidenceMetadata,
   FinanceProviderAvailability,
   FinanceSummary,
@@ -312,7 +314,37 @@ function createSeedState(): SeedState {
       access: { restricted: false },
       caseSubject: {
         resourceType: "task",
-        resourceLabel: "Task tsk-2003 (Deep clean 2BR condo unit)",
+        resourceLabel: 'Task "Deep clean 2BR condo unit" (OPEN)',
+      },
+      // Mirrors the shape `admin_read_report_subject` returns for a task, so the
+      // detail page renders identically against synthetic and real data.
+      subject: {
+        exists: true,
+        kind: "task",
+        label: 'Task "Deep clean 2BR condo unit" (OPEN)',
+        status: "OPEN",
+        body: "Two bedrooms, one bathroom, kitchen included. Bring your own supplies.",
+        occurredAt: "2026-07-16T02:00:00.000Z",
+        subjectUserId: "usr-1002",
+        subjectUserName: "C. Garcia",
+        counterpartyName: null,
+        taskId: "tsk-2003",
+        taskTitle: "Deep clean 2BR condo unit",
+        bookingId: null,
+        amountCentavos: 350000,
+        extra: { categoryName: "Cleaning", offerCount: 3 },
+      },
+      triage: {
+        reporter: {
+          id: "usr-1002",
+          displayName: "C. Garcia",
+          accountStatus: "active",
+          reportsFiled: 2,
+          reportsDismissed: 1,
+        },
+        distinctReporters: 1,
+        openCases: 1,
+        actionedCases: 0,
       },
       narrative:
         "Reporter states the task listing repeats the same offer across multiple cities and appears to be spam.",
@@ -345,7 +377,40 @@ function createSeedState(): SeedState {
       createdAt: "2026-07-18T05:00:00.000Z",
       assignee: "support-admin@dev.dizkarte.invalid",
       access: { restricted: false },
-      caseSubject: { resourceType: "message", resourceLabel: "Chat message in booking bkg-5002" },
+      caseSubject: {
+        resourceType: "message",
+        resourceLabel: 'Message from "R. Bautista" in booking bkg-5002',
+      },
+      subject: {
+        exists: true,
+        kind: "message",
+        label: 'Message from "R. Bautista" in booking bkg-5002',
+        status: "APPROVED",
+        body: "Just deal with me directly and pay in cash, this app takes too long.",
+        occurredAt: "2026-07-18T04:55:00.000Z",
+        subjectUserId: "usr-1003",
+        subjectUserName: "R. Bautista",
+        counterpartyName: "P. Villanueva",
+        taskId: "tsk-2002",
+        taskTitle: "Assemble two office desks",
+        bookingId: "bkg-5002",
+        amountCentavos: null,
+        extra: { bookingStatus: "IN_PROGRESS", attachmentCount: 0 },
+      },
+      // Two different people reported the same message: the signal a moderator
+      // cannot get from the narrative alone.
+      triage: {
+        reporter: {
+          id: "usr-1004",
+          displayName: "P. Villanueva",
+          accountStatus: "active",
+          reportsFiled: 1,
+          reportsDismissed: 0,
+        },
+        distinctReporters: 2,
+        openCases: 1,
+        actionedCases: 0,
+      },
       narrative:
         "Reporter states a chat message from the other party used abusive language during booking negotiation.",
       evidence: [
@@ -397,7 +462,26 @@ function createSeedState(): SeedState {
       openedAt: "2026-07-19T06:00:00.000Z",
       assignee: null,
       access: { restricted: false },
-      caseSubject: { resourceType: "booking", resourceLabel: "Booking bkg-5001" },
+      caseSubject: {
+        resourceType: "booking",
+        resourceLabel: 'Booking between "M. Santos" and "R. Bautista" for task "Move a sofa"',
+      },
+      subject: {
+        exists: true,
+        kind: "booking",
+        label: 'Booking between "M. Santos" and "R. Bautista" for task "Move a sofa"',
+        status: "COMPLETION_REQUESTED",
+        body: null,
+        occurredAt: "2026-07-16T23:10:00.000Z",
+        subjectUserId: "usr-1003",
+        subjectUserName: "R. Bautista",
+        counterpartyName: "M. Santos",
+        taskId: "tsk-2001",
+        taskTitle: "Move a sofa",
+        bookingId: "bkg-5001",
+        amountCentavos: 150000,
+        extra: { clientId: "usr-1005", taskerId: "usr-1003", messageCount: 12 },
+      },
       narrative:
         "Client states the Tasker did not complete the agreed scope of work before marking the booking done.",
       evidence: [
@@ -434,7 +518,28 @@ function createSeedState(): SeedState {
       openedAt: "2026-07-17T06:00:00.000Z",
       assignee: "finance-admin@dev.dizkarte.invalid",
       access: { restricted: false },
-      caseSubject: { resourceType: "booking", resourceLabel: "Booking bkg-5002" },
+      caseSubject: {
+        resourceType: "booking",
+        resourceLabel:
+          'Booking between "P. Villanueva" and "R. Bautista" for task "Assemble two office desks"',
+      },
+      subject: {
+        exists: true,
+        kind: "booking",
+        label:
+          'Booking between "P. Villanueva" and "R. Bautista" for task "Assemble two office desks"',
+        status: "CANCELLED",
+        body: null,
+        occurredAt: "2026-07-17T00:20:00.000Z",
+        subjectUserId: "usr-1003",
+        subjectUserName: "R. Bautista",
+        counterpartyName: "P. Villanueva",
+        taskId: "tsk-2002",
+        taskTitle: "Assemble two office desks",
+        bookingId: "bkg-5002",
+        amountCentavos: 90000,
+        extra: { clientId: "usr-1004", taskerId: "usr-1003", messageCount: 8 },
+      },
       narrative:
         "Tasker states the client cancelled after work began and is disputing the cancellation fee.",
       evidence: [
@@ -1196,6 +1301,7 @@ export class SyntheticAdminRepository implements AdminRepository {
   public readonly synthetic = true;
 
   private readonly state: SeedState;
+  private reviewRevealDays = 14;
 
   constructor() {
     this.state = createSeedState();
@@ -1641,6 +1747,12 @@ export class SyntheticAdminRepository implements AdminRepository {
    * unless the requesting actor is the explicit assignee, and records a
    * `assigned-case-review` audit entry when an assigned Admin reads their own
    * case (requirement 4.6.6/4.6.9).
+   *
+   * The resolved case `subject`/`triage` (migration 0049) are stripped on the same
+   * terms. On the server those reads are separate assignment-scoped RPCs that
+   * simply refuse; the synthetic adapter has to strip them explicitly, or it would
+   * disclose reported content — and a reporter's identity — to an Admin who is not
+   * the assignee, which is exactly what this gate exists to prevent.
    */
   private applyCaseAccess<T extends { readonly id: string; readonly assignee: string | null }>(
     row: T & {
@@ -1655,20 +1767,26 @@ export class SyntheticAdminRepository implements AdminRepository {
     readonly narrative: string | null;
     readonly evidence: ReadonlyArray<EvidenceMetadata>;
   } {
+    // `in` checks rather than unconditional nulls: a ticket has no resolved
+    // subject, and inventing the field would imply one exists.
+    const withoutSensitiveDetail = {
+      ...row,
+      narrative: null,
+      evidence: [],
+      ...("subject" in row ? { subject: null } : {}),
+      ...("triage" in row ? { triage: null } : {}),
+    };
+
     if (row.assignee === null) {
       return {
-        ...row,
+        ...withoutSensitiveDetail,
         access: { restricted: true, reason: "unassigned" },
-        narrative: null,
-        evidence: [],
       };
     }
     if (row.assignee !== actor) {
       return {
-        ...row,
+        ...withoutSensitiveDetail,
         access: { restricted: true, reason: "assigned-to-other" },
-        narrative: null,
-        evidence: [],
       };
     }
     this.recordAudit({
@@ -2543,6 +2661,70 @@ export class SyntheticAdminRepository implements AdminRepository {
 
   async listAuditLogs(input: PageInput) {
     return paged<AuditLogRow>(this.state.auditLogs, input);
+  }
+
+  async getSettings(): Promise<AdminSettings> {
+    return {
+      editable: [
+        {
+          key: "review_reveal_days",
+          label: "Review reveal window",
+          description:
+            "Days a one-sided review stays hidden before it is revealed automatically. Applies when only one party has reviewed a booking.",
+          value: this.reviewRevealDays,
+          min: 1,
+          max: 90,
+          unit: "days",
+        },
+      ],
+      policy: [
+        {
+          key: "platform_fee_bps",
+          label: "Platform fee",
+          value: "0 bps (0.00%)",
+          note: "Money policy — Client-owned (D3). Not editable until an approved fee model is on file.",
+        },
+        {
+          key: "optional_client_fee_enabled",
+          label: "Optional client fee",
+          value: "Disabled",
+          note: "Money policy — Client-owned (D4). Not editable from the console.",
+        },
+        {
+          key: "auto_release_enabled",
+          label: "Release model",
+          value: "Client-confirmed only",
+          note: "Release policy — Client-owned (D5). Auto-release stays off until approved.",
+        },
+      ],
+    };
+  }
+
+  async updateSetting(input: {
+    key: EditableSettingKey;
+    value: number;
+    reason: string;
+    actor: string;
+    capability: AdminCapability | null;
+  }): Promise<{ ok: boolean; message?: string }> {
+    if (input.reason.trim().length === 0) {
+      return { ok: false, message: "A reason is required." };
+    }
+    if (input.key !== "review_reveal_days") {
+      return { ok: false, message: `"${input.key}" is not an operator-editable setting.` };
+    }
+    if (!Number.isInteger(input.value) || input.value < 1 || input.value > 90) {
+      return { ok: false, message: "Review reveal days must be between 1 and 90." };
+    }
+    this.reviewRevealDays = input.value;
+    this.recordAudit({
+      actor: input.actor,
+      capability: input.capability,
+      action: "setting.update",
+      resource: input.key,
+      reason: input.reason.trim(),
+    });
+    return { ok: true };
   }
 }
 

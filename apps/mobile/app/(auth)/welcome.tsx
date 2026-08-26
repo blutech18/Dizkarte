@@ -1,5 +1,9 @@
+import { useEffect, useRef } from "react";
 import {
+  Animated,
+  Easing,
   Image,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -7,7 +11,7 @@ import {
   type ImageSourcePropType,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Link } from "expo-router";
+import { router } from "expo-router";
 import { Button } from "../../src/components/ui/Button";
 import { Icon, type IconName } from "../../src/components/ui/Icon";
 import { theme, spacing, fontSize, lineHeight, radii } from "../../src/theme";
@@ -61,68 +65,98 @@ const VALUE_PROPS: ReadonlyArray<{
  * the reasons to trust it below. Roomy by design, matching the product direction.
  */
 export default function WelcomeScreen() {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const translateYAnim = useRef(new Animated.Value(18)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 550,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: Platform.OS !== "web",
+      }),
+      Animated.timing(translateYAnim, {
+        toValue: 0,
+        duration: 550,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: Platform.OS !== "web",
+      }),
+    ]).start();
+  }, [fadeAnim, translateYAnim]);
+
   return (
     <SafeAreaView style={styles.safeArea} edges={["top", "bottom", "left", "right"]}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+      <Animated.View
+        style={{
+          flex: 1,
+          opacity: fadeAnim,
+          transform: [{ translateY: translateYAnim }],
+        }}
       >
-        <View style={styles.hero}>
-          <Image
-            // eslint-disable-next-line @typescript-eslint/no-require-imports -- static asset require is standard RN
-            source={require("../../assets/text-icon-logo.png")}
-            style={styles.logo}
-            resizeMode="contain"
-            accessibilityIgnoresInvertColors
-            accessibilityLabel="Dizkarte"
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.hero}>
+            <Image
+              // eslint-disable-next-line @typescript-eslint/no-require-imports -- static asset require is standard RN
+              source={require("../../assets/text-icon-logo.png")}
+              style={styles.logo}
+              resizeMode="contain"
+              accessibilityIgnoresInvertColors
+              accessibilityLabel="Dizkarte"
+            />
+            <Text style={styles.heroTitle}>Get more done, {"\n"}the Dizkarte way</Text>
+            <Text style={styles.heroSubtitle}>
+              Post a task, get offers from trusted local Taskers, and pay safely when the job is
+              done.
+            </Text>
+          </View>
+
+          <View style={styles.categoryStrip}>
+            {CATEGORY_STRIP.map((item) => (
+              <View key={item.label} style={styles.categoryItem}>
+                <View style={styles.categoryBubble}>
+                  <Image
+                    source={item.art}
+                    style={styles.categoryArt}
+                    resizeMode="contain"
+                    accessibilityIgnoresInvertColors
+                  />
+                </View>
+                <Text style={styles.categoryLabel}>{item.label}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.valueSection}>
+            {VALUE_PROPS.map((prop) => (
+              <View key={prop.title} style={styles.valueRow}>
+                <Icon name={prop.icon} size={32} color={theme.primary} />
+                <View style={styles.valueText}>
+                  <Text style={styles.valueTitle}>{prop.title}</Text>
+                  <Text style={styles.valueBody}>{prop.body}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </ScrollView>
+
+        {/* CTAs pinned below the scroll so the primary action is always reachable. */}
+        <View style={styles.actions}>
+          <Button label="Get started" onPress={() => router.push("/(auth)/register")} fullWidth />
+          <Button
+            label="I already have an account"
+            onPress={() => router.push("/(auth)/sign-in")}
+            variant="secondary"
+            fullWidth
           />
-          <Text style={styles.heroTitle}>Get more done, {"\n"}the Dizkarte way</Text>
-          <Text style={styles.heroSubtitle}>
-            Post a task, get offers from trusted local Taskers, and pay safely when the job is done.
+          <Text style={styles.termsCaption}>
+            By continuing, you agree to Dizkarte&apos;s terms &amp; privacy policies.
           </Text>
         </View>
-
-        <View style={styles.categoryStrip}>
-          {CATEGORY_STRIP.map((item) => (
-            <View key={item.label} style={styles.categoryItem}>
-              <View style={styles.categoryBubble}>
-                <Image
-                  source={item.art}
-                  style={styles.categoryArt}
-                  resizeMode="contain"
-                  accessibilityIgnoresInvertColors
-                />
-              </View>
-              <Text style={styles.categoryLabel}>{item.label}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={styles.valueSection}>
-          {VALUE_PROPS.map((prop) => (
-            <View key={prop.title} style={styles.valueRow}>
-              <Icon name={prop.icon} size={32} color={theme.primary} />
-              <View style={styles.valueText}>
-                <Text style={styles.valueTitle}>{prop.title}</Text>
-                <Text style={styles.valueBody}>{prop.body}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-      </ScrollView>
-
-      {/* CTAs pinned below the scroll so the primary action is always reachable. */}
-      <View style={styles.actions}>
-        <Link href="/(auth)/register" asChild>
-          <Button label="Get started" onPress={() => {}} fullWidth />
-        </Link>
-        <Link href="/(auth)/sign-in" asChild>
-          <Button label="I already have an account" onPress={() => {}} variant="secondary" fullWidth />
-        </Link>
-        <Text style={styles.termsCaption}>
-          By continuing, you agree to Dizkarte&apos;s terms &amp; privacy policies.
-        </Text>
-      </View>
+      </Animated.View>
     </SafeAreaView>
   );
 }

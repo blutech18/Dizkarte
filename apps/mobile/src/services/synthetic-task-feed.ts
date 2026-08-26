@@ -190,6 +190,8 @@ export type TaskFeedQuery = {
   readonly scheduledFrom?: string;
   readonly scheduledTo?: string;
   readonly sameDayOnly?: boolean;
+  /** Only tasks with zero offers - mirrors migration 0047's p_no_offers_only. */
+  readonly noOffersOnly?: boolean;
   readonly nearLat?: number;
   readonly nearLng?: number;
   readonly radiusKm?: number;
@@ -244,6 +246,11 @@ export function filterAndSortTasks(
       return false;
     }
     if (query.sameDayOnly && !task.sameDay) {
+      return false;
+    }
+    // Zero offers only. Mirrors the SQL predicate exactly, including treating a
+    // missing count as zero rather than excluding the task.
+    if (query.noOffersOnly && (task.offerCount ?? 0) > 0) {
       return false;
     }
     // A scheduled window filter is only meaningful against tasks that

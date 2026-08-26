@@ -21,18 +21,31 @@ export type IconName =
   | "filter"
   | "map-pin"
   | "image"
+  | "camera"
   | "video"
   | "note"
+  | "edit"
   | "star"
   | "arrow-right"
   | "shield"
   | "chat"
   | "wallet"
+  | "bank"
   | "check-circle"
   | "close"
   | "log-out"
   | "eye"
-  | "eye-off";
+  | "eye-off"
+  | "plus"
+  | "chevron-down"
+  | "chevron-up"
+  | "globe"
+  | "alert-circle"
+  | "more-horizontal"
+  | "chevron-right"
+  | "send"
+  | "lock"
+  | "phone";
 
 export type IconProps = {
   readonly name: IconName;
@@ -69,7 +82,11 @@ export function Icon({ name, size = 20, color = "currentColor" }: IconProps) {
     case "home":
       return (
         <Frame size={size} color={color}>
-          <Path {...STROKE_PROPS} stroke={color} d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1v-9z" />
+          <Path
+            {...STROKE_PROPS}
+            stroke={color}
+            d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1v-9z"
+          />
         </Frame>
       );
     case "briefcase":
@@ -90,11 +107,7 @@ export function Icon({ name, size = 20, color = "currentColor" }: IconProps) {
     case "bell":
       return (
         <Frame size={size} color={color}>
-          <Path
-            {...STROKE_PROPS}
-            stroke={color}
-            d="M6 10a6 6 0 1 1 12 0v4l1.5 3h-15L6 14v-4z"
-          />
+          <Path {...STROKE_PROPS} stroke={color} d="M6 10a6 6 0 1 1 12 0v4l1.5 3h-15L6 14v-4z" />
           <Path {...STROKE_PROPS} stroke={color} d="M10 20a2 2 0 0 0 4 0" />
         </Frame>
       );
@@ -137,6 +150,17 @@ export function Icon({ name, size = 20, color = "currentColor" }: IconProps) {
           <Path {...STROKE_PROPS} stroke={color} d="M4 17l5-5 3.5 3.5L17 11l4 4" />
         </Frame>
       );
+    case "camera":
+      return (
+        <Frame size={size} color={color}>
+          <Path
+            {...STROKE_PROPS}
+            stroke={color}
+            d="M8 6l1.5-2h5L16 6h3a2 2 0 0 1 2 2v10H3V8a2 2 0 0 1 2-2h3z"
+          />
+          <Circle {...STROKE_PROPS} stroke={color} cx="12" cy="12" r="3.5" />
+        </Frame>
+      );
     case "video":
       return (
         <Frame size={size} color={color}>
@@ -149,6 +173,16 @@ export function Icon({ name, size = 20, color = "currentColor" }: IconProps) {
         <Frame size={size} color={color}>
           <Rect {...STROKE_PROPS} stroke={color} x="5" y="3" width="14" height="18" rx="2" />
           <Path {...STROKE_PROPS} stroke={color} d="M9 8h6M9 12h6M9 16h4" />
+        </Frame>
+      );
+    case "edit":
+      return (
+        <Frame size={size} color={color}>
+          <Path
+            {...STROKE_PROPS}
+            stroke={color}
+            d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4zM13.5 6.5l4 4"
+          />
         </Frame>
       );
     case "star":
@@ -171,7 +205,11 @@ export function Icon({ name, size = 20, color = "currentColor" }: IconProps) {
     case "shield":
       return (
         <Frame size={size} color={color}>
-          <Path {...STROKE_PROPS} stroke={color} d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z" />
+          <Path
+            {...STROKE_PROPS}
+            stroke={color}
+            d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"
+          />
           <Path {...STROKE_PROPS} stroke={color} d="M9 12l2.2 2.2L15 10" />
         </Frame>
       );
@@ -187,6 +225,16 @@ export function Icon({ name, size = 20, color = "currentColor" }: IconProps) {
           <Rect {...STROKE_PROPS} stroke={color} x="3" y="6" width="18" height="13" rx="2" />
           <Path {...STROKE_PROPS} stroke={color} d="M3 10h18" />
           <Circle cx="16.5" cy="14" r="1" fill={color} stroke="none" />
+        </Frame>
+      );
+    case "bank":
+      return (
+        <Frame size={size} color={color}>
+          <Path
+            {...STROKE_PROPS}
+            stroke={color}
+            d="M3 9l9-5 9 5H3zM5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"
+          />
         </Frame>
       );
     case "check-circle":
@@ -205,7 +253,11 @@ export function Icon({ name, size = 20, color = "currentColor" }: IconProps) {
     case "log-out":
       return (
         <Frame size={size} color={color}>
-          <Path {...STROKE_PROPS} stroke={color} d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+          <Path
+            {...STROKE_PROPS}
+            stroke={color}
+            d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"
+          />
         </Frame>
       );
     case "eye":
@@ -218,7 +270,85 @@ export function Icon({ name, size = 20, color = "currentColor" }: IconProps) {
     case "eye-off":
       return (
         <Frame size={size} color={color}>
-          <Path {...STROKE_PROPS} stroke={color} d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22" />
+          <Path
+            {...STROKE_PROPS}
+            stroke={color}
+            d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24M1 1l22 22"
+          />
+        </Frame>
+      );
+    case "plus":
+      return (
+        <Frame size={size} color={color}>
+          <Path {...STROKE_PROPS} stroke={color} d="M12 5v14M5 12h14" />
+        </Frame>
+      );
+    case "chevron-down":
+      return (
+        <Frame size={size} color={color}>
+          <Path {...STROKE_PROPS} stroke={color} d="M6 9l6 6 6-6" />
+        </Frame>
+      );
+    case "chevron-up":
+      return (
+        <Frame size={size} color={color}>
+          <Path {...STROKE_PROPS} stroke={color} d="M18 15l-6-6-6 6" />
+        </Frame>
+      );
+    case "globe":
+      return (
+        <Frame size={size} color={color}>
+          <Circle {...STROKE_PROPS} stroke={color} cx="12" cy="12" r="9" />
+          <Path
+            {...STROKE_PROPS}
+            stroke={color}
+            d="M3.6 9h16.8M3.6 15h16.8M12 3a14.5 14.5 0 0 0 0 18a14.5 14.5 0 0 0 0-18z"
+          />
+        </Frame>
+      );
+    case "alert-circle":
+      return (
+        <Frame size={size} color={color}>
+          <Circle {...STROKE_PROPS} stroke={color} cx="12" cy="12" r="9" />
+          <Path {...STROKE_PROPS} stroke={color} d="M12 8v4M12 16h.01" />
+        </Frame>
+      );
+    case "more-horizontal":
+      return (
+        <Frame size={size} color={color}>
+          <Circle cx="12" cy="12" r="1.5" fill={color} />
+          <Circle cx="6" cy="12" r="1.5" fill={color} />
+          <Circle cx="18" cy="12" r="1.5" fill={color} />
+        </Frame>
+      );
+    case "chevron-right":
+      return (
+        <Frame size={size} color={color}>
+          <Path {...STROKE_PROPS} stroke={color} d="M9 18l6-6-6-6" />
+        </Frame>
+      );
+    case "send":
+      return (
+        <Frame size={size} color={color}>
+          <Path {...STROKE_PROPS} stroke={color} fill={color} d="M4 20l16-8L4 4l0 6 10 2-10 2z" />
+        </Frame>
+      );
+    case "lock":
+      return (
+        <Frame size={size} color={color}>
+          <Rect {...STROKE_PROPS} stroke={color} x="5" y="11" width="14" height="9" rx="2" />
+          <Path {...STROKE_PROPS} stroke={color} d="M8 11V7a4 4 0 0 1 8 0v4" />
+          <Circle cx="12" cy="15.5" r="1.2" fill={color} stroke="none" />
+        </Frame>
+      );
+    case "phone":
+      return (
+        <Frame size={size} color={color}>
+          <Path
+            {...STROKE_PROPS}
+            stroke={color}
+            d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.2.2 2.4.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"
+          />
         </Frame>
       );
     default:

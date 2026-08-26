@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Redirect, Stack, useLocalSearchParams } from "expo-router";
 import type { BookingId } from "@dizkarte/domain";
 import { Screen } from "../../src/components/ui/Screen";
 import { Button } from "../../src/components/ui/Button";
@@ -24,7 +24,7 @@ type LoadState = "loading" | "loaded" | "denied" | "error";
  */
 export default function ReviewScreen() {
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
-  const { session } = useSession();
+  const { session, status } = useSession();
   const { repository, notifyChanged } = useMarketplace();
   const [pair, setPair] = useState<ReviewPairView | null>(null);
   const [state, setState] = useState<LoadState>("loading");
@@ -79,7 +79,8 @@ export default function ReviewScreen() {
     }
   }, [session, bookingId, score, comment, repository, notifyChanged, load]);
 
-  if (!session) return <DeniedState description="Sign in to leave a review." />;
+  if (status === "loading") return <LoadingState label="Loading" />;
+  if (!session) return <Redirect href="/(auth)/welcome" />;
   if (state === "loading") return <LoadingState label="Loading review status" />;
   if (state === "error") return <ErrorState onRetry={load} />;
   if (state === "denied" || !pair) {
@@ -92,8 +93,8 @@ export default function ReviewScreen() {
   }
 
   return (
-    <Screen>
-      <Stack.Screen options={{ headerShown: true, title: "Review" }} />
+    <Screen subPageTitle="Review">
+      <Stack.Screen options={{ headerShown: false }} />
 
       {!pair.myReview ? (
         <View style={styles.section}>
@@ -165,7 +166,11 @@ function ScoreSelector({
           accessibilityRole="radio"
           accessibilityLabel={`${n} star${n === 1 ? "" : "s"}`}
           accessibilityState={{ selected: value === n }}
-          style={[styles.scoreButton, value === n ? styles.scoreButtonSelected : null]}
+          style={({ pressed }) => [
+            styles.scoreButton,
+            value === n ? styles.scoreButtonSelected : null,
+            pressed ? { opacity: 0.8, transform: [{ scale: 0.92 }] } : null,
+          ]}
         >
           <Text style={value === n ? styles.scoreTextSelected : styles.scoreText}>{n}</Text>
         </Pressable>

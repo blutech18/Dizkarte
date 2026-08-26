@@ -58,7 +58,10 @@ const KNOWN_CAPABILITIES: ReadonlyArray<UserCapability> = [
 function toAccountStatus(value: string | undefined): AccountStatus {
   // Any unrecognized/absent status is treated as the most restrictive value
   // so a malformed row can never be read as an active account.
-  return value === "active" || value === "suspended" || value === "banned" || value === "deactivated"
+  return value === "active" ||
+    value === "suspended" ||
+    value === "banned" ||
+    value === "deactivated"
     ? (value as AccountStatus)
     : "deactivated";
 }
@@ -130,7 +133,11 @@ export async function loadUserContext(
 ): Promise<UserContext | null> {
   const [profileRes, capsRes, verifRes, appRes, taskerRes] = await Promise.all([
     client.from("profiles").select("display_name,account_status").eq("id", userId).maybeSingle(),
-    client.from("user_capabilities").select("capability").eq("user_id", userId).is("revoked_at", null),
+    client
+      .from("user_capabilities")
+      .select("capability")
+      .eq("user_id", userId)
+      .is("revoked_at", null),
     client
       .from("verification_cases")
       .select("status")
@@ -145,7 +152,11 @@ export async function loadUserContext(
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
-    client.from("tasker_profiles").select("approved_at,suspended_at").eq("user_id", userId).maybeSingle(),
+    client
+      .from("tasker_profiles")
+      .select("approved_at,suspended_at")
+      .eq("user_id", userId)
+      .maybeSingle(),
   ]);
 
   if (profileRes.error) {

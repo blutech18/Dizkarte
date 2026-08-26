@@ -59,9 +59,7 @@ export default async function PaymentDetailPage({
   // CONFIRMED covers a provider-confirmed payment whose ledger movement has not
   // been recorded yet; RELEASED/REFUNDED/FAILED are terminal for this purpose.
   const freezeEligible =
-    detail.status === "PROTECTED" ||
-    detail.status === "CAPTURED" ||
-    detail.status === "CONFIRMED";
+    detail.status === "PROTECTED" || detail.status === "CAPTURED" || detail.status === "CONFIRMED";
 
   return (
     <>

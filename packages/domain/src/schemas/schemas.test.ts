@@ -88,6 +88,44 @@ describe("createTaskSchema", () => {
     });
     expect(result.success).toBe(false);
   });
+
+  it("keeps a chosen time of day", () => {
+    const parsed = createTaskSchema.parse({
+      categoryId: "00000000-0000-4000-8000-000000000001",
+      title: "Fix a leaking faucet",
+      description: "The kitchen faucet has been leaking for two days and needs repair.",
+      budgetCentavos: 50000,
+      timeOfDay: "morning",
+      publicLocation: validPublicLocation,
+      privateLocation: validPrivateLocation,
+    });
+    expect(parsed.timeOfDay).toBe("morning");
+  });
+
+  it("treats an absent time of day as flexible rather than a failure", () => {
+    const parsed = createTaskSchema.parse({
+      categoryId: "00000000-0000-4000-8000-000000000001",
+      title: "Fix a leaking faucet",
+      description: "The kitchen faucet has been leaking for two days and needs repair.",
+      budgetCentavos: 50000,
+      publicLocation: validPublicLocation,
+      privateLocation: validPrivateLocation,
+    });
+    expect(parsed.timeOfDay ?? null).toBeNull();
+  });
+
+  it("rejects a time of day outside the supported slots", () => {
+    const result = createTaskSchema.safeParse({
+      categoryId: "00000000-0000-4000-8000-000000000001",
+      title: "Fix a leaking faucet",
+      description: "The kitchen faucet has been leaking for two days and needs repair.",
+      budgetCentavos: 50000,
+      timeOfDay: "midnight",
+      publicLocation: validPublicLocation,
+      privateLocation: validPrivateLocation,
+    });
+    expect(result.success).toBe(false);
+  });
 });
 
 describe("submitOfferSchema", () => {
@@ -127,6 +165,14 @@ describe("taskSearchSchema", () => {
 
   it("caps page size at the maximum", () => {
     expect(taskSearchSchema.safeParse({ pageSize: 1000 }).success).toBe(false);
+  });
+
+  it("accepts the supply-side no-offers filter and leaves it optional", () => {
+    // Absent means "off": the builder omits the key entirely, and migration 0047
+    // treats a null flag as unfiltered, so the two ends agree.
+    expect(taskSearchSchema.parse({}).noOffersOnly).toBeUndefined();
+    expect(taskSearchSchema.parse({ noOffersOnly: true }).noOffersOnly).toBe(true);
+    expect(taskSearchSchema.safeParse({ noOffersOnly: "yes" }).success).toBe(false);
   });
 });
 

@@ -29,12 +29,14 @@ export function PaymentActionsPanel({
         triggerLabel="Refund"
         triggerVariant="destructive"
         title="Refund payment"
-        description="Refunds require an approved Philippine payment provider and refund policy. This control is disabled until that integration exists."
+        description="Records a refund request and asks the provider to refund the payer. The money moves only when the provider's refund is confirmed. Audited with your identity, reason, and timestamp."
         confirmLabel="Refund"
         requireReason
-        disabled
-        disabledReason={refundDisabledReason}
-        onConfirm={(reason) => requestRefundAction({ paymentIntentId, reason })}
+        onConfirm={async (reason) => {
+          const result = await requestRefundAction({ paymentIntentId, reason });
+          if (result.ok) router.refresh();
+          return result;
+        }}
       />
       <ConfirmDialog
         triggerLabel="Release"

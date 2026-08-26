@@ -66,6 +66,26 @@ describe("synthetic task feed", () => {
     }
   });
 
+  it("filters to tasks nobody has offered on", async () => {
+    // The supply-side filter from the marketplace reference: a Tasker looking for
+    // winnable work. Mirrors migration 0047's `p_no_offers_only` predicate.
+    const all = await searchOpenTasksSynthetic({ page: 1, pageSize: 50 });
+    const unquoted = await searchOpenTasksSynthetic({
+      page: 1,
+      pageSize: 50,
+      noOffersOnly: true,
+    });
+
+    expect(unquoted.items.length).toBeGreaterThan(0);
+    for (const item of unquoted.items) {
+      expect(item.offerCount).toBe(0);
+    }
+    // It must actually narrow the set, otherwise the assertion above passes
+    // trivially on a fixture where nothing has offers.
+    expect(all.items.some((item) => item.offerCount > 0)).toBe(true);
+    expect(unquoted.items.length).toBeLessThan(all.items.length);
+  });
+
   it("sorts by highest budget descending", async () => {
     const page = await searchOpenTasksSynthetic({
       page: 1,

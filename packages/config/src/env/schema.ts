@@ -10,10 +10,12 @@ import { ADAPTER_MODES, APP_ENVIRONMENTS } from "./types.js";
  */
 
 const nonEmpty = z.string().trim().min(1);
-const optionalString = z.preprocess(
-  (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
-  z.string().trim().min(1).optional(),
-).transform((value) => value ?? null);
+const optionalString = z
+  .preprocess(
+    (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
+    z.string().trim().min(1).optional(),
+  )
+  .transform((value) => value ?? null);
 
 const adapterMode = z.enum(ADAPTER_MODES);
 

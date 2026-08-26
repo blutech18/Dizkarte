@@ -82,11 +82,25 @@ export interface PaymentProvider {
   fetchOperation(reference: string): Promise<ProviderOperation>;
 }
 
+/** A ranked free-text place-search result. Coordinates are precise (server-side). */
+export interface PlaceSuggestion {
+  /** Human-readable place label, e.g. a formatted address or locality name. */
+  readonly description: string;
+  readonly lat: number;
+  readonly lng: number;
+}
+
 /** Map provider port. Public DTOs use only approximate/offset coordinates. */
 export interface MapProvider {
   readonly mode: AdapterMode;
   geocode(query: string): Promise<{ lat: number; lng: number } | null>;
   reverseGeocode(lat: number, lng: number): Promise<{ address: string } | null>;
+  /**
+   * Free-text place search returning ranked suggestions for an autocomplete-style
+   * UI. Returns an empty array when nothing matches or the provider is
+   * unavailable — implementations must fail soft rather than throw.
+   */
+  searchPlaces(query: string): Promise<ReadonlyArray<PlaceSuggestion>>;
   approximate(lat: number, lng: number): { lat: number; lng: number };
   distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number;
 }

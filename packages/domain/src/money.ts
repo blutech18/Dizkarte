@@ -95,6 +95,26 @@ export function formatPhp(centavos: number): string {
 }
 
 /**
+ * Format a *signed* amount for display: derived balances, ledger sums, and
+ * reconciliation differences are aggregates, not amounts being created, so a
+ * negative result is meaningful information (an anomaly to surface) rather than
+ * invalid input. Rendering it must never throw and take a screen down with it.
+ *
+ * Amounts that are being created or moved must keep using `money()` /
+ * `assertAmountInBounds` / `formatPhp`, which reject negatives by design.
+ */
+export function formatPhpSigned(centavos: number): string {
+  if (!isSafeCentavos(centavos)) {
+    throw new MoneyError("Amount must be an integer number of centavos.");
+  }
+  const magnitude = Math.abs(centavos);
+  if (magnitude > MONEY_LIMITS.maxAmountCentavos) {
+    throw new MoneyError("Amount exceeds the maximum allowed value.");
+  }
+  return centavos < 0 ? `-${formatPhp(magnitude)}` : formatPhp(magnitude);
+}
+
+/**
  * Zod schema for an integer-centavo amount from untrusted input. Rejects
  * floats, NaN, negatives, and out-of-range values. `min` defaults to 1 centavo.
  */

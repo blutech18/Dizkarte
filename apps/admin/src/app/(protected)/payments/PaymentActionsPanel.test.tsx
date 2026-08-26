@@ -13,7 +13,7 @@ vi.mock("./actions", () => ({
 import { PaymentActionsPanel } from "./PaymentActionsPanel";
 
 describe("PaymentActionsPanel", () => {
-  it("keeps Refund and Release disabled with an explicit unapproved-provider reason", () => {
+  it("enables Refund (audited dispatch) and keeps Release disabled with a reason", () => {
     render(
       <PaymentActionsPanel
         paymentIntentId="pin-0001"
@@ -22,11 +22,14 @@ describe("PaymentActionsPanel", () => {
       />,
     );
 
-    expect(screen.getByRole("button", { name: "Refund" })).toBeDisabled();
+    // Refund is a real, audited control now that a provider can be configured;
+    // capability, booking state, and provider-readiness are enforced server-side.
+    expect(screen.getByRole("button", { name: "Refund" })).not.toBeDisabled();
+    // Release remains disabled pending an approved release/payout policy.
     expect(screen.getByRole("button", { name: "Release" })).toBeDisabled();
     expect(
       screen.getAllByText("No approved Philippine payment provider integration exists yet.").length,
-    ).toBeGreaterThanOrEqual(2);
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it("enables Freeze when the payment is eligible, and always disables Unfreeze", () => {

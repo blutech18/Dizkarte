@@ -6,15 +6,20 @@ record with governed privileged functions, and Expo mobile and Next.js Admin
 apps.
 
 > Status: **foundation + backend + full mobile and Admin frontend** implemented
-> and verified. Non-database checks pass (format, lint, strict typecheck, 316
-> unit/integration + E2E tests, shared/Admin builds, Expo config/export). The
-> Supabase backend (migrations `0001`–`0014`, RLS, storage, privileged RPCs,
-> security hardening) has now been **executed against a real Postgres** via the
-> Supabase CLI on a local stack: all migrations apply cleanly and the three SQL
-> suites pass (`ledger_and_constraints` 4/4, `rls_enabled` 3/3,
-> `security_hardening` 30/30) — see `docs/acceptance/production-readiness-review.md`.
-> Still not production-ready: live payments/maps/push/store and legal policies
-> are Client-owned blockers (B1–B10).
+> and verified, through the Milestone 3 (Phase 3) scope. Non-database checks pass
+> (format, lint, strict typecheck, 690 unit/integration + E2E tests, shared/Admin
+> builds, Expo config/export). The Supabase backend (migrations `0001`–`0050`,
+> RLS, storage, privileged RPCs, security hardening, notification producers) has
+> been **executed against a real PostgreSQL 17**: every migration applies from
+> scratch and all eight SQL suites pass (`ledger_and_constraints` 4/4,
+> `rls_enabled` 3/3, `security_hardening` 30/30,
+> `milestone3_reviews_notifications` 14/14, `conversation_read_state` 8/8,
+> `task_feed_filters` 6/6, `report_submission` 10/10, `admin_case_subject` 15/15)
+> — reproduce with `npm run test:sql`; see
+> `docs/acceptance/milestone-3-evidence.md` and
+> `docs/acceptance/production-readiness-review.md`.
+> Still not production-ready: live payments/maps/push credentials/store and legal
+> policies are Client-owned blockers (B1–B10).
 
 ## Repository layout
 
@@ -29,8 +34,8 @@ supabase/
   migrations/ extensions, schema, constraints, indexes, RLS, storage, RPCs
   functions/  Edge Functions (payment-webhook, health)
   tests/      database self-check SQL
-docs/
-  architecture/  operations/  acceptance/
+docs/         architecture/ operations/ acceptance/ — NOT tracked in git
+              (delivered separately; present in the working copy only)
 .github/workflows/  CI
 ```
 

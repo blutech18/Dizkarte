@@ -12,6 +12,9 @@ describe("toNotificationType", () => {
   it("passes through the event types written by migration 0020 triggers", () => {
     expect(toNotificationType("OFFER_RECEIVED")).toBe("OFFER_RECEIVED");
     expect(toNotificationType("VERIFICATION_DECISION")).toBe("VERIFICATION_DECISION");
+    // Without this entry the fallback below would relabel a trust & safety
+    // decision as "New message", which is worse than showing nothing.
+    expect(toNotificationType("REPORT_RESOLVED")).toBe("REPORT_RESOLVED");
   });
 
   it("maps the legacy category strings written by the payment RPCs", () => {
@@ -35,7 +38,7 @@ describe("toNotificationType", () => {
 
 describe("toNotificationResourceType", () => {
   it("accepts the resource types the triggers attach", () => {
-    for (const value of ["task", "booking", "conversation", "dispute", "review"]) {
+    for (const value of ["task", "booking", "conversation", "dispute", "review", "report"]) {
       expect(toNotificationResourceType(value)).toBe(value);
     }
   });

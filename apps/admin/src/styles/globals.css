@@ -357,7 +357,9 @@ textarea {
   border-radius: var(--dk-radius-md);
   padding: 24px;
   box-shadow: var(--dk-shadow-sm);
-  transition: box-shadow var(--dk-transition-fast), border-color var(--dk-transition-fast);
+  transition:
+    box-shadow var(--dk-transition-fast),
+    border-color var(--dk-transition-fast);
 }
 
 .dk-card:hover {
@@ -386,7 +388,10 @@ textarea {
   text-decoration: none;
   color: inherit;
   box-shadow: var(--dk-shadow-sm);
-  transition: transform var(--dk-transition-fast), box-shadow var(--dk-transition-fast), border-color var(--dk-transition-fast);
+  transition:
+    transform var(--dk-transition-fast),
+    box-shadow var(--dk-transition-fast),
+    border-color var(--dk-transition-fast);
   overflow: hidden;
 }
 
@@ -560,7 +565,9 @@ textarea {
   background: var(--dk-surface);
   color: var(--dk-textPrimary);
   min-height: 42px;
-  transition: border-color var(--dk-transition-fast), box-shadow var(--dk-transition-fast);
+  transition:
+    border-color var(--dk-transition-fast),
+    box-shadow var(--dk-transition-fast);
 }
 
 .dk-input:hover,
@@ -691,13 +698,13 @@ textarea {
   color: var(--dk-textPrimary);
 }
 
-.dk-table th:nth-child(n+2),
-.dk-table td:nth-child(n+2) {
+.dk-table th:nth-child(n + 2),
+.dk-table td:nth-child(n + 2) {
   text-align: center;
 }
 
-.dk-table td:nth-child(n+2) > div,
-.dk-table td:nth-child(n+2) > form {
+.dk-table td:nth-child(n + 2) > div,
+.dk-table td:nth-child(n + 2) > form {
   justify-content: center;
 }
 
@@ -827,21 +834,60 @@ textarea {
 }
 
 /* Stagger shimmer per child so it looks like sequential loading */
-.dk-skeleton-bone:nth-child(2) { animation-delay: 0.08s; }
-.dk-skeleton-bone:nth-child(3) { animation-delay: 0.16s; }
-.dk-skeleton-bone:nth-child(4) { animation-delay: 0.24s; }
-.dk-skeleton-bone:nth-child(5) { animation-delay: 0.32s; }
-.dk-skeleton-bone:nth-child(6) { animation-delay: 0.4s; }
+.dk-skeleton-bone:nth-child(2) {
+  animation-delay: 0.08s;
+}
+.dk-skeleton-bone:nth-child(3) {
+  animation-delay: 0.16s;
+}
+.dk-skeleton-bone:nth-child(4) {
+  animation-delay: 0.24s;
+}
+.dk-skeleton-bone:nth-child(5) {
+  animation-delay: 0.32s;
+}
+.dk-skeleton-bone:nth-child(6) {
+  animation-delay: 0.4s;
+}
 
 /* Preset sizes */
-.dk-skeleton-bone--title   { height: 28px; width: 45%; }
-.dk-skeleton-bone--subtitle { height: 14px; width: 65%; margin-top: 10px; }
-.dk-skeleton-bone--text    { height: 12px; width: 100%; }
-.dk-skeleton-bone--text-sm { height: 12px; width: 70%; }
-.dk-skeleton-bone--badge   { height: 22px; width: 72px; border-radius: 999px; }
-.dk-skeleton-bone--breadcrumb { height: 14px; width: 200px; margin-bottom: 8px; }
-.dk-skeleton-bone--input   { height: 36px; width: 240px; border-radius: var(--dk-radius-sm); }
-.dk-skeleton-bone--btn     { height: 32px; width: 72px; border-radius: var(--dk-radius-sm); }
+.dk-skeleton-bone--title {
+  height: 28px;
+  width: 45%;
+}
+.dk-skeleton-bone--subtitle {
+  height: 14px;
+  width: 65%;
+  margin-top: 10px;
+}
+.dk-skeleton-bone--text {
+  height: 12px;
+  width: 100%;
+}
+.dk-skeleton-bone--text-sm {
+  height: 12px;
+  width: 70%;
+}
+.dk-skeleton-bone--badge {
+  height: 22px;
+  width: 72px;
+  border-radius: 999px;
+}
+.dk-skeleton-bone--breadcrumb {
+  height: 14px;
+  width: 200px;
+  margin-bottom: 8px;
+}
+.dk-skeleton-bone--input {
+  height: 36px;
+  width: 240px;
+  border-radius: var(--dk-radius-sm);
+}
+.dk-skeleton-bone--btn {
+  height: 32px;
+  width: 72px;
+  border-radius: var(--dk-radius-sm);
+}
 
 /* --- Skeleton page header --- */
 
@@ -901,16 +947,24 @@ textarea {
 
 /* Column layout helpers — default 4 columns */
 .dk-skeleton-table--cols-3 .dk-skeleton-table__head,
-.dk-skeleton-table--cols-3 .dk-skeleton-table__row { grid-template-columns: 1.4fr 1fr 1fr; }
+.dk-skeleton-table--cols-3 .dk-skeleton-table__row {
+  grid-template-columns: 1.4fr 1fr 1fr;
+}
 
 .dk-skeleton-table--cols-4 .dk-skeleton-table__head,
-.dk-skeleton-table--cols-4 .dk-skeleton-table__row { grid-template-columns: 1.4fr 1fr 1fr 1fr; }
+.dk-skeleton-table--cols-4 .dk-skeleton-table__row {
+  grid-template-columns: 1.4fr 1fr 1fr 1fr;
+}
 
 .dk-skeleton-table--cols-5 .dk-skeleton-table__head,
-.dk-skeleton-table--cols-5 .dk-skeleton-table__row { grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr; }
+.dk-skeleton-table--cols-5 .dk-skeleton-table__row {
+  grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr;
+}
 
 .dk-skeleton-table--cols-6 .dk-skeleton-table__head,
-.dk-skeleton-table--cols-6 .dk-skeleton-table__row { grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr 1fr; }
+.dk-skeleton-table--cols-6 .dk-skeleton-table__row {
+  grid-template-columns: 1.4fr 1fr 1fr 1fr 1fr 1fr;
+}
 
 /* --- Skeleton card grid (dashboard) --- */
 
@@ -964,10 +1018,16 @@ textarea {
 /* --- Responsive skeleton adjustments --- */
 
 @media (max-width: 768px) {
-  .dk-skeleton-table { display: none; }
+  .dk-skeleton-table {
+    display: none;
+  }
 
-  .dk-skeleton-bone--title { width: 70%; }
-  .dk-skeleton-bone--subtitle { width: 90%; }
+  .dk-skeleton-bone--title {
+    width: 70%;
+  }
+  .dk-skeleton-bone--subtitle {
+    width: 90%;
+  }
 
   .dk-skeleton-card-grid {
     grid-template-columns: 1fr;
@@ -1189,7 +1249,11 @@ textarea {
 .dk-hero {
   padding: 72px 24px 56px;
   text-align: center;
-  background: radial-gradient(circle at 50% 0%, var(--dk-surfaceBrand) 0%, var(--dk-background) 75%);
+  background: radial-gradient(
+    circle at 50% 0%,
+    var(--dk-surfaceBrand) 0%,
+    var(--dk-background) 75%
+  );
 }
 
 .dk-hero-badge {
@@ -1366,7 +1430,10 @@ textarea {
   background: var(--dk-surface);
   border: 1px solid var(--dk-borderSubtle);
   box-shadow: var(--dk-shadow-sm);
-  transition: transform var(--dk-transition-fast), box-shadow var(--dk-transition-fast), border-color var(--dk-transition-fast);
+  transition:
+    transform var(--dk-transition-fast),
+    box-shadow var(--dk-transition-fast),
+    border-color var(--dk-transition-fast);
   position: relative;
 }
 
@@ -1488,7 +1555,11 @@ textarea {
   align-items: center;
   justify-content: center;
   padding: 24px 20px;
-  background: radial-gradient(circle at 50% 35%, var(--dk-surfaceBrand) 0%, var(--dk-background) 75%);
+  background: radial-gradient(
+    circle at 50% 35%,
+    var(--dk-surfaceBrand) 0%,
+    var(--dk-background) 75%
+  );
 }
 
 .dk-auth-card {
@@ -1850,7 +1921,6 @@ textarea {
   }
 }
 
-
 /* ---------- Media moderation gallery ---------- */
 
 /*
@@ -1900,4 +1970,17 @@ textarea {
 .dk-media-title {
   margin: 0;
   font-weight: 600;
+}
+
+/* Verbatim user content under moderation review. Visually separated so a
+   moderator never mistakes a reported message for Admin copy. */
+.dk-quote {
+  margin: 12px 0 0;
+  padding: 12px 16px;
+  border-left: 3px solid var(--dk-borderControl);
+  background: var(--dk-surfaceSubtle);
+  border-radius: 0 var(--dk-radius-sm) var(--dk-radius-sm) 0;
+  color: var(--dk-textPrimary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

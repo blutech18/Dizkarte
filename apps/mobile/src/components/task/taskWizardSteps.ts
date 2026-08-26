@@ -10,12 +10,12 @@ import type { TaskDraftFormValue } from "./taskDraftValue";
  */
 
 export const WIZARD_STEP_IDS = [
-  "category",
   "title",
-  "description",
-  "budget",
   "schedule",
   "location",
+  "description",
+  "photos",
+  "budget",
   "review",
 ] as const;
 
@@ -31,15 +31,8 @@ const MAX_BUDGET_CENTAVOS = 100_000_000;
 const LANDMARK_MAX = 200;
 const ADDRESS_MAX = 500;
 
-/**
- * The steps to show.
- *
- * The category step is dropped when the Client arrived from a category tile on
- * Home — re-asking for something they just chose is friction, and the value is
- * still editable from the review step.
- */
-export function stepsFor(categoryPreselected: boolean): ReadonlyArray<WizardStepId> {
-  return WIZARD_STEP_IDS.filter((id) => id !== "category" || !categoryPreselected);
+export function stepsFor(): ReadonlyArray<WizardStepId> {
+  return WIZARD_STEP_IDS;
 }
 
 /** Parse the budget field into centavos. Returns null when not a usable number. */
@@ -52,40 +45,34 @@ export function budgetToCentavos(input: string): number | null {
 }
 
 /**
+ * A required category question, reduced to what validation needs.
+ *
+ * Threaded in rather than imported so this module stays pure data-in/data-out:
+ * the questions come from the database at runtime, and passing none (the
+ * default) means "no category questions apply" — which is what the single-page
+ * edit form wants.
+ */
+export type RequiredQuestion = {
+  readonly id: string;
+  readonly label: string;
+};
+
+/**
  * Validation message for a step, or null when the step is satisfied.
  *
  * `review` has no rules of its own: it is a confirmation of already-valid steps.
  */
-export function validateStep(step: WizardStepId, form: TaskDraftFormValue): string | null {
+export function validateStep(
+  step: WizardStepId,
+  form: TaskDraftFormValue,
+  requiredQuestions: ReadonlyArray<RequiredQuestion> = [],
+): string | null {
   switch (step) {
-    case "category":
-      return form.categoryId ? null : "Choose a category to continue.";
-
     case "title": {
       const title = form.title.trim();
       if (title.length === 0) return "Give your task a title.";
       if (title.length < TITLE_MIN) return `Use at least ${TITLE_MIN} characters.`;
       if (title.length > TITLE_MAX) return `Keep the title under ${TITLE_MAX} characters.`;
-      return null;
-    }
-
-    case "description": {
-      const description = form.description.trim();
-      if (description.length === 0) return "Describe what needs to be done.";
-      if (description.length < DESCRIPTION_MIN) {
-        return `Add a little more detail — at least ${DESCRIPTION_MIN} characters.`;
-      }
-      if (description.length > DESCRIPTION_MAX) {
-        return `Keep the description under ${DESCRIPTION_MAX} characters.`;
-      }
-      return null;
-    }
-
-    case "budget": {
-      const centavos = budgetToCentavos(form.budget);
-      if (centavos === null) return "Enter your budget.";
-      if (centavos < MIN_BUDGET_CENTAVOS) return "Budget must be at least ₱20.00.";
-      if (centavos > MAX_BUDGET_CENTAVOS) return "That budget is too large.";
       return null;
     }
 
@@ -105,9 +92,41 @@ export function validateStep(step: WizardStepId, form: TaskDraftFormValue): stri
       const landmark = form.landmark.trim();
       const address = form.exactAddress.trim();
       if (landmark.length === 0) return "Add a public landmark so Taskers know the area.";
-      if (landmark.length > LANDMARK_MAX) return `Keep the landmark under ${LANDMARK_MAX} characters.`;
+      if (landmark.length > LANDMARK_MAX)
+        return `Keep the landmark under ${LANDMARK_MAX} characters.`;
+      if (!form.cityCode) return "Select the city or municipality.";
+      if (!form.barangayCode) return "Select the barangay.";
       if (address.length === 0) return "Add the exact address. It stays private until you book.";
       if (address.length > ADDRESS_MAX) return `Keep the address under ${ADDRESS_MAX} characters.`;
+      return null;
+    }
+
+    case "description": {
+      const description = form.description.trim();
+      if (description.length === 0) return "Describe what needs to be done.";
+      if (description.length < DESCRIPTION_MIN) {
+        return `Add a little more detail — at least ${DESCRIPTION_MIN} characters.`;
+      }
+      if (description.length > DESCRIPTION_MAX) {
+        return `Keep the description under ${DESCRIPTION_MAX} characters.`;
+      }
+      // Category questions marked required in the catalogue must be answered
+      // before continuing — they are what Taskers quote against.
+      const unanswered = requiredQuestions.find(
+        (question) => (form.categoryAnswers[question.id] ?? "").trim().length === 0,
+      );
+      if (unanswered) return `Answer "${unanswered.label}" so Taskers can quote.`;
+      return null;
+    }
+
+    case "photos":
+      return null;
+
+    case "budget": {
+      const centavos = budgetToCentavos(form.budget);
+      if (centavos === null) return "Enter your budget.";
+      if (centavos < MIN_BUDGET_CENTAVOS) return "Budget must be at least ₱20.00.";
+      if (centavos > MAX_BUDGET_CENTAVOS) return "That budget is too large.";
       return null;
     }
 
@@ -117,8 +136,12 @@ export function validateStep(step: WizardStepId, form: TaskDraftFormValue): stri
 }
 
 /** Whether the Continue button on a step should be enabled. */
-export function canContinue(step: WizardStepId, form: TaskDraftFormValue): boolean {
-  return validateStep(step, form) === null;
+export function canContinue(
+  step: WizardStepId,
+  form: TaskDraftFormValue,
+  requiredQuestions: ReadonlyArray<RequiredQuestion> = [],
+): boolean {
+  return validateStep(step, form, requiredQuestions) === null;
 }
 
 /** 1-based position, for "Step 2 of 6" and the progress bar. */
@@ -142,6 +165,7 @@ export function stepProgress(
 export function firstIncompleteStep(
   steps: ReadonlyArray<WizardStepId>,
   form: TaskDraftFormValue,
+  requiredQuestions: ReadonlyArray<RequiredQuestion> = [],
 ): WizardStepId | null {
-  return steps.find((step) => validateStep(step, form) !== null) ?? null;
+  return steps.find((step) => validateStep(step, form, requiredQuestions) !== null) ?? null;
 }

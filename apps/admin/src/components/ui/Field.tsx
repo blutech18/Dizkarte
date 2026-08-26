@@ -10,11 +10,20 @@ export function Breadcrumbs({
       {items.map((item, index) => {
         const isLast = index === items.length - 1;
         return (
-          <span key={`${item.label}-${index}`} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span
+            key={`${item.label}-${index}`}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
+          >
             {item.href && !isLast ? (
               <a href={item.href}>{item.label}</a>
             ) : (
-              <span aria-current={isLast ? "page" : undefined} style={{ fontWeight: isLast ? 700 : 500, color: isLast ? "var(--dk-textPrimary)" : "inherit" }}>
+              <span
+                aria-current={isLast ? "page" : undefined}
+                style={{
+                  fontWeight: isLast ? 700 : 500,
+                  color: isLast ? "var(--dk-textPrimary)" : "inherit",
+                }}
+              >
                 {item.label}
               </span>
             )}

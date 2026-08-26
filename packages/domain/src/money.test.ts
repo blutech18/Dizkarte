@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
+import { MONEY_LIMITS } from "@dizkarte/config";
 import {
   addMoney,
   applyFeeBps,
   centavosSchema,
   currencySchema,
   formatPhp,
+  formatPhpSigned,
   MoneyError,
   money,
   subtractMoney,
@@ -60,6 +62,28 @@ describe("formatPhp", () => {
   it("formats centavos as PHP", () => {
     expect(formatPhp(123456)).toBe("₱1,234.56");
     expect(formatPhp(5)).toBe("₱0.05");
+  });
+
+  it("rejects a negative amount", () => {
+    expect(() => formatPhp(-1)).toThrow(/cannot be negative/);
+  });
+});
+
+describe("formatPhpSigned", () => {
+  it("formats non-negative amounts exactly like formatPhp", () => {
+    expect(formatPhpSigned(123456)).toBe("₱1,234.56");
+    expect(formatPhpSigned(0)).toBe("₱0.00");
+  });
+
+  it("formats a negative derived balance instead of throwing", () => {
+    expect(formatPhpSigned(-10000)).toBe("-₱100.00");
+    expect(formatPhpSigned(-5)).toBe("-₱0.05");
+  });
+
+  it("still rejects non-integer and out-of-range values", () => {
+    expect(() => formatPhpSigned(1.5)).toThrow(/integer/);
+    expect(() => formatPhpSigned(Number.NaN)).toThrow(/integer/);
+    expect(() => formatPhpSigned(-(MONEY_LIMITS.maxAmountCentavos + 1))).toThrow(/maximum/);
   });
 });
 

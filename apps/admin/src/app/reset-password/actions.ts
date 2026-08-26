@@ -24,7 +24,8 @@ async function requestOrigin(): Promise<string> {
 
   const headerList = await headers();
   const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "localhost:3000";
-  const proto = headerList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  const proto =
+    headerList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   return `${proto}://${host}`;
 }
 
@@ -32,7 +33,9 @@ export async function requestResetAction(
   _prev: ResetRequestState,
   formData: FormData,
 ): Promise<ResetRequestState> {
-  const parsed = passwordResetRequestSchema.safeParse({ email: String(formData.get("email") ?? "") });
+  const parsed = passwordResetRequestSchema.safeParse({
+    email: String(formData.get("email") ?? ""),
+  });
   if (!parsed.success) {
     return { error: "Enter a valid email address.", sent: false };
   }

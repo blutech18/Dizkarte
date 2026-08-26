@@ -5,6 +5,7 @@ import { registerSchema } from "@dizkarte/domain";
 import { Screen } from "../../src/components/ui/Screen";
 import { TextField } from "../../src/components/ui/TextField";
 import { Button } from "../../src/components/ui/Button";
+import { AuthBackButton } from "../../src/components/auth/AuthBackButton";
 import { useSession } from "../../src/providers/SessionProvider";
 import { resendConfirmation } from "../../src/services/auth";
 import { SocialSignIn } from "../../src/components/auth/SocialSignIn";
@@ -63,6 +64,7 @@ export default function RegisterScreen() {
   if (awaitingConfirmation) {
     return (
       <Screen>
+        <AuthBackButton fallback="/(auth)/welcome" />
         <View style={styles.centerContainer}>
           <View style={styles.formContent}>
             <Text style={styles.title}>Confirm your email</Text>
@@ -94,6 +96,7 @@ export default function RegisterScreen() {
 
   return (
     <Screen>
+      <AuthBackButton fallback="/(auth)/welcome" />
       <View style={styles.centerContainer}>
         <View style={styles.formContent}>
           <Image
@@ -108,7 +111,11 @@ export default function RegisterScreen() {
           <Text style={styles.subtitle}>Sign up to post tasks or offer services on Dizkarte.</Text>
 
           {formError ? (
-            <Text style={styles.formError} accessibilityRole="alert" accessibilityLiveRegion="polite">
+            <Text
+              style={styles.formError}
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite"
+            >
               {formError}
             </Text>
           ) : null}

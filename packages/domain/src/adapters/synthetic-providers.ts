@@ -26,6 +26,22 @@ export class SyntheticMapProvider implements MapProvider {
     return { address: `Synthetic address near ${lat.toFixed(3)}, ${lng.toFixed(3)}` };
   }
 
+  async searchPlaces(
+    query: string,
+  ): Promise<ReadonlyArray<{ description: string; lat: number; lng: number }>> {
+    const trimmed = query.trim();
+    if (trimmed.length === 0) return [];
+    // Deterministic set of pseudo-suggestions around the geocoded anchor so the
+    // dev/test autocomplete UI has stable, non-empty results to render.
+    const base = (await this.geocode(trimmed)) ?? { lat: 14.5, lng: 120.98 };
+    const areas = ["Barangay Centro", "City Proper", "Riverside"];
+    return areas.map((area, i) => ({
+      description: `${trimmed} — ${area} (synthetic)`,
+      lat: this.approximateValue(base.lat + i / 100),
+      lng: this.approximateValue(base.lng + i / 100),
+    }));
+  }
+
   approximate(lat: number, lng: number): { lat: number; lng: number } {
     return { lat: this.approximateValue(lat), lng: this.approximateValue(lng) };
   }

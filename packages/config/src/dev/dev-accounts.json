@@ -49,7 +49,14 @@
       "capabilities": ["CLIENT"],
       "verified": true,
       "tasker": null,
-      "purpose": "Identity approved. Owns the seeded open tasks. Post, edit and publish tasks, browse, select an offer."
+      "purpose": "Identity approved. Owns the seeded open tasks. Post, edit and publish tasks, browse, select an offer.",
+      "profile": {
+        "mobile": "+639171234567",
+        "cityCode": "137404",
+        "barangayCode": "137404014",
+        "language": "en",
+        "bio": "Homeowner in Quezon City. I post household tasks — cleaning, minor repairs, and errands — and prefer verified Taskers who arrive on time and communicate clearly."
+      }
     },
     {
       "email": "tasker@dev.dizkarte.invalid",
@@ -59,7 +66,14 @@
       "capabilities": ["CLIENT", "TASKER"],
       "verified": true,
       "tasker": "APPROVED",
-      "purpose": "Approved and unsuspended. Submit and withdraw offers, Tasker Dashboard, edit the public Tasker profile."
+      "purpose": "Approved and unsuspended. Submit and withdraw offers, Tasker Dashboard, edit the public Tasker profile.",
+      "profile": {
+        "mobile": "+639285551212",
+        "cityCode": "137404",
+        "barangayCode": "137404022",
+        "language": "en",
+        "bio": "Multi-skilled Tasker serving Metro Manila. Aircon servicing, plumbing, and flat-pack furniture assembly, with my own tools. Verified identity and consistently on schedule."
+      }
     },
     {
       "email": "tasker-applicant@dev.dizkarte.invalid",
@@ -69,7 +83,14 @@
       "capabilities": ["CLIENT"],
       "verified": true,
       "tasker": "IN_REVIEW",
-      "purpose": "Application in review. Populates the Admin approvals queue. Cannot submit offers yet, which is correct."
+      "purpose": "Application in review. Populates the Admin approvals queue. Cannot submit offers yet, which is correct.",
+      "profile": {
+        "mobile": "+639173334455",
+        "cityCode": "137404",
+        "barangayCode": "137404031",
+        "language": "fil",
+        "bio": "Applying to become a Tasker. Background in deep cleaning and organizing for condos and small offices around Quezon City."
+      }
     },
     {
       "email": "new-user@dev.dizkarte.invalid",

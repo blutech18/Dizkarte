@@ -41,7 +41,10 @@ describe("mapUserContext", () => {
       source({
         capabilities: [{ capability: "TASKER" }],
         latestApplication: { status: "SUSPENDED" },
-        taskerProfile: { approved_at: "2026-07-01T00:00:00Z", suspended_at: "2026-07-10T00:00:00Z" },
+        taskerProfile: {
+          approved_at: "2026-07-01T00:00:00Z",
+          suspended_at: "2026-07-10T00:00:00Z",
+        },
       }),
     );
     expect(suspended.taskerApproved).toBe(false);
@@ -58,7 +61,9 @@ describe("mapUserContext", () => {
 
   it("drops unknown capability strings and never trusts them", () => {
     const ctx = mapUserContext(
-      source({ capabilities: [{ capability: "CLIENT" }, { capability: "ROOT" }, { capability: "" }] }),
+      source({
+        capabilities: [{ capability: "CLIENT" }, { capability: "ROOT" }, { capability: "" }],
+      }),
     );
     expect(ctx.capabilities).toEqual(["CLIENT"]);
   });

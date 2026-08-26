@@ -38,57 +38,134 @@ if (!SUPABASE_URL || !KEY) {
 /** Relations (tables + views) the apps read. */
 const EXPECTED_RELATIONS = [
   // identity
-  "profiles", "user_capabilities", "verification_cases", "verification_documents",
+  "profiles",
+  "user_capabilities",
+  "verification_cases",
+  "verification_documents",
   // taskers
-  "tasker_applications", "tasker_profiles", "specialties", "tasker_specialties",
-  "service_areas", "portfolio_items", "payout_methods",
+  "tasker_applications",
+  "tasker_profiles",
+  "specialties",
+  "tasker_specialties",
+  "service_areas",
+  "portfolio_items",
+  "payout_methods",
   // marketplace
-  "categories", "tasks", "task_public_locations", "task_private_locations",
-  "task_media", "task_questions", "offers", "bookings", "booking_events", "offer_events",
+  "categories",
+  "tasks",
+  "task_public_locations",
+  "task_private_locations",
+  "task_media",
+  "task_questions",
+  "offers",
+  "bookings",
+  "booking_events",
+  "offer_events",
   // messaging / notifications
-  "conversations", "conversation_participants", "messages", "message_media",
-  "notifications", "notification_preferences",
+  "conversations",
+  "conversation_participants",
+  "messages",
+  "message_media",
+  "notifications",
+  "notification_preferences",
   // finance
-  "payment_intents", "provider_events", "ledger_accounts", "ledger_transactions",
-  "ledger_entries", "refunds", "withdrawals",
+  "payment_intents",
+  "provider_events",
+  "ledger_accounts",
+  "ledger_transactions",
+  "ledger_entries",
+  "refunds",
+  "withdrawals",
   // safety / ops
-  "reviews", "reports", "disputes", "support_tickets", "ticket_messages",
-  "evidence", "moderation_actions", "audit_logs", "app_settings",
+  "reviews",
+  "reports",
+  "disputes",
+  "support_tickets",
+  "ticket_messages",
+  "evidence",
+  "moderation_actions",
+  "audit_logs",
+  "app_settings",
+  // registration / localities / guided questions (0034, 0035, 0038)
+  "billing_addresses",
+  "psgc_cities_municipalities",
+  "psgc_barangays",
+  "task_question_definitions",
+  "task_answers",
   // views
-  "public_task_feed", "public_tasker_profiles",
-  "admin_report_queue", "admin_dispute_queue", "admin_ticket_queue", "admin_verification_queue",
+  "public_task_feed",
+  "public_tasker_profiles",
+  "public_profiles",
+  "admin_report_queue",
+  "admin_dispute_queue",
+  "admin_ticket_queue",
+  "admin_verification_queue",
 ];
 
 /** RPCs grouped by the migration that introduced them. */
 const EXPECTED_RPCS = {
   "0008 / 0011 marketplace": [
-    "search_open_tasks", "publish_task", "submit_offer", "select_offer",
-    "start_booking", "request_completion", "confirm_completion_and_release",
-    "open_dispute", "submit_review", "request_withdrawal", "decide_verification",
+    "search_open_tasks",
+    "publish_task",
+    "submit_offer",
+    "select_offer",
+    "start_booking",
+    "request_completion",
+    "confirm_completion_and_release",
+    "open_dispute",
+    "submit_review",
+    "request_withdrawal",
+    "decide_verification",
   ],
   "0012 admin": ["decide_tasker_application", "admin_refund", "admin_freeze"],
   "0013 admin assign / transition / audited reads": [
-    "admin_assign_report", "admin_assign_dispute", "admin_assign_ticket", "admin_assign_verification",
-    "admin_transition_report", "admin_transition_dispute", "admin_transition_ticket",
-    "admin_read_report_case", "admin_read_dispute_case", "admin_read_ticket_case",
-    "admin_read_ticket_messages", "admin_read_conversation_messages",
-    "admin_read_conversation_media", "admin_read_verification_case",
-    "admin_read_evidence", "admin_read_task_location", "admin_authorize_object_read",
+    "admin_assign_report",
+    "admin_assign_dispute",
+    "admin_assign_ticket",
+    "admin_assign_verification",
+    "admin_transition_report",
+    "admin_transition_dispute",
+    "admin_transition_ticket",
+    "admin_read_report_case",
+    "admin_read_dispute_case",
+    "admin_read_ticket_case",
+    "admin_read_ticket_messages",
+    "admin_read_conversation_messages",
+    "admin_read_conversation_media",
+    "admin_read_verification_case",
+    "admin_read_evidence",
+    "admin_read_task_location",
+    "admin_authorize_object_read",
   ],
   "0016 admin ops (NEW)": [
-    "admin_set_account_status", "admin_moderate_task", "admin_create_category",
-    "admin_rename_category", "admin_set_category_active", "admin_reorder_category",
+    "admin_set_account_status",
+    "admin_moderate_task",
+    "admin_create_category",
+    "admin_rename_category",
+    "admin_set_category_active",
+    "admin_reorder_category",
   ],
   "0017 offer withdrawal (NEW)": ["withdraw_offer"],
   "0018 profile self-service (NEW)": ["update_tasker_public_profile"],
   "0019 own ledger balances (NEW)": ["my_ledger_balances"],
   "0021 verification submission + review reveal (NEW)": [
-    "start_verification", "submit_verification", "get_review_pair",
+    "start_verification",
+    "submit_verification",
+    "get_review_pair",
   ],
   "0023 review moderation (NEW)": ["admin_moderate_review"],
   "0024 geospatial feed search (NEW)": ["search_task_feed"],
   "0025 media moderation (NEW)": ["admin_moderate_task_media"],
   "0027 abandoned checkout recovery (NEW)": ["cancel_unpaid_booking"],
+  "0030 tasker application submission (NEW)": ["submit_tasker_application"],
+  "0032 admin operational settings (NEW)": ["admin_update_setting"],
+  "0034 offer registration (NEW)": [
+    "save_registration_mobile",
+    "add_payout_method",
+    "save_billing_address",
+    "my_offer_registration_status",
+  ],
+  "0040 owner task cancellation (NEW)": ["cancel_own_task"],
   // 0020 (notification emission) intentionally contributes nothing here: it is
   // made up of `app.*` helpers and AFTER triggers, neither of which PostgREST
   // describes. Confirm it applied by causing an event (submit an offer) and
@@ -98,6 +175,16 @@ const EXPECTED_RPCS = {
   // `messages` and `notifications` members of `supabase_realtime`. Confirm it in
   // the dashboard under Database > Publications, or by watching chat update
   // without a manual refresh.
+  //
+  // 0028 (avatars bucket) and 0035's storage policies act on `storage.*`, which
+  // PostgREST does not describe. 0031 (notification alert categories), 0033 and
+  // 0036 (ledger guards) change CHECK constraints and `app.*` trigger functions
+  // only. None of these can be asserted here; verify them via the dashboard or a
+  // behavioural test.
+  //
+  // WHEN ADDING A MIGRATION: if it introduces a relation, view, or RPC, list it
+  // above. If it only adds columns, add them to EXPECTED_COLUMNS — otherwise
+  // this script will pass while the apps break at runtime.
 };
 
 /**
@@ -133,6 +220,48 @@ const EXPECTED_NEW_VIEWS = {
   "0017 offer withdrawal (NEW)": ["task_locations_readable", "task_private_locations_readable"],
   "0023 review moderation (NEW)": ["admin_review_queue"],
   "0025 media moderation (NEW)": ["admin_task_media_queue"],
+  "0029 public profile reads (NEW)": ["public_profiles"],
+};
+
+/**
+ * Columns that later migrations ADD to relations that already existed.
+ *
+ * This check exists because relation/RPC presence is not enough. A migration
+ * that only adds a column leaves every relation and function already in place,
+ * so this script reported "All expected schema objects are present" while
+ * `tasks.time_of_day`, `tasks.location_type`, and
+ * `task_public_locations.dropoff_landmark` were all missing — and the mobile app
+ * failed at runtime with `400 Bad Request` the moment it named one of them in a
+ * PostgREST `select`. Column drift is the failure mode this catches.
+ *
+ * The column names come from the same OpenAPI description already fetched above
+ * (`definitions[relation].properties`), so this costs no extra request and stays
+ * read-only.
+ */
+const EXPECTED_COLUMNS = {
+  "0034 offer registration": {
+    profiles: ["mobile_verified_at"],
+    // Free-text address fields, deliberately not PSGC codes: a billing address
+    // is a provider/tax artefact, not a discoverable task locality.
+    billing_addresses: ["user_id", "line1", "city", "postal_code", "country"],
+  },
+  "0037 support ticket subject": {
+    support_tickets: ["subject_type", "subject_id"],
+  },
+  "0038 guided category questions": {
+    task_question_definitions: ["category_id", "label", "input_kind", "required", "sort_order"],
+    task_answers: ["task_id", "question_id", "answer"],
+  },
+  "0039 task time of day": {
+    tasks: ["time_of_day"],
+  },
+  "0041 task location type + drop-off": {
+    tasks: ["location_type"],
+    task_public_locations: ["dropoff_landmark"],
+    // The coordinate-readable view must expose it too, or the owner-facing read
+    // silently loses the field even though the base table has it.
+    task_locations_readable: ["dropoff_landmark"],
+  },
 };
 
 async function fetchOpenApi() {
@@ -159,9 +288,15 @@ async function main() {
   const paths = Object.keys(spec.paths ?? {});
 
   const relations = new Set(
-    paths.filter((p) => p.startsWith("/") && !p.startsWith("/rpc/") && p.length > 1).map((p) => p.slice(1)),
+    paths
+      .filter((p) => p.startsWith("/") && !p.startsWith("/rpc/") && p.length > 1)
+      .map((p) => p.slice(1)),
   );
-  const rpcs = new Set(paths.filter((p) => p.startsWith("/rpc/")).map((p) => p.slice("/rpc/".length)));
+  const rpcs = new Set(
+    paths.filter((p) => p.startsWith("/rpc/")).map((p) => p.slice("/rpc/".length)),
+  );
+  // Swagger 2.0 (what PostgREST emits) carries per-relation column definitions.
+  const definitions = spec.definitions ?? spec.components?.schemas ?? {};
 
   const failures = [];
 
@@ -173,6 +308,25 @@ async function main() {
     failures.push(...report(label, names, relations));
   }
 
+  console.log("\nColumns added by later migrations");
+  for (const [label, byRelation] of Object.entries(EXPECTED_COLUMNS)) {
+    const missing = [];
+    let checked = 0;
+    for (const [relation, columns] of Object.entries(byRelation)) {
+      const present = new Set(Object.keys(definitions[relation]?.properties ?? {}));
+      for (const column of columns) {
+        checked += 1;
+        // An absent relation is already reported above; flag the column against
+        // it anyway so the cause is unambiguous rather than silently skipped.
+        if (!present.has(column)) missing.push(`${relation}.${column}`);
+      }
+    }
+    const mark = missing.length === 0 ? "OK  " : "FAIL";
+    console.log(`  [${mark}] ${label} — ${checked - missing.length}/${checked}`);
+    for (const name of missing) console.log(`         missing: ${name}`);
+    failures.push(...missing);
+  }
+
   console.log("\nFunctions (RPCs)");
   for (const [label, names] of Object.entries(EXPECTED_RPCS)) {
     failures.push(...report(label, names, rpcs));
@@ -180,15 +334,11 @@ async function main() {
 
   console.log("\nInternal functions that must stay unexposed");
   const leaked = FORBIDDEN_RPCS.filter((name) => rpcs.has(name));
-  console.log(
-    `  [${leaked.length === 0 ? "OK  " : "FAIL"}] ${FORBIDDEN_RPCS.length} checked`,
-  );
+  console.log(`  [${leaked.length === 0 ? "OK  " : "FAIL"}] ${FORBIDDEN_RPCS.length} checked`);
   for (const name of leaked) console.log(`         unexpectedly exposed: ${name}`);
   failures.push(...leaked);
 
-  console.log(
-    `\nExposed by PostgREST: ${relations.size} relations, ${rpcs.size} functions.`,
-  );
+  console.log(`\nExposed by PostgREST: ${relations.size} relations, ${rpcs.size} functions.`);
 
   if (failures.length > 0) {
     console.error(`\n${failures.length} expected object(s) missing. Apply the pending migrations.`);

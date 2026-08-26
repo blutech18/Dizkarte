@@ -12,7 +12,11 @@ export default function ResetPasswordPage() {
       <main id="dk-main-content" className="dk-auth-shell">
         <div className="dk-auth-card">
           <div className="dk-auth-logo">
-            <img src="/brand/text-icon-logo.png" alt="Dizkarte" style={{ height: 44, width: "auto" }} />
+            <img
+              src="/brand/text-icon-logo.png"
+              alt="Dizkarte"
+              style={{ height: 44, width: "auto" }}
+            />
           </div>
           <h1 className="dk-auth-title">Reset Your Password</h1>
           <p className="dk-auth-subtitle">

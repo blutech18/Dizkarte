@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { formatPhp } from "@dizkarte/domain";
+import { formatPhpSigned } from "@dizkarte/domain";
 import { getAdminRepository } from "@/lib/repository";
 import { requireAdminSession } from "@/lib/session";
 
@@ -23,8 +23,7 @@ export default async function DashboardPage() {
   const snapshot = await repository.getDashboardSnapshot();
 
   const isFinanceOrSuper =
-    session.capabilities.includes("ADMIN_FINANCE") ||
-    session.capabilities.includes("ADMIN_SUPER");
+    session.capabilities.includes("ADMIN_FINANCE") || session.capabilities.includes("ADMIN_SUPER");
 
   const cards: ReadonlyArray<MetricCard> = [
     {
@@ -36,7 +35,16 @@ export default async function DashboardPage() {
       visible: true,
       urgent: snapshot.pendingVerificationCount > 0,
       icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
           <path d="m9 12 2 2 4-4" />
         </svg>
@@ -51,7 +59,16 @@ export default async function DashboardPage() {
       visible: true,
       urgent: snapshot.pendingTaskerApplicationCount > 0,
       icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
           <circle cx="9" cy="7" r="4" />
           <polyline points="16 11 18 13 22 9" />
@@ -67,7 +84,16 @@ export default async function DashboardPage() {
       visible: true,
       urgent: snapshot.openReportCount > 0,
       icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
           <line x1="4" y1="22" x2="4" y2="15" />
         </svg>
@@ -82,7 +108,16 @@ export default async function DashboardPage() {
       visible: true,
       urgent: snapshot.openDisputeCount > 0,
       icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <circle cx="12" cy="12" r="10" />
           <line x1="12" y1="8" x2="12" y2="12" />
           <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -98,7 +133,16 @@ export default async function DashboardPage() {
       visible: true,
       urgent: snapshot.openTicketCount > 0,
       icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
         </svg>
       ),
@@ -112,7 +156,16 @@ export default async function DashboardPage() {
       visible: true,
       urgent: snapshot.attentionBookingCount > 0,
       icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
           <line x1="16" y1="2" x2="16" y2="6" />
           <line x1="8" y1="2" x2="8" y2="6" />
@@ -129,7 +182,16 @@ export default async function DashboardPage() {
       visible: isFinanceOrSuper,
       urgent: snapshot.quarantinedPaymentEventCount > 0,
       icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
           <line x1="1" y1="10" x2="23" y2="10" />
         </svg>
@@ -144,7 +206,16 @@ export default async function DashboardPage() {
       visible: isFinanceOrSuper,
       urgent: snapshot.pendingWithdrawalCount > 0,
       icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <line x1="12" y1="1" x2="12" y2="23" />
           <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
         </svg>
@@ -153,12 +224,21 @@ export default async function DashboardPage() {
     {
       href: "/payments",
       label: "Ledger balance (all events)",
-      value: formatPhp(snapshot.netLedgerBalanceCentavos),
+      value: formatPhpSigned(snapshot.netLedgerBalanceCentavos),
       hint: "Sum of processed provider events — reconciliation view, not a live P&L",
       category: "finance",
       visible: isFinanceOrSuper,
       icon: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <line x1="18" y1="20" x2="18" y2="10" />
           <line x1="12" y1="20" x2="12" y2="4" />
           <line x1="6" y1="20" x2="6" y2="14" />
@@ -183,23 +263,53 @@ export default async function DashboardPage() {
       </div>
 
       <div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-          <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--dk-textPrimary)", display: "flex", alignItems: "center", gap: 8 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 999, background: "var(--dk-primary)" }} />
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 16,
+          }}
+        >
+          <h2
+            style={{
+              fontSize: 16,
+              fontWeight: 700,
+              margin: 0,
+              color: "var(--dk-textPrimary)",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <span
+              style={{ width: 8, height: 8, borderRadius: 999, background: "var(--dk-primary)" }}
+            />
             Operational Queues
           </h2>
-          <span className="dk-badge dk-badge-neutral">{operationalCards.length} queues monitored</span>
+          <span className="dk-badge dk-badge-neutral">
+            {operationalCards.length} queues monitored
+          </span>
         </div>
         <div className="dk-card-grid">
           {operationalCards.map((card) => (
             <a key={card.href} href={card.href} className="dk-stat-card">
               <span className="dk-stat-card-label">
                 <span>{card.label}</span>
-                <span className="dk-nav-link-icon" style={{ opacity: card.urgent ? 1 : 0.6, color: card.urgent ? "var(--dk-warningOnSoft)" : "inherit" }}>
+                <span
+                  className="dk-nav-link-icon"
+                  style={{
+                    opacity: card.urgent ? 1 : 0.6,
+                    color: card.urgent ? "var(--dk-warningOnSoft)" : "inherit",
+                  }}
+                >
                   {card.icon}
                 </span>
               </span>
-              <span className="dk-stat-card-value" style={{ color: card.urgent ? "var(--dk-textPrimary)" : undefined }}>
+              <span
+                className="dk-stat-card-value"
+                style={{ color: card.urgent ? "var(--dk-textPrimary)" : undefined }}
+              >
                 {card.value}
               </span>
               <span className="dk-stat-card-hint">{card.hint}</span>
@@ -210,9 +320,33 @@ export default async function DashboardPage() {
 
       {financeCards.length > 0 ? (
         <div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: "var(--dk-textPrimary)", display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ width: 8, height: 8, borderRadius: 999, background: "var(--dk-successOnSoft)" }} />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 16,
+            }}
+          >
+            <h2
+              style={{
+                fontSize: 16,
+                fontWeight: 700,
+                margin: 0,
+                color: "var(--dk-textPrimary)",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+              }}
+            >
+              <span
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 999,
+                  background: "var(--dk-successOnSoft)",
+                }}
+              />
               Financial Oversight & Reconciliation
             </h2>
             <span className="dk-badge dk-badge-info">Finance Admin Scope</span>
@@ -222,7 +356,10 @@ export default async function DashboardPage() {
               <a key={card.href} href={card.href} className="dk-stat-card">
                 <span className="dk-stat-card-label">
                   <span>{card.label}</span>
-                  <span className="dk-nav-link-icon" style={{ opacity: 0.8, color: "var(--dk-primary)" }}>
+                  <span
+                    className="dk-nav-link-icon"
+                    style={{ opacity: 0.8, color: "var(--dk-primary)" }}
+                  >
                     {card.icon}
                   </span>
                 </span>
@@ -236,4 +373,3 @@ export default async function DashboardPage() {
     </section>
   );
 }
-

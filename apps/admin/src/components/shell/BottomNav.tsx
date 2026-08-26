@@ -25,7 +25,11 @@ export function BottomNav({
           const Icon = item.icon;
           return (
             <li key={item.href}>
-              <a href={item.href} className="dk-bottom-nav-item" aria-current={active ? "page" : undefined}>
+              <a
+                href={item.href}
+                className="dk-bottom-nav-item"
+                aria-current={active ? "page" : undefined}
+              >
                 {Icon ? <Icon width={20} height={20} aria-hidden="true" /> : null}
                 <span>{item.label}</span>
               </a>

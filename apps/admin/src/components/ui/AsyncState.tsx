@@ -235,7 +235,16 @@ export function EmptyState({
   return (
     <div className="dk-state" role="status">
       <div className="dk-state-icon" aria-hidden="true">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
           <polyline points="13 2 13 9 20 9" />
         </svg>
@@ -258,8 +267,21 @@ export function ErrorState({
 }) {
   return (
     <div className="dk-state" role="alert">
-      <div className="dk-state-icon" style={{ background: "var(--dk-errorSoft)", color: "var(--dk-errorOnSoft)" }} aria-hidden="true">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <div
+        className="dk-state-icon"
+        style={{ background: "var(--dk-errorSoft)", color: "var(--dk-errorOnSoft)" }}
+        aria-hidden="true"
+      >
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <circle cx="12" cy="12" r="10" />
           <line x1="12" y1="8" x2="12" y2="12" />
           <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -281,8 +303,21 @@ export function DeniedState({
 }) {
   return (
     <div className="dk-state" role="alert">
-      <div className="dk-state-icon" style={{ background: "var(--dk-warningSoft)", color: "var(--dk-warningOnSoft)" }} aria-hidden="true">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <div
+        className="dk-state-icon"
+        style={{ background: "var(--dk-warningSoft)", color: "var(--dk-warningOnSoft)" }}
+        aria-hidden="true"
+      >
+        <svg
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
           <path d="M7 11V7a5 5 0 0 1 10 0v4" />
         </svg>

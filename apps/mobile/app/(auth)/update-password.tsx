@@ -5,6 +5,8 @@ import { passwordSchema } from "@dizkarte/domain";
 import { Screen } from "../../src/components/ui/Screen";
 import { TextField } from "../../src/components/ui/TextField";
 import { Button } from "../../src/components/ui/Button";
+import { AuthBackButton } from "../../src/components/auth/AuthBackButton";
+import { useSession } from "../../src/providers/SessionProvider";
 import { updatePassword } from "../../src/services/auth";
 import { theme, spacing, fontSize } from "../../src/theme";
 
@@ -21,6 +23,13 @@ export default function UpdatePasswordScreen() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const { signOut } = useSession();
+
+  /** Abandon the reset: end the temporary recovery session and return to sign-in. */
+  async function handleCancel() {
+    await signOut();
+    router.replace("/(auth)/sign-in");
+  }
 
   async function handleSubmit() {
     setFormError(null);
@@ -51,6 +60,11 @@ export default function UpdatePasswordScreen() {
 
   return (
     <Screen>
+      <AuthBackButton
+        fallback="/(auth)/sign-in"
+        onPress={handleCancel}
+        accessibilityLabel="Cancel password reset"
+      />
       <View style={styles.centerContainer}>
         <View style={styles.formContent}>
           <Text style={styles.title}>Set a new password</Text>
