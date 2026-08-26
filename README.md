@@ -6,9 +6,9 @@ record with governed privileged functions, and Expo mobile and Next.js Admin
 apps.
 
 > Status: **foundation + backend + full mobile and Admin frontend** implemented
-> and verified, through the Milestone 3 (Phase 3) scope. Non-database checks pass
-> (format, lint, strict typecheck, 690 unit/integration + E2E tests, shared/Admin
-> builds, Expo config/export). The Supabase backend (migrations `0001`–`0050`,
+> and verified, through the Milestone 3 (Phase 3) scope, tagged `milestone-3`.
+> Non-database checks pass (format, lint, strict typecheck, 692 unit/integration
+> + E2E tests with 7 env-gated skips, shared/Admin builds, Expo config/export). The Supabase backend (migrations `0001`–`0050`,
 > RLS, storage, privileged RPCs, security hardening, notification producers) has
 > been **executed against a real PostgreSQL 17**: every migration applies from
 > scratch and all eight SQL suites pass (`ledger_and_constraints` 4/4,
