@@ -17,7 +17,11 @@ declare
     'notifications','notification_preferences','payment_intents','provider_events',
     'ledger_accounts','ledger_transactions','ledger_entries','refunds','withdrawals',
     'reviews','review_dimensions','reports','disputes','support_tickets',
-    'ticket_messages','evidence','moderation_actions','audit_logs','app_settings'
+    'ticket_messages','evidence','moderation_actions','audit_logs','app_settings',
+    -- Added 2026-08-26: these tables were introduced after this suite was
+    -- written and were therefore never asserted (0034/0035/0038).
+    'billing_addresses','psgc_cities_municipalities','psgc_barangays',
+    'task_question_definitions','task_answers'
   ];
 begin
   select string_agg(t, ', ') into v_missing
