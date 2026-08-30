@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { LinkButton } from "@/components/ui/Button";
 
 /**
@@ -8,10 +9,10 @@ import { LinkButton } from "@/components/ui/Button";
 export function PublicHeader({ variant = "landing" }: { readonly variant?: "landing" | "login" }) {
   return (
     <header className="dk-public-header">
-      <a href="/" className="dk-public-header-brand">
+      <Link href="/" className="dk-public-header-brand">
         <img src="/brand/app-icon-logo.png" alt="" />
         <span className="dk-public-header-brand-name">Dizkarte Admin</span>
-      </a>
+      </Link>
       <div className="dk-public-header-actions">
         {variant === "landing" ? (
           <LinkButton href="/login" variant="primary" size="sm">

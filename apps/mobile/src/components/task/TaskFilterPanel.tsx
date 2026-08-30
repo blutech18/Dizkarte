@@ -1,12 +1,20 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useCategories } from "../../providers/CategoriesProvider";
 import { theme, spacing, fontSize, lineHeight, radii, MIN_TOUCH_TARGET } from "../../theme";
 import { Button } from "../ui/Button";
-import { AnimatedFilterPressable, AnimatedFilterText } from "../ui/AnimatedFilterPressable";
 import { BottomSheetModal } from "../ui/BottomSheetModal";
-import { Icon } from "../ui/Icon";
 import { TextField } from "../ui/TextField";
+import {
+  DateFilterField,
+  FilterChoice,
+  FilterSectionAction,
+  FilterSectionHeader,
+  FilterHint,
+  FilterSwitchRow,
+  formatDateOnly,
+  parseDateOnly,
+} from "../ui/FilterSheetParts";
 import { LocalityPicker, type LocalityValue } from "./LocalityPicker";
 import { CalendarPickerModal } from "./TaskSchedulePicker";
 import {
@@ -303,54 +311,30 @@ export function TaskFilterPanel({ visible, filters, onApply, onClose }: TaskFilt
               description="Use the calendar for a date range, or only show tasks needed today."
               action={
                 hasScheduleFilter ? (
-                  <Pressable
-                    onPress={resetSchedule}
-                    accessibilityRole="button"
+                  <FilterSectionAction
+                    label="Reset"
                     accessibilityLabel="Reset schedule filters"
-                    style={({ pressed }) => [
-                      styles.sectionAction,
-                      pressed ? styles.sectionActionPressed : null,
-                    ]}
-                  >
-                    <Text style={styles.sectionActionText}>Reset</Text>
-                  </Pressable>
+                    onPress={resetSchedule}
+                  />
                 ) : null
               }
             />
 
-            <View style={styles.switchRow}>
-              <View style={styles.switchCopy}>
-                <Text style={styles.controlTitle}>Same-day tasks only</Text>
-                <Text style={styles.controlDescription}>
-                  Only include tasks that need help today.
-                </Text>
+            <View style={styles.fieldGrid}>
+              <View style={styles.fieldColumn}>
+                <FilterSwitchRow
+                  title="Needed today"
+                  value={sameDayOnly}
+                  onValueChange={setSameDayOnly}
+                />
               </View>
-              <Switch
-                value={sameDayOnly}
-                onValueChange={setSameDayOnly}
-                accessibilityLabel="Same-day tasks only"
-                accessibilityRole="switch"
-              />
-            </View>
-
-            {/*
-              Supply-side filter. Deliberately phrased as the Tasker's question
-              ("nobody has quoted this yet") rather than a Client-facing
-              popularity signal.
-            */}
-            <View style={styles.switchRow}>
-              <View style={styles.switchCopy}>
-                <Text style={styles.controlTitle}>No offers yet</Text>
-                <Text style={styles.controlDescription}>
-                  Only include tasks nobody has made an offer on.
-                </Text>
+              <View style={styles.fieldColumn}>
+                <FilterSwitchRow
+                  title="No offers yet"
+                  value={noOffersOnly}
+                  onValueChange={setNoOffersOnly}
+                />
               </View>
-              <Switch
-                value={noOffersOnly}
-                onValueChange={setNoOffersOnly}
-                accessibilityLabel="Tasks with no offers yet"
-                accessibilityRole="switch"
-              />
             </View>
 
             <View style={styles.fieldGrid}>
@@ -381,7 +365,9 @@ export function TaskFilterPanel({ visible, filters, onApply, onClose }: TaskFilt
               description="Search the official PSGC directory by city or municipality, then optionally narrow to a barangay."
               action={
                 locality.cityCode ? (
-                  <Pressable
+                  <FilterSectionAction
+                    label="Clear"
+                    accessibilityLabel="Clear location filters"
                     onPress={() =>
                       setLocality({
                         cityCode: null,
@@ -390,15 +376,7 @@ export function TaskFilterPanel({ visible, filters, onApply, onClose }: TaskFilt
                         barangayName: null,
                       })
                     }
-                    accessibilityRole="button"
-                    accessibilityLabel="Clear location filters"
-                    style={({ pressed }) => [
-                      styles.sectionAction,
-                      pressed ? styles.sectionActionPressed : null,
-                    ]}
-                  >
-                    <Text style={styles.sectionActionText}>Clear</Text>
-                  </Pressable>
+                  />
                 ) : null
               }
             />
@@ -411,12 +389,7 @@ export function TaskFilterPanel({ visible, filters, onApply, onClose }: TaskFilt
               responsive
             />
 
-            <View style={styles.inlineHint}>
-              <Icon name="map-pin" size={17} color={theme.infoOnSoft} />
-              <Text style={styles.inlineHintText}>
-                Results use canonical PSGC codes and never expose an exact task address.
-              </Text>
-            </View>
+            <FilterHint text="Results use canonical PSGC codes and never expose an exact task address." />
           </View>
 
           <View style={[styles.section, styles.lastSection]}>
@@ -459,145 +432,6 @@ export function TaskFilterPanel({ visible, filters, onApply, onClose }: TaskFilt
   );
 }
 
-function FilterSectionHeader({
-  title,
-  description,
-  action,
-}: {
-  readonly title: string;
-  readonly description: string;
-  readonly action?: ReactNode;
-}) {
-  return (
-    <View style={styles.sectionHeader}>
-      <View style={styles.sectionHeaderCopy}>
-        <Text style={styles.sectionTitle} accessibilityRole="header">
-          {title}
-        </Text>
-        <Text style={styles.sectionDescription}>{description}</Text>
-      </View>
-      {action}
-    </View>
-  );
-}
-
-function FilterChoice({
-  label,
-  selected,
-  disabled = false,
-  onPress,
-}: {
-  readonly label: string;
-  readonly selected: boolean;
-  readonly disabled?: boolean;
-  readonly onPress: () => void;
-}) {
-  return (
-    <AnimatedFilterPressable
-      selected={selected}
-      onPress={onPress}
-      disabled={disabled}
-      accessibilityRole="radio"
-      accessibilityLabel={label}
-      selectionAccessibilityState="checked"
-      style={styles.choice}
-      inactiveBackgroundColor={theme.surface}
-      selectedBackgroundColor={theme.primary}
-      inactiveBorderColor={theme.borderControl}
-      selectedBorderColor={theme.primary}
-      disabledBackgroundColor={theme.disabledBackground}
-      disabledBorderColor={theme.borderSubtle}
-    >
-      <AnimatedFilterText
-        style={styles.choiceText}
-        inactiveColor={theme.textPrimary}
-        selectedColor={theme.onPrimary}
-        disabled={disabled}
-        disabledColor={theme.disabledForeground}
-        numberOfLines={2}
-      >
-        {label}
-      </AnimatedFilterText>
-    </AnimatedFilterPressable>
-  );
-}
-
-function DateFilterField({
-  label,
-  value,
-  emptyLabel,
-  error,
-  onPress,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly emptyLabel: string;
-  readonly error?: string | undefined;
-  readonly onPress: () => void;
-}) {
-  const displayValue = value ? formatFriendlyDate(value) : emptyLabel;
-  return (
-    <View style={styles.dateField}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <Pressable
-        onPress={onPress}
-        accessibilityRole="button"
-        accessibilityLabel={`${label}: ${displayValue}`}
-        accessibilityHint="Opens a calendar"
-        style={({ pressed }) => [
-          styles.dateButton,
-          error ? styles.dateButtonError : null,
-          pressed ? styles.dateButtonPressed : null,
-        ]}
-      >
-        <View style={styles.dateButtonContent}>
-          <Icon name="calendar" size={18} color={value ? theme.primary : theme.textSecondary} />
-          <Text style={[styles.dateButtonText, value ? styles.dateButtonTextSelected : null]}>
-            {displayValue}
-          </Text>
-        </View>
-        <Icon name="chevron-right" size={16} color={theme.textSecondary} />
-      </Pressable>
-      {error ? (
-        <Text style={styles.fieldError} accessibilityRole="alert" accessibilityLiveRegion="polite">
-          {error}
-        </Text>
-      ) : null}
-    </View>
-  );
-}
-
-function parseDateOnly(value: string): Date | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
-  if (!match) return null;
-  const year = Number(match[1]);
-  const month = Number(match[2]) - 1;
-  const day = Number(match[3]);
-  const parsed = new Date(year, month, day);
-  if (parsed.getFullYear() !== year || parsed.getMonth() !== month || parsed.getDate() !== day) {
-    return null;
-  }
-  return parsed;
-}
-
-function formatDateOnly(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function formatFriendlyDate(value: string): string {
-  const parsed = parseDateOnly(value);
-  if (!parsed) return "Choose a date";
-  return parsed.toLocaleDateString("en-PH", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
 const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
@@ -605,7 +439,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: spacing.md,
     paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: theme.borderSubtle,
   },
@@ -637,16 +471,22 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: theme.borderSubtle,
   },
-  lastSection: { paddingBottom: 0, borderBottomWidth: 0 },
+  lastSection: {
+    paddingBottom: 0,
+    borderBottomWidth: 0,
+  },
   sectionHeader: {
-    minHeight: MIN_TOUCH_TARGET,
     flexDirection: "row",
-    alignItems: "flex-start",
     justifyContent: "space-between",
+    alignItems: "flex-start",
     gap: spacing.md,
   },
   sectionHeaderCopy: { flex: 1, minWidth: 0, gap: spacing.xs },
-  sectionTitle: { fontSize: fontSize.md, fontWeight: "800", color: theme.textPrimary },
+  sectionTitle: {
+    fontSize: fontSize.md,
+    fontWeight: "800",
+    color: theme.textPrimary,
+  },
   sectionDescription: {
     fontSize: fontSize.xs,
     lineHeight: lineHeight.xs,
@@ -658,8 +498,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     borderRadius: radii.sm,
   },
-  sectionActionPressed: { backgroundColor: theme.surfaceSubtle },
-  sectionActionText: { color: theme.primary, fontSize: fontSize.sm, fontWeight: "700" },
+  sectionActionPressed: {
+    backgroundColor: theme.surfaceSubtle,
+  },
+  sectionActionText: {
+    color: theme.primary,
+    fontSize: fontSize.sm,
+    fontWeight: "700",
+  },
   categoryChoiceGroups: { gap: spacing.sm },
   choiceGrid: {
     flexDirection: "row",
@@ -671,11 +517,11 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     flexBasis: "47%",
     minWidth: 0,
-    minHeight: 52,
+    height: 48,
+    minHeight: 48,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     borderWidth: 1,
     borderColor: theme.borderControl,
     borderRadius: radii.md,
@@ -694,31 +540,19 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   fieldColumn: { flexGrow: 1, flexShrink: 1, flexBasis: 260, minWidth: 0 },
-  filterField: { marginBottom: 0 },
   switchRow: {
-    minHeight: 72,
+    minHeight: 44,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderWidth: 1,
-    borderColor: theme.borderSubtle,
-    borderRadius: radii.md,
-    backgroundColor: theme.surfaceSubtle,
+    paddingVertical: spacing.xs,
   },
-  switchCopy: { flex: 1, minWidth: 0, gap: spacing.xs },
-  controlTitle: { fontSize: fontSize.sm, fontWeight: "800", color: theme.textPrimary },
-  controlDescription: {
-    fontSize: fontSize.xs,
-    lineHeight: lineHeight.xs,
-    color: theme.textSecondary,
-  },
+  controlTitle: { fontSize: fontSize.md, fontWeight: "600", color: theme.textPrimary },
   dateField: { gap: spacing.xs },
   fieldLabel: { fontSize: fontSize.sm, fontWeight: "700", color: theme.textPrimary },
   dateButton: {
-    minHeight: 52,
+    height: 48,
+    minHeight: 48,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -726,7 +560,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderWidth: 1,
     borderColor: theme.borderControl,
-    borderRadius: radii.sm,
+    borderRadius: radii.md,
     backgroundColor: theme.surface,
   },
   dateButtonError: { borderColor: theme.errorSolid },
@@ -785,8 +619,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
     borderTopWidth: 1,
     borderTopColor: theme.borderSubtle,
     backgroundColor: theme.surface,
@@ -794,3 +629,4 @@ const styles = StyleSheet.create({
   footerClearAction: { width: 128, flexShrink: 0 },
   footerApplyAction: { flexGrow: 1, flexShrink: 1, flexBasis: 140, minWidth: 0 },
 });
+

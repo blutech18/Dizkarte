@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Redirect, Stack, router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { TaskId } from "@dizkarte/domain";
@@ -11,6 +16,7 @@ import { AttachmentLabel } from "../../../src/components/ui/AttachmentLabel";
 import { SignedImage } from "../../../src/components/media/SignedImage";
 import { Icon, type IconName } from "../../../src/components/ui/Icon";
 import { LoadingState, ErrorState, DeniedState } from "../../../src/components/ui/AsyncState";
+import { KeyboardAvoider } from "../../../src/components/ui/KeyboardAvoider";
 import { useSession } from "../../../src/providers/SessionProvider";
 import { useMarketplace } from "../../../src/providers/MarketplaceProvider";
 import { isClient, isIdentityVerified } from "../../../src/services/session-types";
@@ -173,7 +179,7 @@ export default function PreviewTaskScreen() {
   return (
     <Screen subPageTitle="Review task" scroll={false} padded={false}>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={styles.page}>
+      <KeyboardAvoider style={styles.page}>
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={[styles.scrollContent, { paddingBottom: spacing.xl }]}
@@ -182,7 +188,7 @@ export default function PreviewTaskScreen() {
           <View style={[styles.contentFrame, { paddingHorizontal: gutter }]}>
             <View style={styles.container}>
               <View style={styles.taskDocument}>
-                <View style={styles.taskSummary}>
+                <View style={styles.taskSummaryCard}>
                   <Text style={styles.taskTitle} accessibilityRole="header">
                     {task.draft.title || "Untitled task"}
                   </Text>
@@ -192,10 +198,7 @@ export default function PreviewTaskScreen() {
                 </View>
                 <View style={styles.overviewCard}>
                   <View style={styles.summaryTopRow}>
-                    <View style={styles.taskTypeChip}>
-                      <Icon name="briefcase" size={15} color={theme.primary} />
-                      <Text style={styles.taskSummaryLabel}>TASK TO PUBLISH</Text>
-                    </View>
+                    <Text style={styles.overviewSectionTitle}>Details</Text>
                     <StatusBadge
                       tone="warning"
                       label="Draft"
@@ -206,14 +209,18 @@ export default function PreviewTaskScreen() {
                   <View style={styles.overviewDivider} />
 
                   <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>SCHEDULE</Text>
+                    <View style={styles.metaLabelRow}>
+                      <Icon name="calendar" size={14} color={theme.primary} />
+                      <Text style={styles.metaLabel}>SCHEDULE</Text>
+                    </View>
                     <Text style={styles.metaValue}>{taskTimingLabel(task.draft)}</Text>
                   </View>
 
-                  <View style={styles.overviewDivider} />
-
                   <View style={styles.metaRow}>
-                    <Text style={styles.metaLabel}>APPROXIMATE AREA</Text>
+                    <View style={styles.metaLabelRow}>
+                      <Icon name="map-pin" size={14} color={theme.primary} />
+                      <Text style={styles.metaLabel}>APPROXIMATE AREA</Text>
+                    </View>
                     <Text style={styles.metaValue}>
                       {task.draft.landmark?.trim() || "No landmark set"}
                     </Text>
@@ -223,12 +230,7 @@ export default function PreviewTaskScreen() {
 
                   <View style={styles.budgetRow}>
                     <Text style={styles.budgetLabel}>Starting budget</Text>
-                    <Text
-                      style={styles.budgetAmount}
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.75}
-                    >
+                    <Text style={styles.budgetAmount} numberOfLines={1}>
                       {budgetLabel}
                     </Text>
                   </View>
@@ -256,7 +258,7 @@ export default function PreviewTaskScreen() {
           </View>
         </ScrollView>
 
-        <View style={[styles.actionFooter, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
+        <View style={[styles.actionFooter, { paddingVertical: spacing.md }]}>
           <View style={[styles.actionFooterInner, { paddingHorizontal: gutter }]}>
             {isTablet ? (
               <View style={styles.footerContext}>
@@ -297,7 +299,7 @@ export default function PreviewTaskScreen() {
             </View>
           </View>
         </View>
-      </View>
+      </KeyboardAvoider>
     </Screen>
   );
 }
@@ -399,7 +401,7 @@ function TaskerVisibilityCard({ draft }: { readonly draft: DraftTaskInput }) {
           accessibilityRole="text"
           accessibilityLabel="Tasker-facing details: Public"
         >
-          <Icon name="eye" size={16} color={theme.successSolid} />
+          <Icon name="globe" size={16} color={theme.successSolid} />
           <Text style={styles.accessStateTextPublic}>Public</Text>
         </View>
       </View>
@@ -414,9 +416,7 @@ function TaskerVisibilityCard({ draft }: { readonly draft: DraftTaskInput }) {
           label="APPROXIMATE AREA"
           value={draft.landmark || "No landmark set"}
         />
-        <View style={styles.accessRowDivider} />
         <DetailBlock icon="calendar" label="SCHEDULE" value={taskTimingLabel(draft)} />
-        <View style={styles.accessRowDivider} />
         <DetailBlock
           icon="wallet"
           label="STARTING BUDGET"
@@ -601,9 +601,19 @@ const styles = StyleSheet.create({
     width: "100%",
     gap: spacing.lg,
   },
-  taskSummary: {
+  taskSummaryCard: {
     minWidth: 0,
+    backgroundColor: theme.surface,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    padding: spacing.lg,
     gap: spacing.sm,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
   },
   summaryTopRow: {
     minWidth: 0,
@@ -626,15 +636,15 @@ const styles = StyleSheet.create({
   },
   taskTitle: {
     color: theme.textPrimary,
-    fontSize: fontSize.lg,
-    lineHeight: lineHeight.lg,
+    fontSize: fontSize.xl,
+    lineHeight: lineHeight.xl,
     fontWeight: "800",
-    letterSpacing: -0.2,
+    letterSpacing: -0.3,
   },
   taskDescription: {
     color: theme.textSecondary,
     fontSize: fontSize.sm,
-    lineHeight: lineHeight.sm,
+    lineHeight: lineHeight.sm + 4,
   },
   overviewCard: {
     minWidth: 0,
@@ -649,6 +659,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 8,
     elevation: 2,
+  },
+  overviewSectionTitle: {
+    color: theme.textPrimary,
+    fontSize: fontSize.md,
+    fontWeight: "800",
   },
   taskTypeChip: {
     minWidth: 0,
@@ -670,6 +685,11 @@ const styles = StyleSheet.create({
     minWidth: 0,
     gap: 3,
     paddingVertical: 1,
+  },
+  metaLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
   },
   metaLabel: {
     color: theme.textSecondary,
@@ -758,18 +778,20 @@ const styles = StyleSheet.create({
   checkpointFacts: {
     minWidth: 0,
     borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: theme.borderSubtle,
+    borderTopColor: theme.borderSubtle,
+    gap: spacing.md,
+    paddingTop: spacing.md,
   },
   checkpointFactsTablet: {
     flexDirection: "row",
     alignItems: "stretch",
-    paddingVertical: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: 0,
+    gap: spacing.md,
   },
   checkpointFact: {
     minWidth: 0,
     gap: spacing.xs,
-    paddingVertical: spacing.md,
   },
   checkpointFactTablet: {
     flex: 1,
@@ -777,14 +799,10 @@ const styles = StyleSheet.create({
     paddingRight: spacing.md,
     paddingBottom: 0,
   },
-  checkpointFactSecondary: {
-    borderTopWidth: 1,
-    borderTopColor: theme.borderSubtle,
-  },
+  checkpointFactSecondary: {},
   checkpointFactSecondaryTablet: {
     paddingRight: 0,
     paddingLeft: spacing.md,
-    borderTopWidth: 0,
     borderLeftWidth: 1,
     borderLeftColor: theme.borderSubtle,
   },
@@ -854,11 +872,12 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderBottomWidth: 1,
     borderColor: theme.borderSubtle,
+    gap: spacing.md,
+    paddingVertical: spacing.md,
   },
   accessDetailBlock: {
     minWidth: 0,
     gap: spacing.xs,
-    paddingVertical: spacing.md,
   },
   accessRowLabel: {
     color: theme.textSecondary,
@@ -1026,10 +1045,15 @@ const styles = StyleSheet.create({
   actionFooter: {
     minWidth: 0,
     width: "100%",
-    paddingTop: spacing.sm,
+    paddingTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: theme.borderSubtle,
     backgroundColor: theme.surface,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
   },
   actionFooterInner: {
     minWidth: 0,
@@ -1039,7 +1063,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   footerContext: {
     minWidth: 0,
@@ -1062,7 +1086,7 @@ const styles = StyleSheet.create({
     width: "100%",
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   footerActionsTablet: {
     width: 378,
@@ -1070,7 +1094,7 @@ const styles = StyleSheet.create({
   },
   editAction: {
     minWidth: 0,
-    flex: 0.72,
+    flex: 0.85,
   },
   editActionTablet: {
     flex: 0,
@@ -1078,7 +1102,7 @@ const styles = StyleSheet.create({
   },
   primaryAction: {
     minWidth: 0,
-    flex: 1.28,
+    flex: 1.15,
   },
   primaryActionTablet: {
     flex: 0,

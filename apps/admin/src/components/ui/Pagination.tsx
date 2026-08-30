@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { AppLink } from "./AppLink";
 
 export type PaginationProps = {
   readonly page: number;
@@ -39,9 +40,9 @@ function PageLink({
     );
   }
   return (
-    <a className="dk-btn dk-btn-secondary dk-btn-sm" href={href} aria-label={label}>
+    <AppLink className="dk-btn dk-btn-secondary dk-btn-sm" href={href} aria-label={label}>
       {direction}
-    </a>
+    </AppLink>
   );
 }
 export function PageSection({

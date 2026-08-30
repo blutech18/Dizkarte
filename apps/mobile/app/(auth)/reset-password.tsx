@@ -106,10 +106,12 @@ export default function ResetPasswordScreen() {
 
 const styles = StyleSheet.create({
   centerContainer: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingBottom: spacing.xxl,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xxl + spacing.lg,
+    paddingHorizontal: spacing.md,
   },
   formContent: {
     width: "90%",

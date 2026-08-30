@@ -1815,8 +1815,17 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     _viewerId: string,
     onChange: () => void,
   ): () => void {
+    /*
+      A UNIQUE topic per call, for the same reason as `subscribeToNotifications`.
+      Supabase caches channels by topic, so a fixed `conversation:<id>` topic
+      returned the channel from a previous mount that was already subscribed, and
+      attaching this `.on(...)` to it threw "cannot add postgres_changes callbacks
+      ... after subscribe()". Re-entering the same chat, or any effect re-run
+      before the old channel finished being removed, was enough to trigger it.
+    */
+    realtimeChannelSeq += 1;
     const channel = this.client
-      .channel(`conversation:${conversationId}`)
+      .channel(`conversation:${conversationId}:${realtimeChannelSeq}`)
       .on(
         "postgres_changes",
         {
@@ -3033,3 +3042,4 @@ export function createSupabaseMarketplaceRepository(): SupabaseMarketplaceReposi
     return module.getSupabaseClient() as DizkarteSupabaseClient;
   });
 }
+

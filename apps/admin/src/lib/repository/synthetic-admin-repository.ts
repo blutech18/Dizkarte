@@ -11,6 +11,7 @@ import type {
   CategoryHistoryEvent,
   CategoryRow,
   DashboardSnapshot,
+  DashboardTrends,
   DisputeDetail,
   DisputeRow,
   AdminSettings,
@@ -49,6 +50,7 @@ import type {
   WithdrawalRow,
 } from "./types";
 import { PROVIDER_UNAVAILABLE } from "./types";
+import { buildDashboardTrends } from "./dashboard-trends";
 
 /**
  * Deterministic in-memory synthetic Admin data adapter.
@@ -114,6 +116,7 @@ function createSeedState(): SeedState {
       status: "SUBMITTED",
       submittedAt: "2026-07-18T02:00:00.000Z",
       documentCount: 2,
+      assignedAdminName: null,
       history: [
         {
           fromStatus: "DRAFT",
@@ -138,6 +141,7 @@ function createSeedState(): SeedState {
       status: "IN_REVIEW",
       submittedAt: "2026-07-17T09:30:00.000Z",
       documentCount: 3,
+      assignedAdminName: "Support Admin",
       history: [
         {
           fromStatus: "DRAFT",
@@ -173,6 +177,7 @@ function createSeedState(): SeedState {
       status: "RESUBMISSION_REQUIRED",
       submittedAt: "2026-07-15T05:12:00.000Z",
       documentCount: 2,
+      assignedAdminName: "Support Admin",
       history: [
         {
           fromStatus: "SUBMITTED",
@@ -1359,15 +1364,44 @@ export class SyntheticAdminRepository implements AdminRepository {
       attentionBookingCount: disputes.filter(
         (d) => d.status === "OPEN" || d.status === "UNDER_REVIEW",
       ).length,
-      revenueTodayCentavos: 0,
-      netLedgerBalanceCentavos: paymentEvents.reduce((sum, p) => sum + p.amountCentavos, 0),
     };
   }
 
-  async listVerificationCases(input: PageInput & { status?: string }) {
-    const filtered = input.status
-      ? this.state.verificationCases.filter((c) => c.status === input.status)
-      : this.state.verificationCases;
+  /**
+   * Trend series derived from the seeded ledger and booking-shaped rows.
+   *
+   * The synthetic dataset models bookings only through disputes and payment
+   * events, so the series is thinner than production. It is still derived from
+   * seeded rows rather than random noise, so the charts stay deterministic.
+   */
+  async getDashboardTrends(input: { days: number }): Promise<DashboardTrends> {
+    const fees = this.state.ledgerTransactions
+      .filter((transaction) => transaction.type === "FEE_CHARGE")
+      .map((transaction) => ({
+        at: transaction.createdAt,
+        amountCentavos: transaction.entries
+          .filter(
+            (entry) => entry.accountType === "PLATFORM_FEE" || entry.accountType === "platform_fee",
+          )
+          .reduce((total, entry) => total + entry.amountCentavos, 0),
+      }));
+
+    const bookings = this.state.paymentEvents.map((event) => ({
+      at: event.receivedAt,
+      status: event.status === "QUARANTINED" ? "PAYMENT_FAILED" : "COMPLETED",
+      amountCentavos: event.amountCentavos,
+    }));
+
+    return buildDashboardTrends({ fees, bookings, days: input.days });
+  }
+
+  async listVerificationCases(input: PageInput & { status?: string; query?: string }) {
+    const search = input.query?.trim().toLowerCase();
+    const filtered = this.state.verificationCases.filter((c) => {
+      if (input.status && c.status !== input.status) return false;
+      if (search && !c.userDisplayName.toLowerCase().includes(search)) return false;
+      return true;
+    });
     return paged<VerificationCaseRow>(filtered, input);
   }
 
@@ -1413,10 +1447,13 @@ export class SyntheticAdminRepository implements AdminRepository {
     return { ok: true };
   }
 
-  async listTaskerApplications(input: PageInput & { status?: string }) {
-    const filtered = input.status
-      ? this.state.taskerApplications.filter((a) => a.status === input.status)
-      : this.state.taskerApplications;
+  async listTaskerApplications(input: PageInput & { status?: string; query?: string }) {
+    const search = input.query?.trim().toLowerCase();
+    const filtered = this.state.taskerApplications.filter((a) => {
+      if (input.status && a.status !== input.status) return false;
+      if (search && !a.userDisplayName.toLowerCase().includes(search)) return false;
+      return true;
+    });
     return paged<TaskerApplicationRow>(filtered, input);
   }
 

@@ -1,10 +1,19 @@
 import type { ReactNode, RefObject } from "react";
 import { useEffect, useRef } from "react";
-import { Animated, Easing, Platform, ScrollView, StyleSheet, View } from "react-native";
+import {
+  Animated,
+  Easing,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { theme, spacing, useResponsiveLayout } from "../../theme";
 import { BrandTopNavbar, BrandSubPageNavbar } from "./AppHeader";
 import { KeyboardAvoider } from "./KeyboardAvoider";
+import { ScreenScrollProvider } from "../../providers/ScreenScrollContext";
 
 export type ScreenProps = {
   readonly children: ReactNode;
@@ -15,6 +24,8 @@ export type ScreenProps = {
   readonly onBack?: (() => void) | undefined;
   readonly headerVariant?: "page" | "hero" | undefined;
   readonly animateEntry?: boolean | undefined;
+  /** Whether to wrap the screen body in a KeyboardAvoidingView */
+  readonly keyboardAvoiding?: boolean | undefined;
   /** Optional wider cap for workspace-style tablet/desktop screens. */
   readonly contentMaxWidth?: number | undefined;
   /**
@@ -27,6 +38,14 @@ export type ScreenProps = {
    * the remaining short content stuck near the bottom of the viewport.
    */
   readonly scrollViewRef?: RefObject<ScrollView | null> | undefined;
+  /** Whether pull-to-refresh is actively loading. */
+  readonly refreshing?: boolean | undefined;
+  /** Callback fired when the user pulls down to refresh. */
+  readonly onRefresh?: (() => void | Promise<void>) | undefined;
+  /** Custom tint color for the pull-to-refresh spinner indicator. */
+  readonly refreshControlTintColor?: string | undefined;
+  /** Background color revealed above the content when overscrolling downward. */
+  readonly topOverscrollColor?: string | undefined;
 };
 
 /**
@@ -42,10 +61,19 @@ export function Screen({
   onBack,
   headerVariant = "page",
   animateEntry = true,
+  keyboardAvoiding = false,
   contentMaxWidth,
   scrollViewRef,
+  refreshing,
+  onRefresh,
+  refreshControlTintColor,
+  topOverscrollColor,
 }: ScreenProps) {
   const { gutter, contentWidth, isTablet } = useResponsiveLayout();
+  const isHero = headerVariant === "hero";
+  const overscrollColor = topOverscrollColor ?? (isHero ? theme.primary : undefined);
+  const internalScrollRef = useRef<ScrollView>(null);
+  const effectiveScrollRef = scrollViewRef ?? internalScrollRef;
 
   const fadeAnim = useRef(new Animated.Value(animateEntry ? 0 : 1)).current;
   const slideAnim = useRef(new Animated.Value(animateEntry ? 12 : 0)).current;
@@ -72,7 +100,7 @@ export function Screen({
     ]).start();
   }, [animateEntry, fadeAnim, slideAnim]);
 
-  const content = (
+  const innerContent = (
     <View
       style={[
         styles.contentBase,
@@ -96,6 +124,49 @@ export function Screen({
     >
       {children}
     </View>
+  );
+
+  const content = scroll ? (
+    <ScreenScrollProvider scrollViewRef={effectiveScrollRef}>
+      {innerContent}
+    </ScreenScrollProvider>
+  ) : (
+    innerContent
+  );
+
+  const body = scroll ? (
+    <ScrollView
+      ref={effectiveScrollRef}
+      style={[
+        styles.scrollView,
+        overscrollColor ? { backgroundColor: overscrollColor } : null,
+      ]}
+      contentContainerStyle={[
+        styles.scrollContent,
+        overscrollColor ? { backgroundColor: theme.background } : null,
+      ]}
+      keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
+      automaticallyAdjustKeyboardInsets={!keyboardAvoiding}
+      showsVerticalScrollIndicator={false}
+      refreshControl={
+        onRefresh ? (
+          <RefreshControl
+            refreshing={Boolean(refreshing)}
+            onRefresh={onRefresh}
+            tintColor={
+              refreshControlTintColor ?? (isHero ? "#FFFFFF" : theme.primary)
+            }
+            colors={[theme.primary]}
+            progressBackgroundColor={theme.surface}
+          />
+        ) : undefined
+      }
+    >
+      {content}
+    </ScrollView>
+  ) : (
+    content
   );
 
   return (
@@ -128,22 +199,13 @@ export function Screen({
           <BrandTopNavbar isHero={headerVariant === "hero"} />
         </>
       ) : null}
-      <KeyboardAvoider style={styles.keyboardAvoider}>
-        {scroll ? (
-          <ScrollView
-            ref={scrollViewRef}
-            style={styles.scrollView}
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="interactive"
-            showsVerticalScrollIndicator={false}
-          >
-            {content}
-          </ScrollView>
-        ) : (
-          content
-        )}
-      </KeyboardAvoider>
+      {keyboardAvoiding ? (
+        <KeyboardAvoider style={styles.keyboardAvoider}>
+          {body}
+        </KeyboardAvoider>
+      ) : (
+        body
+      )}
     </Animated.View>
   );
 }
@@ -160,6 +222,14 @@ const styles = StyleSheet.create({
     minWidth: 0,
     minHeight: 0,
   },
+  overscrollCover: {
+    position: "absolute",
+    top: -1500,
+    left: -1000,
+    right: -1000,
+    height: 1500,
+    zIndex: -1,
+  },
   // Browsers default flex children to min-height:auto. Without this explicit
   // zero minimum the RNW ScrollView measures to its full content height, then
   // the Expo Router card clips it instead of giving overflowY:auto a viewport.
@@ -170,6 +240,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+    paddingBottom: spacing.lg,
   },
   contentBase: {
     minWidth: 0,

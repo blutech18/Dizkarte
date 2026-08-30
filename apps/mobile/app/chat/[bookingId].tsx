@@ -4,6 +4,8 @@ import {
   ActivityIndicator,
   Animated,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -13,6 +15,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Redirect, router, Stack, useLocalSearchParams } from "expo-router";
 import type { BookingId, ConversationId } from "@dizkarte/domain";
 import { formatPhp } from "@dizkarte/domain";
@@ -471,6 +474,7 @@ export default function ChatScreen() {
     [applyMessageList, session, conversationId, repository],
   );
 
+  const insets = useSafeAreaInsets();
   const rows = useMemo(() => buildChatRows(messages), [messages]);
 
   if (status === "loading") return <LoadingState label="Loading" />;
@@ -483,66 +487,76 @@ export default function ChatScreen() {
   const canSend = (draft.trim().length > 0 || attachments.length > 0) && !sending && isAppActive;
 
   return (
-    <Screen scroll={false} subPageTitle={counterpartName ? `Chat with ${counterpartName}` : "Chat"}>
+    <Screen
+      scroll={false}
+      padded={false}
+      subPageTitle={counterpartName ? `Chat with ${counterpartName}` : "Chat"}
+    >
       <Stack.Screen options={{ headerShown: false }} />
 
-      {!isAppActive ? (
-        <View style={styles.offlineBanner} accessibilityRole="alert">
-          <Icon name="alert-circle" size={14} color={theme.warningOnSoft} />
-          <Text style={styles.offlineText}>You're offline. Messages will not send.</Text>
-        </View>
-      ) : null}
-
-      {booking ? (
-        <View style={styles.contextCard}>
-          <Pressable
-            style={({ pressed }) => [styles.contextRow, pressed ? styles.contextRowPressed : null]}
-            onPress={() => router.push({ pathname: "/booking/[id]", params: { id: booking.id } })}
-            accessibilityRole="button"
-            accessibilityLabel={`Open booking with ${counterpartName}, ${STATUS_LABEL[booking.status]}`}
-          >
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>{counterpartInitials}</Text>
+      <KeyboardAvoidingView
+        style={styles.chatContainer}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
+        <View style={styles.chatTopSection}>
+          {!isAppActive ? (
+            <View style={styles.offlineBanner} accessibilityRole="alert">
+              <Icon name="alert-circle" size={14} color={theme.warningOnSoft} />
+              <Text style={styles.offlineText}>You're offline. Messages will not send.</Text>
             </View>
-            <View style={styles.contextTextGroup}>
-              <View style={styles.contextTopLine}>
-                <Text style={styles.contextName} numberOfLines={1}>
-                  {counterpartName}
-                </Text>
-                <Icon name="chevron-right" size={16} color={theme.textSecondary} />
-              </View>
-              <Text style={styles.contextTaskTitle} numberOfLines={1}>
-                {booking.taskTitle}
-              </Text>
-              <View style={styles.contextMetaRow}>
-                <View style={styles.statusRow}>
-                  <View
-                    style={[
-                      styles.statusDot,
-                      { backgroundColor: STATUS_DOT_COLOR[booking.status] },
-                    ]}
-                  />
-                  <Text style={[styles.statusLabel, { color: STATUS_DOT_COLOR[booking.status] }]}>
-                    {STATUS_LABEL[booking.status]}
-                  </Text>
+          ) : null}
+
+          {booking ? (
+            <View style={styles.contextCard}>
+              <Pressable
+                style={({ pressed }) => [styles.contextRow, pressed ? styles.contextRowPressed : null]}
+                onPress={() => router.push({ pathname: "/booking/[id]", params: { id: booking.id } })}
+                accessibilityRole="button"
+                accessibilityLabel={`Open booking with ${counterpartName}, ${STATUS_LABEL[booking.status]}`}
+              >
+                <View style={styles.avatarCircle}>
+                  <Text style={styles.avatarText}>{counterpartInitials}</Text>
                 </View>
-                <Text style={styles.contextAmount}>{formatPhp(booking.agreedCentavos)}</Text>
-              </View>
+                <View style={styles.contextTextGroup}>
+                  <View style={styles.contextTopLine}>
+                    <Text style={styles.contextName} numberOfLines={1}>
+                      {counterpartName}
+                    </Text>
+                    <Icon name="chevron-right" size={16} color={theme.textSecondary} />
+                  </View>
+                  <Text style={styles.contextTaskTitle} numberOfLines={1}>
+                    {booking.taskTitle}
+                  </Text>
+                  <View style={styles.contextMetaRow}>
+                    <View style={styles.statusRow}>
+                      <View
+                        style={[
+                          styles.statusDot,
+                          { backgroundColor: STATUS_DOT_COLOR[booking.status] },
+                        ]}
+                      />
+                      <Text style={[styles.statusLabel, { color: STATUS_DOT_COLOR[booking.status] }]}>
+                        {STATUS_LABEL[booking.status]}
+                      </Text>
+                    </View>
+                    <Text style={styles.contextAmount}>{formatPhp(booking.agreedCentavos)}</Text>
+                  </View>
+                </View>
+              </Pressable>
+
+              <View style={styles.contextDivider} />
+
+              <Pressable
+                style={({ pressed }) => [styles.rebookBtn, pressed ? styles.rebookBtnPressed : null]}
+                onPress={() => setRebookOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel={`Rebook ${firstName}`}
+              >
+                <Text style={styles.rebookBtnText}>Rebook {firstName}</Text>
+              </Pressable>
             </View>
-          </Pressable>
-
-          <View style={styles.contextDivider} />
-
-          <Pressable
-            style={({ pressed }) => [styles.rebookBtn, pressed ? styles.rebookBtnPressed : null]}
-            onPress={() => setRebookOpen(true)}
-            accessibilityRole="button"
-            accessibilityLabel={`Rebook ${firstName}`}
-          >
-            <Text style={styles.rebookBtnText}>Rebook {firstName}</Text>
-          </Pressable>
+          ) : null}
         </View>
-      ) : null}
 
       <FlatList
         ref={listRef}
@@ -591,95 +605,96 @@ export default function ChatScreen() {
         }
       />
 
-      <View style={styles.composer}>
-        {sendError ? (
-          <Text
-            style={styles.composerError}
-            accessibilityRole="alert"
-            accessibilityLiveRegion="polite"
-          >
-            {sendError}
-          </Text>
-        ) : null}
+        <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
+          {sendError ? (
+            <Text
+              style={styles.composerError}
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite"
+            >
+              {sendError}
+            </Text>
+          ) : null}
 
-        {conversationId ? (
-          <Collapsible expanded={attachmentsOpen} maxHeight={340} style={styles.attachmentsPanel}>
-            <MediaPicker
-              bucket="chat-media"
-              userId={session.userId}
-              scopeId={conversationId}
-              value={attachments}
-              onChange={setAttachments}
-              label="Attachments"
-              allowVideo
-              maxCount={MAX_CHAT_ATTACHMENTS}
-              disabled={sending}
-            />
-          </Collapsible>
-        ) : null}
-
-        <View style={styles.composerRow}>
-          <Pressable
-            onPress={() => setAttachmentsOpen((open) => !open)}
-            accessibilityRole="button"
-            accessibilityLabel={attachmentsOpen ? "Hide attachments" : "Add attachments"}
-            accessibilityState={{ expanded: attachmentsOpen }}
-            style={({ pressed }) => [
-              styles.attachToggle,
-              attachmentsOpen ? styles.attachToggleActive : null,
-              pressed ? { opacity: 0.85 } : null,
-            ]}
-          >
-            <Icon
-              name="image"
-              size={19}
-              color={attachmentsOpen ? theme.onPrimary : theme.primary}
-            />
-            {attachments.length > 0 ? (
-              <View style={styles.attachBadge}>
-                <Text style={styles.attachBadgeText}>{attachments.length}</Text>
-              </View>
-            ) : null}
-          </Pressable>
-
-          <View style={styles.composerInputWrapper}>
-            <TextInput
-              style={[styles.composerTextInput, noWebOutline]}
-              placeholder={`Message ${firstName || "your counterpart"}…`}
-              placeholderTextColor={theme.textSecondary}
-              value={draft}
-              onChangeText={setDraft}
-              multiline={false}
-              returnKeyType="send"
-              onSubmitEditing={handleSend}
-              spellCheck={false}
-            />
-          </View>
-
-          <Pressable
-            onPress={handleSend}
-            disabled={!canSend}
-            accessibilityRole="button"
-            accessibilityLabel="Send message"
-            accessibilityState={{ disabled: !canSend, busy: sending }}
-            style={({ pressed }) => [
-              styles.sendButton,
-              !canSend ? styles.sendButtonDisabled : null,
-              pressed && canSend ? styles.sendButtonPressed : null,
-            ]}
-          >
-            {sending ? (
-              <ActivityIndicator size="small" color={theme.onPrimary} />
-            ) : (
-              <Icon
-                name="send"
-                size={17}
-                color={canSend ? theme.onPrimary : theme.disabledForeground}
+          {conversationId ? (
+            <Collapsible expanded={attachmentsOpen} maxHeight={340} style={styles.attachmentsPanel}>
+              <MediaPicker
+                bucket="chat-media"
+                userId={session.userId}
+                scopeId={conversationId}
+                value={attachments}
+                onChange={setAttachments}
+                label="Attachments"
+                allowVideo
+                maxCount={MAX_CHAT_ATTACHMENTS}
+                disabled={sending}
               />
-            )}
-          </Pressable>
+            </Collapsible>
+          ) : null}
+
+          <View style={styles.composerRow}>
+            <Pressable
+              onPress={() => setAttachmentsOpen((open) => !open)}
+              accessibilityRole="button"
+              accessibilityLabel={attachmentsOpen ? "Hide attachments" : "Add attachments"}
+              accessibilityState={{ expanded: attachmentsOpen }}
+              style={({ pressed }) => [
+                styles.attachToggle,
+                attachmentsOpen ? styles.attachToggleActive : null,
+                pressed ? { opacity: 0.85 } : null,
+              ]}
+            >
+              <Icon
+                name="image"
+                size={19}
+                color={attachmentsOpen ? theme.onPrimary : theme.primary}
+              />
+              {attachments.length > 0 ? (
+                <View style={styles.attachBadge}>
+                  <Text style={styles.attachBadgeText}>{attachments.length}</Text>
+                </View>
+              ) : null}
+            </Pressable>
+
+            <View style={styles.composerInputWrapper}>
+              <TextInput
+                style={[styles.composerTextInput, noWebOutline]}
+                placeholder={`Message ${firstName || "your counterpart"}…`}
+                placeholderTextColor={theme.textSecondary}
+                value={draft}
+                onChangeText={setDraft}
+                multiline={false}
+                returnKeyType="send"
+                onSubmitEditing={handleSend}
+                spellCheck={false}
+              />
+            </View>
+
+            <Pressable
+              onPress={handleSend}
+              disabled={!canSend}
+              accessibilityRole="button"
+              accessibilityLabel="Send message"
+              accessibilityState={{ disabled: !canSend, busy: sending }}
+              style={({ pressed }) => [
+                styles.sendButton,
+                !canSend ? styles.sendButtonDisabled : null,
+                pressed && canSend ? styles.sendButtonPressed : null,
+              ]}
+            >
+              {sending ? (
+                <ActivityIndicator size="small" color={theme.onPrimary} />
+              ) : (
+                <Icon
+                  name="send"
+                  size={17}
+                  color={canSend ? theme.onPrimary : theme.disabledForeground}
+                />
+              )}
+            </Pressable>
+          </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
 
       {booking ? (
         <RebookSheet
@@ -865,6 +880,15 @@ function MessageBubble({
 }
 
 const styles = StyleSheet.create({
+  chatContainer: {
+    flex: 1,
+    minHeight: 0,
+    backgroundColor: theme.background,
+  },
+  chatTopSection: {
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+  },
   offlineBanner: {
     flexShrink: 0,
     flexDirection: "row",
@@ -948,9 +972,9 @@ const styles = StyleSheet.create({
     minHeight: 0,
   },
   listContent: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
     flexGrow: 1,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.xl,
   },
   daySeparatorRow: {
     flexDirection: "row",
@@ -1020,8 +1044,10 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     gap: spacing.sm,
     paddingTop: spacing.sm,
+    paddingHorizontal: spacing.md,
     borderTopWidth: 1,
     borderTopColor: theme.borderSubtle,
+    backgroundColor: theme.surface,
   },
   composerError: {
     color: theme.errorOnSoft,

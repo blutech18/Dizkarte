@@ -67,3 +67,34 @@ export function bookingStatusLabel(status: string): string {
       return status;
   }
 }
+
+/**
+ * One sentence: who is expected to act, and where the money currently sits.
+ *
+ * A label alone does not answer the two questions asked on an escalation, and
+ * the ledger position is the part an agent must not guess at.
+ */
+export function bookingStatusMeaning(status: string): string {
+  switch (status) {
+    case "PAYMENT_PENDING":
+      return "Waiting on the Client to pay. No funds are held yet.";
+    case "CONFIRMED":
+      return "Funds are held in protection. Waiting on the Tasker to start the work.";
+    case "IN_PROGRESS":
+      return "Work is underway and funds remain held in protection.";
+    case "COMPLETION_REQUESTED":
+      return "The Tasker submitted completion. Waiting on the Client to confirm and release funds.";
+    case "COMPLETED":
+      return "Work was confirmed and the funds were released to the Tasker.";
+    case "PAYMENT_FAILED":
+      return "The charge did not succeed, so no funds are held. The Client can retry.";
+    case "CANCELLED":
+      return "Closed before completion. Any held funds were returned.";
+    case "DISPUTED":
+      return "Under support review. Funds stay held until the case is resolved.";
+    case "REFUNDED":
+      return "Settled by returning the funds to the Client.";
+    default:
+      return "This booking state is not recognised by the console.";
+  }
+}

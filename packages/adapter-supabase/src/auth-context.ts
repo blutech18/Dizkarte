@@ -122,12 +122,99 @@ export function mapUserContext(source: UserContextSource): UserContext {
   };
 }
 
+/** One row of `public.user_context`, the single-request authorization view. */
+export type RawUserContextRow = {
+  readonly display_name: string | null;
+  readonly account_status: string | null;
+  readonly capabilities: ReadonlyArray<string> | null;
+  readonly verification_status: string | null;
+  readonly tasker_application_status: string | null;
+  readonly tasker_approved_at: string | null;
+  readonly tasker_suspended_at: string | null;
+};
+
 /**
- * Load the signed-in user's authorization context from the real tables. Every
- * query is RLS-bounded to the caller (self-read policies), so this returns only
- * the user's own data. Returns `null` when no profile row exists yet.
+ * Adapt one `user_context` row to the same shape the five separate reads
+ * produced, so the projection in `mapUserContext` — and the rules it encodes
+ * about unknown capabilities and missing rows — stays the single implementation.
+ */
+export function userContextSourceFromRow(
+  userId: string,
+  row: RawUserContextRow,
+): UserContextSource {
+  return {
+    userId,
+    profile: {
+      display_name: row.display_name ?? "",
+      account_status: row.account_status ?? "",
+    },
+    capabilities: (row.capabilities ?? []).map((capability) => ({ capability })),
+    latestVerification: row.verification_status ? { status: row.verification_status } : null,
+    latestApplication: row.tasker_application_status
+      ? { status: row.tasker_application_status }
+      : null,
+    taskerProfile:
+      row.tasker_approved_at === null && row.tasker_suspended_at === null
+        ? null
+        : { approved_at: row.tasker_approved_at, suspended_at: row.tasker_suspended_at },
+  };
+}
+
+/**
+ * Load the signed-in user's authorization context from the real tables.
+ *
+ * One request, against the `public.user_context` view. Every source table keeps
+ * its self-read RLS policy and the view is `security_invoker`, so this returns
+ * only the caller's own data and capabilities remain unforgeable — the view
+ * changes how many round-trips this costs, not who may read what.
+ *
+ * Returns `null` when no profile row exists yet (e.g. the auth user was created
+ * but provisioning has not run).
  */
 export async function loadUserContext(
+  client: DizkarteSupabaseClient,
+  userId: string,
+): Promise<UserContext | null> {
+  const { data, error } = await client
+    .from("user_context")
+    .select(
+      "display_name,account_status,capabilities,verification_status,tasker_application_status,tasker_approved_at,tasker_suspended_at",
+    )
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (!error) {
+    if (!data) return null;
+    return mapUserContext(userContextSourceFromRow(userId, data as RawUserContextRow));
+  }
+
+  // A *missing* view means the code is running ahead of migration 0051. This is
+  // the authorization path for every Admin request and every mobile sign-in, so
+  // it degrades to the per-table reads rather than locking everyone out of a
+  // deployment whose database has not caught up yet. Any other error (a real
+  // failure to read the profile) is still raised by the fallback below.
+  if (!isMissingRelationError(error)) {
+    throw new Error(`Failed to load profile: ${error.message}`);
+  }
+  return loadUserContextFromTables(client, userId);
+}
+
+/**
+ * True for PostgREST's "this relation does not exist" responses — schema drift,
+ * not a data or permission problem. An unreadable row is a 401/403/42501 and
+ * must not be mistaken for a missing view.
+ */
+function isMissingRelationError(error: {
+  readonly code?: string;
+  readonly message: string;
+}): boolean {
+  // 42P01: undefined_table (Postgres). PGRST205: unknown relation in the
+  // PostgREST schema cache.
+  return error.code === "42P01" || error.code === "PGRST205";
+}
+
+/** Pre-0051 path: one request per source table. Kept only as the fallback. */
+async function loadUserContextFromTables(
   client: DizkarteSupabaseClient,
   userId: string,
 ): Promise<UserContext | null> {

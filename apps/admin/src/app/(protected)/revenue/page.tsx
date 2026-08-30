@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { formatPhpSigned } from "@dizkarte/domain";
 import { requirePageCapability } from "@/lib/guard";
 import { getAdminRepository } from "@/lib/repository";
 import { Breadcrumbs } from "@/components/ui/Field";
 import { PageSection } from "@/components/ui/Pagination";
+import { DetailRegionSkeleton } from "@/components/ui/AsyncState";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 
 export const metadata: Metadata = { title: "Revenue" };
@@ -19,9 +21,36 @@ export const metadata: Metadata = { title: "Revenue" };
  * zero. That is stated plainly rather than hidden behind an empty state, because
  * "no revenue yet" and "we are not charging a fee yet" are different facts and
  * only the second one is true.
+ *
+ * The shell — breadcrumbs, heading, and who is signed in — needs no query, so it
+ * paints immediately and every ledger-derived figure streams in behind a single
+ * Suspense boundary. There is one boundary rather than several because every card
+ * reads from the same finance summary; splitting them would fan one query into
+ * many for no gain.
  */
 export default async function RevenuePage() {
   const session = await requirePageCapability(["ADMIN_FINANCE"]);
+
+  return (
+    <>
+      <Breadcrumbs items={[{ label: "Dashboard", href: "/dashboard" }, { label: "Revenue" }]} />
+      <PageSection
+        title="Revenue"
+        subtitle="Derived from the append-only ledger. Only the first figure is platform income — the rest is money moving through the platform on behalf of Clients and Taskers."
+      >
+        <div className="dk-detail">
+          <Suspense fallback={<DetailRegionSkeleton cards={3} lines={3} />}>
+            <RevenueSummary />
+          </Suspense>
+        </div>
+
+        <p className="dk-field-description">Signed in as {session.displayName}.</p>
+      </PageSection>
+    </>
+  );
+}
+
+async function RevenueSummary() {
   const repository = getAdminRepository();
   const summary = await repository.getFinanceSummary();
 
@@ -59,71 +88,65 @@ export default async function RevenuePage() {
 
   return (
     <>
-      <Breadcrumbs items={[{ label: "Dashboard", href: "/dashboard" }, { label: "Revenue" }]} />
-      <PageSection
-        title="Revenue"
-        subtitle="Derived from the append-only ledger. Only the first figure is platform income — the rest is money moving through the platform on behalf of Clients and Taskers."
-      >
-        {summary.synthetic ? (
-          <p className="dk-muted">
-            <StatusBadge tone="warning" label="Development data" /> These totals come from the
-            in-memory development ledger, not a live one.
-          </p>
-        ) : null}
+      {summary.synthetic ? (
+        <p className="dk-muted">
+          <StatusBadge tone="warning" label="Development data" /> These totals come from the
+          in-memory development ledger, not a live one.
+        </p>
+      ) : null}
 
-        {!feeConfigured ? (
-          <div className="dk-card">
-            <h2 style={{ marginTop: 0 }}>No platform fee is configured</h2>
-            <p className="dk-muted">
-              <code>platform_fee_bps</code> is 0, so the platform currently takes nothing from a
-              booking and platform revenue is genuinely zero — this is not missing data. A super
-              Admin sets the rate once the commercial terms are agreed.
-            </p>
+      {!feeConfigured ? (
+        <section className="dk-card">
+          <h2>No platform fee is configured</h2>
+          <p className="dk-card-note">
+            <code>platform_fee_bps</code> is 0, so the platform currently takes nothing from a
+            booking and platform revenue is genuinely zero — this is not missing data. A super Admin
+            sets the rate once the commercial terms are agreed.
+          </p>
+        </section>
+      ) : null}
+
+      {/*
+        Previously a three-column table with the explanation in the last cell,
+        which squeezed the sentence that stops "Payments captured" being mistaken
+        for income. Each measure now owns its full card width.
+      */}
+      <section className="dk-card" aria-labelledby="measures-heading">
+        <h2 id="measures-heading">Revenue and money movement</h2>
+        <dl className="dk-fact-grid">
+          {money.map((row) => (
+            <div className="dk-fact" key={row.label}>
+              <dt>{row.label}</dt>
+              <dd>
+                <span className="dk-fact-amount">{formatPhpSigned(row.value)}</span>
+                <span className="dk-fact-aside">{row.help}</span>
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      <section className="dk-card" aria-labelledby="integrity-heading">
+        <h2 id="integrity-heading">Ledger integrity</h2>
+        <dl className="dk-fact-grid">
+          <div className="dk-fact">
+            <dt>Net of every ledger entry</dt>
+            <dd>
+              <span className="dk-fact-amount">
+                {formatPhpSigned(summary.ledgerBalanceCentavos)}
+              </span>
+              <span className="dk-fact-aside">
+                {summary.ledgerBalanceCentavos === 0
+                  ? "Balanced, as double-entry bookkeeping requires."
+                  : "Unbalanced. A transaction was written unbalanced and needs investigating before these figures are trusted."}
+              </span>
+            </dd>
           </div>
-        ) : null}
-
-        <div className="dk-card">
-          <table className="dk-table">
-            <caption className="dk-visually-hidden">Revenue and money movement</caption>
-            <thead>
-              <tr>
-                <th scope="col">Measure</th>
-                <th scope="col">Amount</th>
-                <th scope="col">What it means</th>
-              </tr>
-            </thead>
-            <tbody>
-              {money.map((row) => (
-                <tr key={row.label}>
-                  <th scope="row">{row.label}</th>
-                  <td>{formatPhpSigned(row.value)}</td>
-                  <td className="dk-muted">{row.help}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="dk-card">
-          <h2 style={{ marginTop: 0 }}>Ledger integrity</h2>
-          <p>
-            Net of every ledger entry:{" "}
-            <strong>{formatPhpSigned(summary.ledgerBalanceCentavos)}</strong>{" "}
-            {summary.ledgerBalanceCentavos === 0 ? (
-              <StatusBadge tone="success" label="Balanced" />
-            ) : (
-              <StatusBadge tone="error" label="Unbalanced" />
-            )}
-          </p>
-          <p className="dk-muted">
-            Every transaction is double-entry, so this must be exactly zero. Anything else means a
-            transaction was written unbalanced and needs investigating before these figures are
-            trusted.
-          </p>
-        </div>
-
-        <p className="dk-field-description">Signed in as {session.displayName}.</p>
-      </PageSection>
+        </dl>
+        <p className="dk-card-note">
+          Every transaction is double-entry, so this figure must be exactly zero.
+        </p>
+      </section>
     </>
   );
 }

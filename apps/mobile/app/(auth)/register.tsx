@@ -6,6 +6,7 @@ import { Screen } from "../../src/components/ui/Screen";
 import { TextField } from "../../src/components/ui/TextField";
 import { Button } from "../../src/components/ui/Button";
 import { AuthBackButton } from "../../src/components/auth/AuthBackButton";
+import { AuthSuccessModal } from "../../src/components/auth/AuthSuccessModal";
 import { useSession } from "../../src/providers/SessionProvider";
 import { resendConfirmation } from "../../src/services/auth";
 import { SocialSignIn } from "../../src/components/auth/SocialSignIn";
@@ -24,6 +25,12 @@ export default function RegisterScreen() {
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(false);
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  function handleProceed() {
+    setShowSuccess(false);
+    router.replace("/(tabs)/home");
+  }
 
   async function handleSubmit() {
     setFormError(null);
@@ -51,7 +58,7 @@ export default function RegisterScreen() {
       setAwaitingConfirmation(true);
       return;
     }
-    router.replace("/(tabs)/home");
+    setShowSuccess(true);
   }
 
   async function handleResend() {
@@ -161,16 +168,24 @@ export default function RegisterScreen() {
           </View>
         </View>
       </View>
+
+      <AuthSuccessModal
+        visible={showSuccess}
+        title="Account created!"
+        message={`Welcome to Dizkarte, ${displayName.trim() || "there"}!`}
+        onProceed={handleProceed}
+      />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   centerContainer: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: spacing.md,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xxl + spacing.lg,
     paddingHorizontal: spacing.md,
   },
   formContent: {

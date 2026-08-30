@@ -50,6 +50,7 @@ const SUITES = [
   "task_feed_filters",
   "report_submission",
   "admin_case_subject",
+  "read_path_aggregates",
 ];
 
 /** Test-only harness applied before the migrations; see the file's header. */

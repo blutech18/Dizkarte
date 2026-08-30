@@ -155,56 +155,71 @@ export default function PublicTaskerProfileScreen() {
 
       {state === "loaded" && profile ? (
         <View style={styles.content}>
-          {/* Identity hero */}
+          {/* Identity hero & trust card */}
           <View style={styles.heroCard}>
-            {avatarUri ? (
-              <Image
-                source={{ uri: avatarUri }}
-                style={styles.avatarImage}
-                accessibilityLabel={`${profile.displayName} profile photo`}
-              />
-            ) : (
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{initials(profile.displayName)}</Text>
-              </View>
-            )}
-            <View style={styles.heroText}>
-              <View style={styles.nameRow}>
-                <Text style={styles.name} numberOfLines={1}>
+            <View style={styles.heroTop}>
+              {avatarUri ? (
+                <Image
+                  source={{ uri: avatarUri }}
+                  style={styles.avatarImage}
+                  accessibilityLabel={`${profile.displayName} profile photo`}
+                />
+              ) : (
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{initials(profile.displayName)}</Text>
+                </View>
+              )}
+              <View style={styles.heroText}>
+                <Text style={styles.name} numberOfLines={2}>
                   {profile.displayName}
                 </Text>
                 {profile.verifiedIdentity ? (
-                  <Icon name="check-circle" size={18} color={theme.successSolid} />
+                  <View style={styles.trustRow}>
+                    <Icon name="check-circle" size={14} color={theme.successSolid} />
+                    <Text style={styles.trustText}>Verified</Text>
+                  </View>
+                ) : null}
+                {profile.suspended ? (
+                  <Text style={styles.suspendedNote}>
+                    This Tasker is not currently accepting work.
+                  </Text>
                 ) : null}
               </View>
-              <StatusBadge
-                tone={profile.verifiedIdentity ? "success" : "neutral"}
-                label={profile.verifiedIdentity ? "ID Verified" : "Not verified"}
-              />
-              {profile.suspended ? (
-                <Text style={styles.suspendedNote}>
-                  This Tasker is not currently accepting work.
-                </Text>
-              ) : null}
             </View>
-          </View>
 
-          {/* Trust stats */}
-          <View style={styles.statsRow}>
-            <Stat
-              label="Rating"
-              value={profile.ratingAverage === null ? "New" : profile.ratingAverage.toFixed(1)}
-              icon="star"
-            />
-            <View style={styles.statDivider} />
-            <Stat label="Reviews" value={String(profile.ratingCount)} icon="chat" />
-            <View style={styles.statDivider} />
-            <Stat label="Completed" value={String(profile.completionCount)} icon="check-circle" />
+            <View style={styles.heroDivider} />
+
+            {/* Trust stats row */}
+            <View style={styles.statsRow}>
+              <Stat
+                label="Rating"
+                value={profile.ratingAverage === null ? "New" : profile.ratingAverage.toFixed(1)}
+                icon="star"
+                iconColor="#EAB308"
+              />
+              <View style={styles.statDivider} />
+              <Stat
+                label="Reviews"
+                value={String(profile.ratingCount)}
+                icon="chat"
+                iconColor={theme.primary}
+              />
+              <View style={styles.statDivider} />
+              <Stat
+                label="Completed"
+                value={String(profile.completionCount)}
+                icon="check-circle"
+                iconColor={theme.successSolid}
+              />
+            </View>
           </View>
 
           {/* About */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>About</Text>
+            <View style={styles.sectionHeader}>
+              <Icon name="user" size={17} color={theme.primary} />
+              <Text style={styles.sectionTitle}>About</Text>
+            </View>
             {profile.publicBio.trim().length > 0 ? (
               <Text style={styles.bodyText}>{profile.publicBio.trim()}</Text>
             ) : (
@@ -213,17 +228,20 @@ export default function PublicTaskerProfileScreen() {
               </Text>
             )}
             {profile.publicExperience.trim().length > 0 ? (
-              <>
-                <Text style={styles.subheading}>Experience</Text>
+              <View style={styles.experienceBlock}>
+                <Text style={styles.eyebrow}>EXPERIENCE</Text>
                 <Text style={styles.bodyText}>{profile.publicExperience.trim()}</Text>
-              </>
+              </View>
             ) : null}
           </View>
 
           {/* Skills */}
           {profile.specialties.length > 0 ? (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Skills</Text>
+              <View style={styles.sectionHeader}>
+                <Icon name="star" size={17} color={theme.primary} />
+                <Text style={styles.sectionTitle}>Skills</Text>
+              </View>
               <View style={styles.chipsRow}>
                 {profile.specialties.map((skill, index) => (
                   <View key={`${skill}-${index}`} style={styles.chip}>
@@ -237,10 +255,17 @@ export default function PublicTaskerProfileScreen() {
           {/* Portfolio — approved work samples only. */}
           {portfolio.length > 0 ? (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Portfolio</Text>
-              <Text style={styles.mutedText}>
-                {portfolio.length} approved work sample{portfolio.length === 1 ? "" : "s"}.
-              </Text>
+              <View style={styles.sectionHeaderBetween}>
+                <View style={styles.sectionHeader}>
+                  <Icon name="image" size={17} color={theme.primary} />
+                  <Text style={styles.sectionTitle}>Portfolio</Text>
+                </View>
+                <View style={styles.countBadge}>
+                  <Text style={styles.countBadgeText}>
+                    {portfolio.length} sample{portfolio.length === 1 ? "" : "s"}
+                  </Text>
+                </View>
+              </View>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -274,11 +299,14 @@ export default function PublicTaskerProfileScreen() {
           {/* Service areas */}
           {areaNames.length > 0 ? (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Service areas</Text>
+              <View style={styles.sectionHeader}>
+                <Icon name="map-pin" size={17} color={theme.primary} />
+                <Text style={styles.sectionTitle}>Service areas</Text>
+              </View>
               <View style={styles.chipsRow}>
                 {areaNames.map((area, index) => (
                   <View key={`${area}-${index}`} style={styles.areaChip}>
-                    <Icon name="map-pin" size={13} color={theme.primary} />
+                    <Icon name="map-pin" size={12} color={theme.primary} />
                     <Text style={styles.areaChipText}>{area}</Text>
                   </View>
                 ))}
@@ -289,15 +317,12 @@ export default function PublicTaskerProfileScreen() {
           {/* Request-a-quote CTA — a quote request is an ordinary public task. */}
           {!isOwnProfile && !profile.suspended ? (
             <View style={styles.ctaCard}>
-              <Text style={styles.ctaTitle}>
-                Want to work with {profile.displayName.split(/\s+/)[0] || "this Tasker"}?
-              </Text>
-              <Text style={styles.ctaSubtitle}>Post a task and request a quote.</Text>
-              {/*
-                Opens the brief-description sheet first, so the quote request
-                lands in the posting wizard prefilled - and so the copy can say
-                plainly that this posts a PUBLIC task rather than hiring privately.
-              */}
+              <View style={styles.ctaContent}>
+                <Text style={styles.ctaTitle}>
+                  Work with {profile.displayName.split(/\s+/)[0] || "this Tasker"}
+                </Text>
+                <Text style={styles.ctaSubtitle}>Post a task and request a quote.</Text>
+              </View>
               <Button
                 label="Request a quote"
                 icon="arrow-right"
@@ -324,15 +349,19 @@ function Stat({
   label,
   value,
   icon,
+  iconColor,
 }: {
   readonly label: string;
   readonly value: string;
   readonly icon: IconName;
+  readonly iconColor?: string;
 }) {
   return (
     <View style={styles.stat} accessibilityRole="text" accessibilityLabel={`${label}: ${value}`}>
-      <Icon name={icon} size={18} color={theme.primary} />
-      <Text style={styles.statValue}>{value}</Text>
+      <View style={styles.statTopRow}>
+        <Icon name={icon} size={15} color={iconColor || theme.primary} />
+        <Text style={styles.statValue}>{value}</Text>
+      </View>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
@@ -343,36 +372,43 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   heroCard: {
+    backgroundColor: theme.surface,
+    borderRadius: radii.lg,
+    padding: spacing.md + 4,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    gap: spacing.md,
+  },
+  heroTop: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
-    backgroundColor: theme.surfaceBrand,
-    borderRadius: radii.lg,
-    padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: theme.borderSubtle,
   },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: theme.primary,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: theme.primarySoft,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
     alignItems: "center",
     justifyContent: "center",
   },
   avatarImage: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
   },
   avatarText: {
-    color: theme.onPrimary,
-    fontSize: fontSize.xxl - 2,
-    fontWeight: "800",
+    color: theme.primary,
+    fontSize: 20,
+    fontWeight: "700",
   },
   heroText: {
     flex: 1,
-    gap: spacing.xs,
+    gap: 4,
   },
   nameRow: {
     flexDirection: "row",
@@ -380,148 +416,201 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   name: {
-    fontSize: fontSize.xl,
-    fontWeight: "800",
+    fontSize: 17,
+    fontWeight: "700",
     color: theme.textPrimary,
     flexShrink: 1,
   },
+  trustRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 1,
+  },
+  trustText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: theme.successOnSoft,
+  },
   suspendedNote: {
     fontSize: fontSize.xs,
-    color: theme.textSecondary,
+    color: theme.errorOnSoft,
     lineHeight: lineHeight.xs,
+    marginTop: 2,
+  },
+  heroDivider: {
+    height: 1,
+    backgroundColor: theme.borderSubtle,
   },
   statsRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.borderSubtle,
-    borderRadius: radii.md,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
+    justifyContent: "space-around",
+    paddingVertical: 2,
   },
   stat: {
     flex: 1,
     alignItems: "center",
-    gap: 2,
+    gap: 3,
+  },
+  statTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
   },
   statValue: {
-    fontSize: fontSize.lg,
+    fontSize: 16,
     fontWeight: "800",
     color: theme.textPrimary,
   },
   statLabel: {
-    fontSize: fontSize.xs,
+    fontSize: 11,
     color: theme.textSecondary,
     fontWeight: "600",
   },
   statDivider: {
     width: 1,
-    alignSelf: "stretch",
+    height: 28,
     backgroundColor: theme.borderSubtle,
-    marginVertical: spacing.xs,
   },
   section: {
     backgroundColor: theme.surface,
     borderWidth: 1,
     borderColor: theme.borderSubtle,
-    borderRadius: radii.md,
-    padding: spacing.lg,
-    gap: spacing.sm,
+    borderRadius: radii.lg,
+    padding: spacing.md + 4,
+    gap: spacing.sm + 2,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  sectionHeaderBetween: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   sectionTitle: {
-    fontSize: fontSize.lg,
+    fontSize: 15,
     fontWeight: "700",
     color: theme.textPrimary,
   },
-  subheading: {
-    fontSize: fontSize.sm,
-    fontWeight: "700",
-    color: theme.textPrimary,
-    marginTop: spacing.xs,
+  countBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radii.pill,
+    backgroundColor: theme.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+  },
+  countBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: theme.textSecondary,
+  },
+  experienceBlock: {
+    gap: 4,
+    marginTop: 6,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: theme.borderSubtle,
+  },
+  eyebrow: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+    color: theme.textSecondary,
   },
   bodyText: {
-    fontSize: fontSize.sm,
-    lineHeight: lineHeight.md,
+    fontSize: 13,
+    lineHeight: 19,
     color: theme.textPrimary,
   },
   mutedText: {
-    fontSize: fontSize.sm,
-    lineHeight: lineHeight.sm,
+    fontSize: 13,
+    lineHeight: 18,
     color: theme.textSecondary,
   },
   chipsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.sm,
+    gap: 8,
+  },
+  chip: {
+    backgroundColor: theme.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: theme.borderControl,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radii.pill,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: theme.textPrimary,
+  },
+  areaChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: theme.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: theme.borderControl,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radii.pill,
+  },
+  areaChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: theme.textPrimary,
   },
   portfolioRow: {
     flexDirection: "row",
-    gap: spacing.md,
-    paddingTop: spacing.sm,
+    gap: spacing.sm + 2,
+    paddingTop: 4,
     paddingRight: spacing.md,
   },
   portfolioTile: {
-    width: 150,
-    gap: spacing.xs,
+    width: 140,
+    gap: 4,
   },
   portfolioImage: {
-    width: 150,
-    height: 110,
+    width: 140,
+    height: 100,
     borderRadius: radii.md,
     backgroundColor: theme.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
   },
   portfolioImageFallback: {
     alignItems: "center",
     justifyContent: "center",
   },
   portfolioCaption: {
-    fontSize: fontSize.xs,
-    lineHeight: lineHeight.xs,
+    fontSize: 11,
+    lineHeight: 15,
     color: theme.textSecondary,
   },
-  chip: {
-    backgroundColor: theme.primarySoft,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: radii.pill,
-  },
-  chipText: {
-    fontSize: fontSize.sm,
-    fontWeight: "600",
-    color: theme.primaryPressed,
-  },
-  areaChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: theme.surfaceSubtle,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: radii.pill,
-  },
-  areaChipText: {
-    fontSize: fontSize.sm,
-    fontWeight: "600",
-    color: theme.textPrimary,
-  },
   ctaCard: {
-    backgroundColor: theme.surfaceBrand,
+    backgroundColor: theme.surface,
     borderWidth: 1,
     borderColor: theme.borderSubtle,
     borderRadius: radii.lg,
-    padding: spacing.lg,
-    gap: spacing.sm,
+    padding: spacing.md + 4,
+    gap: spacing.md,
+  },
+  ctaContent: {
+    gap: 2,
   },
   ctaTitle: {
-    fontSize: fontSize.md,
-    fontWeight: "800",
+    fontSize: 15,
+    fontWeight: "700",
     color: theme.textPrimary,
   },
   ctaSubtitle: {
-    fontSize: fontSize.sm,
+    fontSize: 12,
     color: theme.textSecondary,
-    marginBottom: spacing.xs,
   },
 });

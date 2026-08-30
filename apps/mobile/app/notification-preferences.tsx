@@ -284,16 +284,18 @@ function PreferenceToggle({
           {saving ? "Saving preference..." : description}
         </Text>
       </View>
-      <Switch
-        value={value}
-        onValueChange={onChange}
-        disabled={disabled}
-        trackColor={{ false: theme.borderControl, true: theme.primary }}
-        thumbColor={theme.surface}
-        accessibilityLabel={label}
-        accessibilityRole="switch"
-        accessibilityState={{ disabled, busy: saving }}
-      />
+      <View style={styles.switchWrap}>
+        <Switch
+          value={value}
+          onValueChange={onChange}
+          disabled={disabled}
+          trackColor={{ false: theme.borderControl, true: theme.primary }}
+          thumbColor={theme.surface}
+          accessibilityLabel={label}
+          accessibilityRole="switch"
+          accessibilityState={{ disabled, busy: saving }}
+        />
+      </View>
     </View>
   );
 }
@@ -355,25 +357,32 @@ const styles = StyleSheet.create({
     flexBasis: 300,
   },
   toggleRow: {
-    minHeight: 54,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.md,
+    paddingVertical: spacing.xs,
   },
   toggleText: {
     flex: 1,
-    gap: 2,
+    gap: 3,
+    justifyContent: "center",
   },
   toggleLabel: {
     fontSize: fontSize.sm,
     fontWeight: "700",
     color: theme.textPrimary,
+    lineHeight: lineHeight.sm,
   },
   toggleDescription: {
     fontSize: fontSize.xs,
     lineHeight: lineHeight.xs,
     color: theme.textSecondary,
+  },
+  switchWrap: {
+    justifyContent: "center",
+    alignItems: "center",
+    flexShrink: 0,
   },
   divider: {
     height: 1,

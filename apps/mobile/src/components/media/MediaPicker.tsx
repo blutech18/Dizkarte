@@ -126,14 +126,21 @@ export function MediaPicker({
         <View style={styles.list}>
           {value.map((item) => (
             <View key={item.path} style={styles.row}>
-              <Icon
-                name={item.kind === "video" ? "video" : "image"}
-                size={18}
-                color={theme.primary}
-              />
-              <Text style={styles.rowName} numberOfLines={1}>
-                {item.fileName}
-              </Text>
+              <View style={styles.iconBadge}>
+                <Icon
+                  name={item.kind === "video" ? "video" : "image"}
+                  size={14}
+                  color={theme.primary}
+                />
+              </View>
+              <View style={styles.itemMeta}>
+                <Text style={styles.rowName} numberOfLines={1}>
+                  {item.fileName}
+                </Text>
+                <Text style={styles.itemType}>
+                  {item.kind === "video" ? "Video attachment" : "Photo attachment"}
+                </Text>
+              </View>
               <Pressable
                 onPress={() => void remove(item)}
                 accessibilityRole="button"
@@ -141,11 +148,11 @@ export function MediaPicker({
                 hitSlop={8}
                 style={({ pressed }) => [
                   styles.removeButton,
-                  pressed ? { opacity: 0.7, transform: [{ scale: 0.9 }] } : null,
+                  pressed ? { opacity: 0.7, transform: [{ scale: 0.92 }] } : null,
                 ]}
                 disabled={disabled || busy}
               >
-                <Icon name="close" size={16} color={theme.textSecondary} />
+                <Icon name="close" size={13} color={theme.textSecondary} />
               </Pressable>
             </View>
           ))}
@@ -159,23 +166,29 @@ export function MediaPicker({
       ) : null}
 
       <View style={styles.actions}>
-        <Button
-          label={busy ? "Uploading…" : "Add photo"}
-          icon="image"
-          variant="secondary"
-          onPress={() => void pick("image")}
-          loading={busy}
-          disabled={disabled || atLimit}
-          {...(atLimit ? { accessibilityHint: `Maximum ${maxCount} files.` } : {})}
-        />
-        {allowVideo ? (
+        <View style={styles.actionBtn}>
           <Button
-            label="Add video"
-            icon="video"
+            label={busy ? "Uploading…" : "Add photo"}
+            icon="image"
             variant="secondary"
-            onPress={() => void pick("video")}
-            disabled={disabled || busy || atLimit}
+            onPress={() => void pick("image")}
+            loading={busy}
+            disabled={disabled || atLimit}
+            fullWidth
+            {...(atLimit ? { accessibilityHint: `Maximum ${maxCount} files.` } : {})}
           />
+        </View>
+        {allowVideo ? (
+          <View style={styles.actionBtn}>
+            <Button
+              label="Add video"
+              icon="video"
+              variant="secondary"
+              onPress={() => void pick("video")}
+              disabled={disabled || busy || atLimit}
+              fullWidth
+            />
+          </View>
         ) : null}
       </View>
 
@@ -195,24 +208,54 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   hint: { fontSize: fontSize.xs, color: theme.textSecondary, marginBottom: spacing.sm },
-  list: { gap: spacing.sm, marginBottom: spacing.sm },
+  list: { gap: spacing.xs + 2, marginBottom: spacing.sm },
   row: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    minHeight: MIN_TOUCH_TARGET,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm + 4,
+    paddingVertical: spacing.sm,
     backgroundColor: theme.surfaceSubtle,
-    borderRadius: radii.sm,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
   },
-  rowName: { flex: 1, fontSize: fontSize.sm, color: theme.textPrimary },
-  removeButton: {
-    width: MIN_TOUCH_TARGET - 12,
-    height: MIN_TOUCH_TARGET - 12,
+  iconBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: radii.sm,
+    backgroundColor: theme.primarySoft,
     alignItems: "center",
     justifyContent: "center",
+    flexShrink: 0,
   },
-  actions: { flexDirection: "row", gap: spacing.sm, flexWrap: "wrap" },
+  itemMeta: {
+    flex: 1,
+    minWidth: 0,
+    gap: 1,
+  },
+  rowName: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: theme.textPrimary,
+  },
+  itemType: {
+    fontSize: 11,
+    color: theme.textSecondary,
+  },
+  removeButton: {
+    width: 28,
+    height: 28,
+    borderRadius: radii.pill,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  actions: { flexDirection: "row", gap: spacing.sm, width: "100%" },
+  actionBtn: { flex: 1, minWidth: 0 },
   error: {
     color: theme.errorOnSoft,
     backgroundColor: theme.errorSoft,

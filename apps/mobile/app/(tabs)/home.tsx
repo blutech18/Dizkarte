@@ -7,10 +7,9 @@ import { AppHeader } from "../../src/components/ui/AppHeader";
 import { Button } from "../../src/components/ui/Button";
 import { Icon } from "../../src/components/ui/Icon";
 import { CategoryGrid } from "../../src/components/task/CategoryGrid";
-import { Collapsible } from "../../src/components/ui/Collapsible";
+import { CenterDialogModal } from "../../src/components/ui/CenterDialogModal";
 import { useSession } from "../../src/providers/SessionProvider";
 import { useMarketplace } from "../../src/providers/MarketplaceProvider";
-import { useCategories } from "../../src/providers/CategoriesProvider";
 import type { BookingRecord, OwnedTaskRecord } from "../../src/services/marketplace/types";
 
 import {
@@ -53,16 +52,19 @@ function greetingForHour(hour: number): string {
 function ClientHome() {
   const { session } = useSession();
   const { repository, revision } = useMarketplace();
-  const { categories } = useCategories();
   const { gutter, contentWidth } = useResponsiveLayout();
   const [tasks, setTasks] = useState<ReadonlyArray<OwnedTaskRecord>>([]);
   const [bookings, setBookings] = useState<ReadonlyArray<BookingRecord>>([]);
   const [searchDraft, setSearchDraft] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(() => {
-    if (!session) return;
-    Promise.all([repository.listMyTasks(session.userId), repository.listMyBookings(session.userId)])
+    if (!session) return Promise.resolve();
+    return Promise.all([
+      repository.listMyTasks(session.userId),
+      repository.listMyBookings(session.userId),
+    ])
       .then(([taskResult, bookingResult]) => {
         setTasks(taskResult);
         setBookings(bookingResult);
@@ -71,8 +73,20 @@ function ClientHome() {
   }, [repository, session]);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load, revision]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        load(),
+        new Promise((resolve) => setTimeout(resolve, 500)),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [load]);
 
   const firstName = (session?.displayName ?? "").trim().split(/\s+/)[0] || "there";
   const greeting = useMemo(() => greetingForHour(new Date().getHours()), []);
@@ -114,11 +128,6 @@ function ClientHome() {
     return [...byTasker.values()].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
   }, [bookings, session]);
 
-  // A handful of real, active categories become the quick-suggestion chips
-  // under the search field — never a hardcoded label, since a retired slug
-  // would otherwise dead-end into a category the picker no longer offers.
-  const suggestedCategories = useMemo(() => categories.slice(0, 4), [categories]);
-
   // Scale the hero search text to the screen width so the full placeholder
   // always fits on one line: web-sized on wide screens, stepping down on
   // narrower phones instead of wrapping or truncating.
@@ -133,7 +142,12 @@ function ClientHome() {
   }
 
   return (
-    <Screen>
+    <Screen
+      headerVariant="hero"
+      refreshControlTintColor={theme.onPrimary}
+      refreshing={refreshing}
+      onRefresh={handleRefresh}
+    >
       {/*
         One continuous purple sweep — navbar, greeting, and the post-a-task
         hero all share the same brand-purple background and bleed to the
@@ -190,32 +204,6 @@ function ClientHome() {
             variant="primaryDark"
             fullWidth
           />
-
-          {suggestedCategories.length > 0 ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={{ marginHorizontal: -gutter }}
-              contentContainerStyle={[clientStyles.suggestionRow, { paddingHorizontal: gutter }]}
-            >
-              {suggestedCategories.map((category) => (
-                <Pressable
-                  key={category.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Post a ${category.name} task`}
-                  onPress={() =>
-                    router.push({ pathname: "/task/create", params: { category: category.id } })
-                  }
-                  style={({ pressed }) => [
-                    clientStyles.suggestionChip,
-                    pressed ? clientStyles.suggestionChipPressed : null,
-                  ]}
-                >
-                  <Text style={clientStyles.suggestionChipText}>{category.name}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          ) : null}
         </View>
       </View>
 
@@ -236,7 +224,7 @@ function ClientHome() {
           </View>
           <Text style={clientStyles.myTaskersSubtitle}>
             {myTaskers.length > 0
-              ? "Your trusted past professionals — rebook them in one tap."
+              ? "Your trusted past professionals."
               : "Taskers you've booked appear here so you can rebook their work in one tap."}
           </Text>
           {myTaskers.length > 0 ? (
@@ -321,6 +309,7 @@ const clientStyles = StyleSheet.create({
     paddingTop: 0,
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
+    position: "relative",
   },
   // Every top-level section below the hero shares one consistent vertical
   // rhythm instead of each section owning its own ad hoc margin — this is
@@ -331,7 +320,7 @@ const clientStyles = StyleSheet.create({
   },
   hero: {
     paddingTop: spacing.lg,
-    paddingBottom: 48,
+    paddingBottom: spacing.xl,
     gap: spacing.lg,
   },
   heroTitle: {
@@ -360,36 +349,6 @@ const clientStyles = StyleSheet.create({
     height: MIN_TOUCH_TARGET,
     paddingVertical: 0,
     color: theme.textPrimary,
-  },
-  suggestionRow: {
-    flexDirection: "row",
-    gap: spacing.sm,
-  },
-  suggestionChip: {
-    minHeight: MIN_TOUCH_TARGET - 8,
-    justifyContent: "center",
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: theme.onPrimary,
-  },
-  suggestionChipPressed: {
-    backgroundColor: theme.primaryPressed,
-    transform: [{ scale: 0.96 }],
-  },
-  suggestionChipText: {
-    fontSize: fontSize.sm,
-    fontWeight: "600",
-    color: theme.onPrimary,
-  },
-  taskerCountBadge: {
-    fontSize: fontSize.xs,
-    fontWeight: "700",
-    color: theme.primary,
-    backgroundColor: theme.primarySoft,
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: 3,
-    borderRadius: radii.pill,
   },
   myTaskersSubtitle: {
     fontSize: fontSize.sm,
@@ -423,158 +382,256 @@ const clientStyles = StyleSheet.create({
     fontWeight: "500",
   },
   taskerCarouselCard: {
-    width: 275,
+    width: 270,
     backgroundColor: theme.surface,
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: theme.borderSubtle,
-    padding: spacing.md,
-    gap: spacing.md,
-    shadowColor: "#0F172A",
+    padding: spacing.md - 2,
+    gap: spacing.sm + 2,
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.03,
     shadowRadius: 6,
     elevation: 2,
   },
-  taskerHeaderRow: {
+  taskerTopRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
-  },
-  taskerAvatarWrapper: {
-    position: "relative",
+    gap: spacing.sm + 2,
+    width: "100%",
   },
   taskerAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: theme.primarySoft,
     alignItems: "center",
     justifyContent: "center",
   },
   taskerAvatarText: {
-    fontSize: fontSize.md,
+    fontSize: 17,
     fontWeight: "800",
     color: theme.primary,
   },
-  ratingBadge: {
-    position: "absolute",
-    bottom: -4,
-    right: -6,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: theme.borderSubtle,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  ratingText: {
-    fontSize: 10,
-    fontWeight: "800",
-    color: theme.textPrimary,
-  },
-  nameAndChevronRow: {
+  taskerInfoCol: {
     flex: 1,
+    gap: 1,
+    justifyContent: "center",
+  },
+  taskerNameRatingRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.xs,
   },
-  stackedNameCol: {
+  taskerNameGroup: {
     flex: 1,
-    gap: 1,
-    justifyContent: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
-  taskerSurname: {
-    fontSize: fontSize.xs - 1,
+  taskerDisplayName: {
+    fontSize: 15,
     fontWeight: "700",
-    color: theme.textSecondary,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
+    color: theme.textPrimary,
+    letterSpacing: -0.2,
   },
-  taskerFirstName: {
-    fontSize: fontSize.md,
+  taskerRatingInline: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  taskerRatingScore: {
+    fontSize: 12,
     fontWeight: "700",
     color: theme.textPrimary,
   },
-  chevronBadge: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+  taskerMetaText: {
+    fontSize: 11,
+    color: theme.textSecondary,
+    fontWeight: "500",
+    marginTop: 2,
+  },
+  taskerActionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs + 2,
+    width: "100%",
+  },
+  specialtiesRowButton: {
+    flex: 1,
+    height: 34,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    backgroundColor: theme.primarySoft,
+    borderWidth: 1,
+    borderColor: "rgba(92, 56, 222, 0.16)",
+    borderRadius: 8,
+  },
+  specialtiesRowButtonPressed: {
+    backgroundColor: "rgba(92, 56, 222, 0.24)",
+    borderColor: theme.primary,
+  },
+  specialtiesRowButtonText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: theme.primary,
+  },
+  rebookRowButton: {
+    flex: 1,
+    height: 34,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 3,
+    backgroundColor: theme.primary,
+    borderRadius: 8,
+  },
+  rebookRowButtonPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.985 }],
+  },
+  rebookRowButtonText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: theme.onPrimary,
+  },
+  // Modal styles
+  modalCard: {
+    width: "100%",
+    maxWidth: 380,
+    backgroundColor: theme.surface,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm + 2,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.borderSubtle,
+  },
+  modalAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: theme.primarySoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalAvatarText: {
+    fontSize: fontSize.md,
+    fontWeight: "800",
+    color: theme.primary,
+  },
+  modalHeaderInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  modalTitle: {
+    fontSize: fontSize.md,
+    fontWeight: "800",
+    color: theme.textPrimary,
+    letterSpacing: -0.2,
+  },
+  modalStatsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+  },
+  modalRatingInline: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  modalRatingScore: {
+    fontSize: fontSize.xs,
+    fontWeight: "700",
+    color: theme.textPrimary,
+  },
+  modalRatingCount: {
+    fontSize: fontSize.xs,
+    fontWeight: "500",
+    color: theme.textSecondary,
+  },
+  modalDotSeparator: {
+    fontSize: fontSize.xs,
+    color: theme.borderSubtle,
+    marginHorizontal: 1,
+  },
+  modalJobsCount: {
+    fontSize: fontSize.xs,
+    fontWeight: "500",
+    color: theme.textSecondary,
+  },
+  modalCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: theme.surfaceSubtle,
     alignItems: "center",
     justifyContent: "center",
   },
-  chevronBadgeActive: {
-    backgroundColor: theme.primarySoft,
+  modalServicesList: {
+    maxHeight: 220,
   },
-  servicesExpandedBlock: {
-    gap: spacing.xs,
-    paddingTop: spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: theme.borderSubtle,
+  modalServicesListContent: {
+    gap: spacing.xs + 2,
+    paddingVertical: 2,
   },
-  servicesLabel: {
-    fontSize: fontSize.xs,
-    fontWeight: "700",
-    color: theme.textSecondary,
-  },
-  servicesScrollArea: {
-    maxHeight: 110,
-  },
-  servicesChipsRow: {
+  modalServiceItem: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.xs,
-    paddingBottom: 2,
+    alignItems: "center",
+    gap: spacing.sm,
+    backgroundColor: theme.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.md,
   },
-  serviceChip: {
-    width: "48.2%",
+  modalServiceIconCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     backgroundColor: theme.primarySoft,
-    paddingHorizontal: spacing.xs + 2,
-    paddingVertical: 5,
-    borderRadius: radii.pill,
     alignItems: "center",
     justifyContent: "center",
   },
-  serviceChipText: {
-    fontSize: fontSize.xs - 1,
+  modalServiceName: {
+    fontSize: fontSize.sm,
     fontWeight: "600",
-    color: theme.primaryPressed,
-    textAlign: "center",
+    color: theme.textPrimary,
   },
-  rebookCarouselButton: {
+  modalFooter: {
+    paddingTop: spacing.xs,
+  },
+  modalRebookBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: spacing.xs,
     backgroundColor: theme.primary,
     borderRadius: radii.md,
-    paddingVertical: spacing.sm + 1,
+    paddingVertical: spacing.sm + 2,
     paddingHorizontal: spacing.md,
   },
-  rebookCarouselText: {
+  modalRebookBtnText: {
     fontSize: fontSize.sm,
     fontWeight: "700",
     color: theme.onPrimary,
-  },
-  viewProfileLink: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: spacing.xs,
-  },
-  viewProfileLinkText: {
-    fontSize: fontSize.sm,
-    fontWeight: "700",
-    color: theme.primary,
   },
   attentionBanner: {
     flexDirection: "row",
@@ -595,26 +652,37 @@ const clientStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
-    marginBottom: spacing.sm,
   },
-  sectionTitle: { fontSize: fontSize.lg, fontWeight: "700", color: theme.textPrimary },
-  taskList: { gap: spacing.md, marginTop: spacing.sm },
-  taskRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    backgroundColor: theme.surface,
+  sectionTitle: {
+    fontSize: fontSize.lg,
+    lineHeight: lineHeight.lg,
+    fontWeight: "800",
+    color: theme.textPrimary,
+    letterSpacing: -0.3,
+  },
+  taskerCountBadge: {
+    fontSize: fontSize.xs,
+    fontWeight: "700",
+    color: theme.textSecondary,
+    backgroundColor: theme.surfaceSubtle,
+    paddingHorizontal: spacing.xs + 2,
+    paddingVertical: 2,
+    borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: theme.borderSubtle,
-    borderRadius: radii.md,
-    padding: spacing.md,
   },
-  taskRowPressed: { backgroundColor: theme.surfaceSubtle },
-  taskRowMain: { flex: 1, gap: spacing.xs },
-  taskRowTitle: { fontSize: fontSize.md, fontWeight: "700", color: theme.textPrimary },
-  taskRowMeta: { fontSize: fontSize.sm, color: theme.textSecondary },
-  quickLinks: { gap: spacing.md },
+  quickLinks: {
+    gap: spacing.sm,
+  },
 });
+
+function formatSpecialty(text: string): string {
+  return text
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
 
 type MyTaskerCardProps = {
   readonly booking: BookingRecord;
@@ -622,8 +690,8 @@ type MyTaskerCardProps = {
 
 function MyTaskerCard({ booking }: MyTaskerCardProps) {
   const { repository } = useMarketplace();
-  const [expanded, setExpanded] = useState(false);
   const [profile, setProfile] = useState<PublicTaskerProfile | null>(null);
+  const [servicesModalVisible, setServicesModalVisible] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -641,118 +709,188 @@ function MyTaskerCard({ booking }: MyTaskerCardProps) {
   const displayName = (profile?.displayName ?? booking.taskerDisplayName).trim() || "Tasker";
   const ratingLabel =
     profile && profile.ratingAverage !== null ? profile.ratingAverage.toFixed(1) : null;
+  const ratingCount = profile?.ratingCount ?? 0;
+  const completionCount = profile?.completionCount ?? 0;
   const services = profile?.specialties ?? [];
-  const hasServices = services.length > 0;
-  const subtitle = profile
-    ? profile.ratingCount > 0
-      ? `${profile.completionCount} job${profile.completionCount === 1 ? "" : "s"} · ${profile.ratingCount} review${profile.ratingCount === 1 ? "" : "s"}`
-      : profile.completionCount > 0
-        ? `${profile.completionCount} job${profile.completionCount === 1 ? "" : "s"} done`
-        : "New tasker"
-    : booking.taskTitle;
 
-  function toggleExpanded() {
-    if (!hasServices) return;
-    setExpanded((current) => !current);
-  }
+  const openProfile = useCallback(() => {
+    router.push({ pathname: "/profile/[id]", params: { id: booking.taskerId } });
+  }, [booking.taskerId]);
 
   return (
-    <View style={clientStyles.taskerCarouselCard}>
-      <Pressable
-        style={({ pressed }) => [
-          clientStyles.taskerHeaderRow,
-          pressed ? { opacity: 0.88, transform: [{ scale: 0.985 }] } : null,
-        ]}
-        onPress={toggleExpanded}
-        disabled={!hasServices}
-        accessibilityRole="button"
-        accessibilityLabel={
-          hasServices
-            ? `${displayName}, ${expanded ? "hide services" : "show services"}`
-            : displayName
-        }
-      >
-        <View style={clientStyles.taskerAvatarWrapper}>
-          <View style={clientStyles.taskerAvatar}>
+    <>
+      <View style={clientStyles.taskerCarouselCard}>
+        {/* Top Horizontal Row: Avatar on Left + Info on Right */}
+        <View style={clientStyles.taskerTopRow}>
+          <Pressable
+            style={({ pressed }) => [
+              clientStyles.taskerAvatar,
+              pressed ? { opacity: 0.8 } : null,
+            ]}
+            onPress={openProfile}
+            accessibilityRole="button"
+            accessibilityLabel={`View ${displayName}'s profile`}
+          >
             <Text style={clientStyles.taskerAvatarText}>
               {(displayName.charAt(0) || "?").toUpperCase()}
             </Text>
-          </View>
-          {ratingLabel ? (
-            <View style={clientStyles.ratingBadge}>
-              <Icon name="star" size={10} color="#EAB308" />
-              <Text style={clientStyles.ratingText}>{ratingLabel}</Text>
+          </Pressable>
+
+          <View style={clientStyles.taskerInfoCol}>
+            <View style={clientStyles.taskerNameRatingRow}>
+              <Pressable
+                style={({ pressed }) => [
+                  clientStyles.taskerNameGroup,
+                  pressed ? { opacity: 0.7 } : null,
+                ]}
+                onPress={openProfile}
+                accessibilityRole="button"
+                accessibilityLabel={`View ${displayName}'s profile`}
+              >
+                <Text style={clientStyles.taskerDisplayName} numberOfLines={1}>
+                  {displayName}
+                </Text>
+                <Icon name="eye" size={15} color={theme.primary} />
+              </Pressable>
+
+              {ratingLabel ? (
+                <View style={clientStyles.taskerRatingInline}>
+                  <Icon name="star" size={11} color="#EAB308" />
+                  <Text style={clientStyles.taskerRatingScore}>{ratingLabel}</Text>
+                </View>
+              ) : null}
             </View>
-          ) : null}
+
+            <Text style={clientStyles.taskerMetaText} numberOfLines={1}>
+              {completionCount > 0
+                ? `${completionCount} task${completionCount === 1 ? "" : "s"} completed`
+                : `${services.length} ${services.length === 1 ? "specialty" : "specialties"} available`}
+            </Text>
+          </View>
         </View>
 
-        <View style={clientStyles.nameAndChevronRow}>
-          <View style={clientStyles.stackedNameCol}>
-            <Text style={clientStyles.taskerFirstName} numberOfLines={1}>
-              {displayName}
-            </Text>
-            <Text style={clientStyles.taskerSurname} numberOfLines={1}>
-              {subtitle}
-            </Text>
-          </View>
-          {hasServices ? (
-            <View
-              style={[clientStyles.chevronBadge, expanded ? clientStyles.chevronBadgeActive : null]}
-            >
-              <Icon
-                name={expanded ? "chevron-up" : "chevron-down"}
-                size={12}
-                color={expanded ? theme.primary : theme.textSecondary}
-              />
-            </View>
-          ) : null}
-        </View>
-      </Pressable>
-
-      {hasServices ? (
-        <Collapsible expanded={expanded} maxHeight={140} style={clientStyles.servicesExpandedBlock}>
-          <Text style={clientStyles.servicesLabel}>Services ({services.length})</Text>
-          <ScrollView
-            nestedScrollEnabled
-            showsVerticalScrollIndicator={false}
-            style={clientStyles.servicesScrollArea}
-            contentContainerStyle={clientStyles.servicesChipsRow}
+        {/* Action Row: Specialties + Rebook */}
+        <View style={clientStyles.taskerActionsRow}>
+          <Pressable
+            onPress={() => (services.length > 0 ? setServicesModalVisible(true) : openProfile())}
+            accessibilityRole="button"
+            accessibilityLabel={`View services offered by ${displayName}`}
+            style={({ pressed }) => [
+              clientStyles.specialtiesRowButton,
+              pressed ? clientStyles.specialtiesRowButtonPressed : null,
+            ]}
           >
-            {services.map((service, sIdx) => (
-              <View key={sIdx} style={clientStyles.serviceChip}>
-                <Text style={clientStyles.serviceChipText}>{service}</Text>
+            <Text style={clientStyles.specialtiesRowButtonText} numberOfLines={1}>
+              {services.length > 0
+                ? `${services.length === 1 ? "Specialty" : "Specialties"} (${services.length})`
+                : "Specialties"}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() =>
+              router.push({
+                pathname: "/chat/[bookingId]",
+                params: { bookingId: booking.id, rebook: "1" },
+              })
+            }
+            accessibilityRole="button"
+            accessibilityLabel={`Rebook ${displayName}`}
+            style={({ pressed }) => [
+              clientStyles.rebookRowButton,
+              pressed ? clientStyles.rebookRowButtonPressed : null,
+            ]}
+          >
+            <Text style={clientStyles.rebookRowButtonText}>Rebook</Text>
+            <Icon name="arrow-right" size={11} color={theme.onPrimary} />
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Services List Modal */}
+      {services.length > 0 ? (
+        <CenterDialogModal
+          visible={servicesModalVisible}
+          onClose={() => setServicesModalVisible(false)}
+        >
+          <View style={clientStyles.modalCard}>
+            <View style={clientStyles.modalHeader}>
+              <View style={clientStyles.modalAvatar}>
+                <Text style={clientStyles.modalAvatarText}>
+                  {(displayName.charAt(0) || "?").toUpperCase()}
+                </Text>
               </View>
-            ))}
-          </ScrollView>
-        </Collapsible>
+              <View style={clientStyles.modalHeaderInfo}>
+                <Text style={clientStyles.modalTitle}>{displayName}</Text>
+                <View style={clientStyles.modalStatsRow}>
+                  {ratingLabel ? (
+                    <View style={clientStyles.modalRatingInline}>
+                      <Icon name="star" size={11} color="#EAB308" />
+                      <Text style={clientStyles.modalRatingScore}>{ratingLabel}</Text>
+                      {ratingCount > 0 ? (
+                        <Text style={clientStyles.modalRatingCount}>({ratingCount})</Text>
+                      ) : null}
+                      <Text style={clientStyles.modalDotSeparator}>·</Text>
+                    </View>
+                  ) : null}
+                  <Text style={clientStyles.modalJobsCount}>
+                    {completionCount > 0
+                      ? `${completionCount} job${completionCount === 1 ? "" : "s"} completed`
+                      : "Verified Tasker"}
+                  </Text>
+                </View>
+              </View>
+              <Pressable
+                onPress={() => setServicesModalVisible(false)}
+                style={({ pressed }) => [
+                  clientStyles.modalCloseButton,
+                  pressed ? { opacity: 0.7 } : null,
+                ]}
+                accessibilityRole="button"
+                accessibilityLabel="Close services dialog"
+              >
+                <Icon name="close" size={15} color={theme.textSecondary} />
+              </Pressable>
+            </View>
+
+            <ScrollView
+              style={clientStyles.modalServicesList}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={clientStyles.modalServicesListContent}
+            >
+              {services.map((service, idx) => (
+                <View key={idx} style={clientStyles.modalServiceItem}>
+                  <View style={clientStyles.modalServiceIconCircle}>
+                    <Icon name="check-circle" size={13} color={theme.primary} />
+                  </View>
+                  <Text style={clientStyles.modalServiceName}>{formatSpecialty(service)}</Text>
+                </View>
+              ))}
+            </ScrollView>
+
+            <View style={clientStyles.modalFooter}>
+              <Pressable
+                style={({ pressed }) => [
+                  clientStyles.modalRebookBtn,
+                  pressed ? { opacity: 0.88, transform: [{ scale: 0.985 }] } : null,
+                ]}
+                onPress={() => {
+                  setServicesModalVisible(false);
+                  router.push({
+                    pathname: "/chat/[bookingId]",
+                    params: { bookingId: booking.id, rebook: "1" },
+                  });
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`Rebook ${displayName}`}
+              >
+                <Text style={clientStyles.modalRebookBtnText}>Rebook with {displayName}</Text>
+                <Icon name="arrow-right" size={14} color={theme.onPrimary} />
+              </Pressable>
+            </View>
+          </View>
+        </CenterDialogModal>
       ) : null}
-
-      <Pressable
-        style={({ pressed }) => [
-          clientStyles.rebookCarouselButton,
-          pressed ? { opacity: 0.88, transform: [{ scale: 0.98 }] } : null,
-        ]}
-        onPress={() =>
-          router.push({
-            pathname: "/chat/[bookingId]",
-            params: { bookingId: booking.id, rebook: "1" },
-          })
-        }
-        accessibilityRole="button"
-        accessibilityLabel={`Rebook ${displayName}`}
-      >
-        <Text style={clientStyles.rebookCarouselText}>Rebook</Text>
-        <Icon name="arrow-right" size={13} color={theme.onPrimary} />
-      </Pressable>
-
-      <Pressable
-        onPress={() => router.push({ pathname: "/profile/[id]", params: { id: booking.taskerId } })}
-        accessibilityRole="button"
-        accessibilityLabel={`View ${displayName}'s profile`}
-        style={({ pressed }) => [clientStyles.viewProfileLink, pressed ? { opacity: 0.7 } : null]}
-      >
-        <Text style={clientStyles.viewProfileLinkText}>View profile</Text>
-      </Pressable>
-    </View>
+    </>
   );
 }

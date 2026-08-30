@@ -24,10 +24,17 @@ import {
   useResponsiveLayout,
 } from "../../theme";
 import {
+  DEFAULT_MY_TASK_FILTERS,
   MY_TASK_STATUS_FILTERS,
-  TaskStatusFilterPanel,
-  type MyTaskStatusFilter,
-} from "./TaskStatusFilterPanel";
+  activeMyTaskFilterCount,
+  countMyTasksByCategory,
+  countMyTasksByStatus,
+  describeMyTaskFilters,
+  matchesMyTaskFilters,
+  sortMyTasks,
+  type MyTaskFilterState,
+} from "./myTaskFilters";
+import { MyTaskFilterPanel } from "./MyTaskFilterPanel";
 
 const FILTERS = MY_TASK_STATUS_FILTERS;
 
@@ -115,24 +122,29 @@ function taskUpdatedLabel(task: OwnedTaskRecord): string {
 export function ClientMyTasks() {
   const { session } = useSession();
   const { repository, revision } = useMarketplace();
-  const { nameFor } = useCategories();
+  const { nameFor, categories } = useCategories();
   const { isTablet } = useResponsiveLayout();
   const [tasks, setTasks] = useState<ReadonlyArray<OwnedTaskRecord>>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<MyTaskStatusFilter>("all");
+  const [filters, setFilters] = useState<MyTaskFilterState>(DEFAULT_MY_TASK_FILTERS);
+  // The sheet reports its in-progress draft so the badges and the apply button
+  // can count against what the user is editing, not what is already applied.
+  const [draftFilters, setDraftFilters] = useState<MyTaskFilterState>(DEFAULT_MY_TASK_FILTERS);
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchFocused, setSearchFocused] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
 
-  const activeStatusFilterCount = filter === "all" ? 0 : 1;
+  const activeStatusFilterCount = activeMyTaskFilterCount(filters);
 
   const categoryLabel = (categoryId: string | null) =>
     categoryId ? (nameFor(categoryId) ?? "Task") : "General";
 
-  const handleApplyStatusFilter = (nextFilter: MyTaskStatusFilter) => {
-    setFilter(nextFilter);
+  const handleApplyStatusFilter = (nextFilter: MyTaskFilterState) => {
+    setFilters(nextFilter);
+    setDraftFilters(nextFilter);
     setFilterPanelOpen(false);
   };
 
@@ -150,48 +162,51 @@ export function ClientMyTasks() {
     }
   }, [session, repository]);
 
+  const handleRefresh = useCallback(async () => {
+    if (!session) return;
+    setRefreshing(true);
+    try {
+      const [result] = await Promise.all([
+        repository.listMyTasks(session.userId),
+        new Promise((resolve) => setTimeout(resolve, 500)),
+      ]);
+      setTasks(result);
+    } catch {
+      setError("Could not load your tasks. Check your connection and try again.");
+    } finally {
+      setRefreshing(false);
+    }
+  }, [session, repository]);
+
   useEffect(() => {
     void loadTasks();
   }, [loadTasks, revision]);
 
-  // A filter switch or a reload can shrink the list (e.g. from many tasks
-  // down to one). The screen's ScrollView otherwise keeps whatever offset the
-  // user had scrolled to, which — clamped to the new, shorter content — shows
-  // blank space where the removed rows used to be, with the remaining card(s)
-  // stuck near the bottom instead of appearing right after the filter row.
+  // When the user explicitly switches filters or enters a search query, scroll to
+  // the top so results start cleanly below the filter bar. We deliberately do NOT
+  // trigger this on data updates or reloads, allowing pull-to-refresh to finish its
+  // smooth native scrolling-up and fadeout recoil animation identically to the
+  // Home and Browse tabs.
   useEffect(() => {
     scrollRef.current?.scrollTo({ y: 0, animated: false });
-  }, [filter, searchQuery, tasks]);
+  }, [filters, searchQuery]);
 
-  const counts = useMemo(() => {
-    const map: Record<MyTaskStatusFilter, number> = {
-      all: tasks.length,
-      draft: 0,
-      published: 0,
-      assigned: 0,
-      completed: 0,
-      closed: 0,
-    };
-    for (const t of tasks) {
-      if (t.status === "DRAFT") map.draft++;
-      else if (t.status === "OPEN" || t.status === "BOOKING_PENDING") map.published++;
-      else if (
-        t.status === "ASSIGNED" ||
-        t.status === "IN_PROGRESS" ||
-        t.status === "COMPLETION_REQUESTED"
-      )
-        map.assigned++;
-      else if (t.status === "COMPLETED") map.completed++;
-      else if (
-        t.status === "EXPIRED" ||
-        t.status === "CANCELLED" ||
-        t.status === "DISPUTED" ||
-        t.status === "REMOVED"
-      )
-        map.closed++;
-    }
-    return map;
-  }, [tasks]);
+  // Badges count against the draft being edited, excluding the status choice
+  // itself, so each option states how many tasks it would actually reveal.
+  const counts = useMemo(
+    () => countMyTasksByStatus(tasks, draftFilters, searchQuery),
+    [tasks, draftFilters, searchQuery],
+  );
+
+  const categoryCounts = useMemo(
+    () => countMyTasksByCategory(tasks, categories, draftFilters, searchQuery),
+    [tasks, categories, draftFilters, searchQuery],
+  );
+
+  const draftMatchingCount = useMemo(
+    () => tasks.filter((task) => matchesMyTaskFilters(task, draftFilters, searchQuery)).length,
+    [tasks, draftFilters, searchQuery],
+  );
 
   const attentionCount = useMemo(
     () => tasks.filter((task) => nextAction(task).actionable).length,
@@ -211,47 +226,29 @@ export function ClientMyTasks() {
     [tasks],
   );
 
-  const filtered = useMemo(() => {
-    return tasks.filter((t) => {
-      if (filter === "draft" && t.status !== "DRAFT") return false;
-      if (filter === "published" && !(t.status === "OPEN" || t.status === "BOOKING_PENDING"))
-        return false;
-      if (
-        filter === "assigned" &&
-        !(
-          t.status === "ASSIGNED" ||
-          t.status === "IN_PROGRESS" ||
-          t.status === "COMPLETION_REQUESTED"
-        )
-      )
-        return false;
-      if (filter === "completed" && t.status !== "COMPLETED") return false;
-      if (
-        filter === "closed" &&
-        !(
-          t.status === "EXPIRED" ||
-          t.status === "CANCELLED" ||
-          t.status === "DISPUTED" ||
-          t.status === "REMOVED"
-        )
-      )
-        return false;
+  const filterChips = useMemo(
+    () => describeMyTaskFilters(filters, (categoryId) => nameFor(categoryId) ?? undefined),
+    [filters, nameFor],
+  );
 
-      if (searchQuery.trim().length > 0) {
-        const query = searchQuery.trim().toLowerCase();
-        const title = (t.draft.title || "").toLowerCase();
-        const desc = (t.draft.description || "").toLowerCase();
-        return title.includes(query) || desc.includes(query);
-      }
-
-      return true;
-    });
-  }, [tasks, filter, searchQuery]);
+  const filtered = useMemo(
+    () =>
+      sortMyTasks(
+        tasks.filter((task) => matchesMyTaskFilters(task, filters, searchQuery)),
+        filters.sort,
+      ),
+    [tasks, filters, searchQuery],
+  );
 
   if (!session) return null;
 
   return (
-    <Screen scrollViewRef={scrollRef}>
+    <Screen
+      scrollViewRef={scrollRef}
+      refreshing={refreshing}
+      onRefresh={handleRefresh}
+      refreshControlTintColor={theme.primary}
+    >
       <View style={styles.container}>
         <AppHeader
           title="My Tasks"
@@ -375,7 +372,7 @@ export function ClientMyTasks() {
             <AnimatedFilterPressable
               selected={activeStatusFilterCount > 0}
               onPress={() => setFilterPanelOpen(true)}
-              accessibilityLabel={`Open status filters${activeStatusFilterCount > 0 ? ", 1 active" : ""}`}
+              accessibilityLabel={`Open task filters${activeStatusFilterCount > 0 ? `, ${activeStatusFilterCount} active` : ""}`}
               accessibilityState={{ expanded: filterPanelOpen }}
               selectionAccessibilityState="none"
               style={styles.filterButton}
@@ -409,49 +406,70 @@ export function ClientMyTasks() {
               />
             </Link>
           </View>
-
-          {filter !== "all" || searchQuery.trim() ? (
-            <View style={styles.activeFiltersBlock}>
-              <Text style={styles.activeFiltersText} numberOfLines={2}>
-                {filter === "all"
-                  ? "All statuses"
-                  : (FILTERS.find((item) => item.key === filter)?.label ?? "Selected")}
-                {searchQuery.trim() ? ` · “${searchQuery.trim()}”` : ""}
-              </Text>
-              <Pressable
-                onPress={() => {
-                  setFilter("all");
-                  setSearchQuery("");
-                }}
-                hitSlop={8}
-                accessibilityRole="button"
-                accessibilityLabel="Clear task search and filters"
-                style={({ pressed }) => [
-                  styles.clearFiltersButton,
-                  pressed ? styles.clearFiltersButtonPressed : null,
-                ]}
-              >
-                <Text style={styles.clearFiltersText}>Clear</Text>
-              </Pressable>
-            </View>
-          ) : null}
         </View>
 
         {!loading && !error && tasks.length > 0 ? (
           <View style={styles.resultsHeader}>
-            <Text style={styles.resultsTitle}>
-              {filter === "all"
-                ? searchQuery.trim()
-                  ? "Search results"
-                  : "Your tasks"
-                : `${FILTERS.find((item) => item.key === filter)?.label ?? "Selected"} tasks`}
-            </Text>
-            <View
-              style={styles.resultsCountBadge}
-              accessibilityLabel={`${filtered.length} task${filtered.length === 1 ? "" : "s"} shown`}
-            >
-              <Text style={styles.resultsCountText}>{filtered.length}</Text>
+            <View style={styles.resultsHeaderLeft}>
+              <Text style={styles.resultsTitle} numberOfLines={1}>
+                {filters.status === "all"
+                  ? searchQuery.trim()
+                    ? "Search results"
+                    : "Your tasks"
+                  : `${FILTERS.find((item) => item.key === filters.status)?.label ?? "Selected"} tasks`}
+              </Text>
+              <View
+                style={styles.resultsCountBadge}
+                accessibilityLabel={`${filtered.length} task${filtered.length === 1 ? "" : "s"} shown`}
+              >
+                <Text style={styles.resultsCountText}>{filtered.length}</Text>
+              </View>
             </View>
+
+            {activeStatusFilterCount > 0 || searchQuery.trim() ? (
+              <View style={styles.resultsHeaderRight}>
+                {activeStatusFilterCount > 0 ? (
+                  <Pressable
+                    onPress={() => handleApplyStatusFilter(DEFAULT_MY_TASK_FILTERS)}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Clear ${activeStatusFilterCount} applied filter${activeStatusFilterCount === 1 ? "" : "s"}: ${filterChips.join(", ")}`}
+                    accessibilityHint="Removes every applied filter"
+                    style={({ pressed }) => [
+                      styles.activeFilterChip,
+                      pressed ? styles.activeFilterChipPressed : null,
+                    ]}
+                  >
+                    <Icon name="filter" size={12} color={theme.primary} />
+                    <Text style={styles.activeFilterChipText} numberOfLines={1}>
+                      {filterChips.length > 1
+                        ? `${filterChips[0]} +${filterChips.length - 1}`
+                        : (filterChips[0] ?? "Filtered")}
+                    </Text>
+                    <Icon name="close" size={11} color={theme.primary} />
+                  </Pressable>
+                ) : null}
+                {searchQuery.trim() ? (
+                  <Pressable
+                    onPress={() => setSearchQuery("")}
+                    hitSlop={6}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Clear search: "${searchQuery.trim()}"`}
+                    accessibilityHint="Removes this search query"
+                    style={({ pressed }) => [
+                      styles.activeFilterChip,
+                      pressed ? styles.activeFilterChipPressed : null,
+                    ]}
+                  >
+                    <Icon name="search" size={12} color={theme.primary} />
+                    <Text style={styles.activeFilterChipText} numberOfLines={1}>
+                      {`"${searchQuery.trim()}"`}
+                    </Text>
+                    <Icon name="close" size={11} color={theme.primary} />
+                  </Pressable>
+                ) : null}
+              </View>
+            ) : null}
           </View>
         ) : null}
 
@@ -473,7 +491,7 @@ export function ClientMyTasks() {
               description="Try another search or return to all task stages."
               actionLabel="Clear filters"
               onAction={() => {
-                setFilter("all");
+                handleApplyStatusFilter(DEFAULT_MY_TASK_FILTERS);
                 setSearchQuery("");
               }}
             />
@@ -529,27 +547,6 @@ export function ClientMyTasks() {
                     <View
                       style={[
                         styles.activityBadge,
-                        task.questionCount > 0 ? styles.activityBadgeActive : null,
-                      ]}
-                    >
-                      <Icon
-                        name="chat"
-                        size={13}
-                        color={task.questionCount > 0 ? theme.primary : theme.textSecondary}
-                      />
-                      <Text
-                        style={[
-                          styles.activityBadgeText,
-                          task.questionCount > 0 ? styles.activityBadgeTextActive : null,
-                        ]}
-                        numberOfLines={1}
-                      >
-                        {task.questionCount} {task.questionCount === 1 ? "question" : "questions"}
-                      </Text>
-                    </View>
-                    <View
-                      style={[
-                        styles.activityBadge,
                         task.offerCount > 0 ? styles.activityBadgeActive : null,
                       ]}
                     >
@@ -566,6 +563,27 @@ export function ClientMyTasks() {
                         numberOfLines={1}
                       >
                         {task.offerCount} {task.offerCount === 1 ? "offer" : "offers"}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.activityBadge,
+                        task.questionCount > 0 ? styles.activityBadgeActive : null,
+                      ]}
+                    >
+                      <Icon
+                        name="chat"
+                        size={13}
+                        color={task.questionCount > 0 ? theme.primary : theme.textSecondary}
+                      />
+                      <Text
+                        style={[
+                          styles.activityBadgeText,
+                          task.questionCount > 0 ? styles.activityBadgeTextActive : null,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {task.questionCount} {task.questionCount === 1 ? "question" : "questions"}
                       </Text>
                     </View>
                   </View>
@@ -628,12 +646,19 @@ export function ClientMyTasks() {
         )}
       </View>
 
-      <TaskStatusFilterPanel
+      <MyTaskFilterPanel
         visible={filterPanelOpen}
-        filter={filter}
+        filters={filters}
         counts={counts}
+        categoryCounts={categoryCounts}
+        matchingCount={draftMatchingCount}
         onApply={handleApplyStatusFilter}
-        onClose={() => setFilterPanelOpen(false)}
+        onDraftChange={setDraftFilters}
+        onClose={() => {
+          // Cancelling restores the draft to what is actually applied.
+          setDraftFilters(filters);
+          setFilterPanelOpen(false);
+        }}
       />
     </Screen>
   );
@@ -658,11 +683,28 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   resultsHeader: {
+    minHeight: 32,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  resultsHeaderLeft: {
+    flex: 1,
+    minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
   },
+  resultsHeaderRight: {
+    flexShrink: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: spacing.xs,
+  },
   resultsTitle: {
+    flexShrink: 1,
     color: theme.textPrimary,
     fontSize: fontSize.lg,
     lineHeight: lineHeight.lg,
@@ -682,18 +724,6 @@ const styles = StyleSheet.create({
     fontSize: fontSize.sm,
     fontWeight: "800",
   },
-  clearFiltersButton: {
-    minHeight: 32,
-    justifyContent: "center",
-    paddingHorizontal: spacing.sm,
-    borderRadius: radii.pill,
-    backgroundColor: theme.primarySoft,
-  },
-  clearFiltersButtonPressed: {
-    opacity: 0.72,
-    transform: [{ scale: 0.94 }],
-  },
-  clearFiltersText: { color: theme.primary, fontSize: fontSize.xs, fontWeight: "800" },
   searchFilterRow: {
     minWidth: 0,
     flexDirection: "row",
@@ -808,23 +838,31 @@ const styles = StyleSheet.create({
     fontSize: fontSize.xs,
     lineHeight: lineHeight.xs,
   },
-  activeFiltersBlock: {
-    minWidth: 0,
+  activeFilterChip: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: theme.borderSubtle,
+    gap: 4,
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 5,
+    borderRadius: radii.pill,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.borderControl,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
-  activeFiltersText: {
-    flex: 1,
-    minWidth: 0,
-    color: theme.textSecondary,
+  activeFilterChipPressed: {
+    opacity: 0.72,
+    transform: [{ scale: 0.95 }],
+  },
+  activeFilterChipText: {
+    color: theme.primary,
     fontSize: fontSize.xs,
-    lineHeight: lineHeight.xs,
-    fontWeight: "600",
+    fontWeight: "700",
+    maxWidth: 140,
   },
   cardCopy: {
     gap: spacing.xs,

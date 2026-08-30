@@ -35,6 +35,7 @@
     "test:all": "npm run test && npm run admin:test && npm run mobile:test",
     "typecheck:all": "npm run typecheck && npm run admin:typecheck && npm run mobile:typecheck",
     "seed:supabase": "node scripts/seed-supabase.mjs",
+    "seed:offers": "node scripts/seed-offers-testdata.mjs",
     "test:sql": "node scripts/run-sql-suites.mjs",
     "migrations:bundle": "node scripts/build-migration-bundle.mjs",
     "migrations:apply": "node scripts/apply-migrations.mjs",
@@ -43,7 +44,8 @@
   "devDependencies": {
     "@eslint/js": "9.17.0",
     "@types/node": "22.20.1",
-    "eslint": "9.17.0",
+    "eslint": "9.39.5",
+    "metro": "0.84.5",
     "prettier": "3.4.2",
     "typescript": "5.7.3",
     "typescript-eslint": "8.19.1",
@@ -53,6 +55,9 @@
     "@supabase/supabase-js": "2.110.8"
   },
   "overrides": {
-    "@types/react": "19.2.4"
+    "@types/react": "19.2.4",
+    "xcode": {
+      "uuid": "11.1.1"
+    }
   }
 }

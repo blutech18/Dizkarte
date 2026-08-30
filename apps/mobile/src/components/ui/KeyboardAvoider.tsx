@@ -8,52 +8,61 @@ import {
   type StyleProp,
   type ViewStyle,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 /**
  * Smoothly lifts its content above the on-screen keyboard.
  *
- * Why not RN's `KeyboardAvoidingView`? On Android it animates the resize with
- * `LayoutAnimation`, which is a no-op under the New Architecture (Expo SDK 55+),
- * so the keyboard "jumps" the form instantly instead of gliding. Here the lift
- * is a bottom padding driven by `Animated.timing` — which runs fine on the New
- * Architecture — so the form eases in and out on both platforms. On iOS the
- * `keyboardWillShow`/`keyboardWillHide` events fire before the keyboard moves
- * and carry the system animation `duration`, so the glide stays perfectly in
- * sync with the keyboard; on Android we fall back to a short, gentle easing.
+ * Uses direct Keyboard event listeners rather than React Native's KeyboardAvoidingView,
+ * ensuring reliable performance on iOS New Architecture (Fabric) where measureInWindow
+ * can fail inside transformed parent views. On iOS, listens to `keyboardWillShow`/`keyboardWillHide`
+ * to stay perfectly in sync with the native keyboard animation.
  */
 export function KeyboardAvoider({
   children,
   style,
+  offset = 0,
 }: {
   readonly children: ReactNode;
   readonly style?: StyleProp<ViewStyle>;
+  readonly offset?: number;
 }) {
   const lift = useRef(new Animated.Value(0)).current;
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
-    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    if (Platform.OS !== "ios") return;
 
     const animateTo = (toValue: number, duration: number | undefined) => {
       Animated.timing(lift, {
         toValue,
-        duration: duration && duration > 0 ? duration : 240,
-        easing: Easing.out(Easing.ease),
-        // paddingBottom is a layout prop, so it cannot run on the native driver.
+        duration: duration && duration > 0 ? duration : 250,
+        easing: Easing.out(Easing.cubic),
         useNativeDriver: false,
       }).start();
     };
 
-    const onShow = (event: KeyboardEvent) => animateTo(event.endCoordinates.height, event.duration);
-    const onHide = (event: KeyboardEvent) => animateTo(0, event.duration);
+    const onShow = (event: KeyboardEvent) => {
+      const keyboardHeight = event.endCoordinates.height;
+      const targetLift = Math.max(0, keyboardHeight - (insets.bottom || 0) + offset);
+      animateTo(targetLift, event.duration);
+    };
 
-    const showSub = Keyboard.addListener(showEvent, onShow);
-    const hideSub = Keyboard.addListener(hideEvent, onHide);
+    const onHide = (event: KeyboardEvent) => {
+      animateTo(0, event.duration);
+    };
+
+    const showSub = Keyboard.addListener("keyboardWillShow", onShow);
+    const hideSub = Keyboard.addListener("keyboardWillHide", onHide);
     return () => {
       showSub.remove();
       hideSub.remove();
     };
-  }, [lift]);
+  }, [lift, insets.bottom, offset]);
 
-  return <Animated.View style={[style, { paddingBottom: lift }]}>{children}</Animated.View>;
+  return (
+    <Animated.View style={[style, { paddingBottom: lift }]}>
+      {children}
+    </Animated.View>
+  );
 }

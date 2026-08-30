@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AppLink } from "@/components/ui/AppLink";
 import { usePathname } from "next/navigation";
 import type { AdminSession } from "@/lib/session";
 import { NAV_SECTIONS } from "@/lib/nav";
@@ -88,13 +89,13 @@ export function Topbar({
           className="dk-app-topbar-brand"
           style={{ display: "flex", alignItems: "center", gap: 10 }}
         >
-          <a href="/dashboard" style={{ display: "inline-flex", alignItems: "center" }}>
+          <AppLink href="/dashboard" style={{ display: "inline-flex", alignItems: "center" }}>
             <img
               src="/brand/text-icon-logo.png"
               alt="Dizkarte"
               style={{ height: 24, width: "auto", display: "block" }}
             />
-          </a>
+          </AppLink>
           <span
             style={{
               display: "inline-flex",

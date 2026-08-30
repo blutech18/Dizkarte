@@ -21,11 +21,12 @@ type HistoryState = "loading" | "loaded" | "error";
 const CATEGORY_OPTIONS: ReadonlyArray<{
   readonly key: Category;
   readonly label: string;
+  readonly icon: IconName;
 }> = [
-  { key: "payment", label: "Payment" },
-  { key: "safety", label: "Safety" },
-  { key: "quality", label: "Work quality" },
-  { key: "other", label: "Other" },
+  { key: "payment", label: "Payment", icon: "wallet" },
+  { key: "safety", label: "Safety", icon: "shield" },
+  { key: "quality", label: "Work quality", icon: "star" },
+  { key: "other", label: "Other", icon: "chat" },
 ];
 
 export default function SupportScreen() {
@@ -129,7 +130,6 @@ export default function SupportScreen() {
             <ProfilePageSection
               icon="note"
               title="Frequently asked questions"
-              description="Common questions about verification, payments, and bookings."
               showDivider={false}
             >
               <Text style={styles.body}>
@@ -141,7 +141,6 @@ export default function SupportScreen() {
             <ProfilePageSection
               icon="shield"
               title="Safety and privacy"
-              description="How Dizkarte protects private booking information."
               showDivider={false}
             >
               <Text style={styles.body}>
@@ -160,7 +159,7 @@ export default function SupportScreen() {
               description={
                 subjectId === "general"
                   ? "Describe the issue clearly and attach useful screenshots or photos."
-                  : `This ticket will be linked to ${subjectType} ${subjectId}.`
+                  : `Report an issue linked to ${subjectType} #${subjectId.slice(0, 8)}. Support will investigate.`
               }
             >
               {submitted ? (
@@ -180,7 +179,7 @@ export default function SupportScreen() {
                   />
                 </View>
               ) : (
-                <>
+                <View style={styles.formContainer}>
                   {submitError ? (
                     <View style={styles.errorNotice} accessibilityRole="alert">
                       <Icon name="alert-circle" size={20} color={theme.errorOnSoft} />
@@ -188,37 +187,45 @@ export default function SupportScreen() {
                     </View>
                   ) : null}
 
-                  <Text style={styles.fieldLabel}>Issue category</Text>
-                  <View style={styles.categoryRow}>
-                    {CATEGORY_OPTIONS.map((option) => {
-                      const selected = category === option.key;
-                      return (
-                        <Pressable
-                          key={option.key}
-                          onPress={() => {
-                            setCategory(option.key);
-                            setSubmitError(null);
-                          }}
-                          accessibilityRole="radio"
-                          accessibilityState={{ selected }}
-                          accessibilityLabel={option.label}
-                          style={({ pressed }) => [
-                            styles.categoryChip,
-                            selected ? styles.categoryChipSelected : null,
-                            pressed ? styles.categoryChipPressed : null,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.categoryText,
-                              selected ? styles.categoryTextSelected : null,
+                  <View style={styles.fieldGroup}>
+                    <Text style={styles.fieldLabel}>Issue category</Text>
+                    <View style={styles.categoryGrid}>
+                      {CATEGORY_OPTIONS.map((option) => {
+                        const selected = category === option.key;
+                        return (
+                          <Pressable
+                            key={option.key}
+                            onPress={() => {
+                              setCategory(option.key);
+                              setSubmitError(null);
+                            }}
+                            accessibilityRole="radio"
+                            accessibilityState={{ selected }}
+                            accessibilityLabel={option.label}
+                            style={({ pressed }) => [
+                              styles.categoryCard,
+                              selected ? styles.categoryCardSelected : null,
+                              pressed ? styles.categoryCardPressed : null,
                             ]}
                           >
-                            {option.label}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
+                            <Icon
+                              name={option.icon}
+                              size={15}
+                              color={selected ? theme.primary : theme.textSecondary}
+                            />
+                            <Text
+                              style={[
+                                styles.categoryText,
+                                selected ? styles.categoryTextSelected : null,
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {option.label}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
                   </View>
 
                   <TextField
@@ -246,6 +253,7 @@ export default function SupportScreen() {
                     allowVideo
                     disabled={submitting}
                   />
+
                   <Button
                     label="Submit ticket"
                     icon="send"
@@ -254,7 +262,7 @@ export default function SupportScreen() {
                     disabled={!narrative.trim()}
                     fullWidth
                   />
-                </>
+                </View>
               )}
             </ProfilePageSection>
 
@@ -262,6 +270,7 @@ export default function SupportScreen() {
               icon="briefcase"
               title="Your ticket history"
               description="Track submitted requests and their current status."
+              showDivider={false}
             >
               {historyState === "loading" ? <LoadingState label="Loading history" /> : null}
               {historyState === "error" ? (
@@ -390,7 +399,6 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     gap: spacing.sm,
     padding: spacing.md,
-    marginBottom: spacing.md,
     borderRadius: radii.md,
     backgroundColor: theme.errorSoft,
   },
@@ -401,43 +409,66 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: theme.errorOnSoft,
   },
+  formContainer: {
+    gap: spacing.md,
+  },
+  linkedBadge: {
+    paddingHorizontal: spacing.sm + 2,
+    paddingVertical: 3,
+    borderRadius: radii.pill,
+    backgroundColor: theme.primarySoft,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+  },
+  linkedBadgeText: {
+    fontSize: fontSize.xs,
+    fontWeight: "700",
+    color: theme.primary,
+  },
+  fieldGroup: {
+    gap: spacing.xs,
+  },
   fieldLabel: {
     fontSize: fontSize.sm,
     fontWeight: "700",
     color: theme.textPrimary,
-    marginBottom: spacing.sm,
   },
-  categoryRow: {
+  categoryGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
+    justifyContent: "space-between",
+    rowGap: spacing.sm,
   },
-  categoryChip: {
-    minHeight: 38,
+  categoryCard: {
+    width: "48.5%",
+    minHeight: 46,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: spacing.md,
+    gap: 8,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm + 2,
     borderWidth: 1,
     borderColor: theme.borderControl,
-    borderRadius: radii.pill,
-    backgroundColor: theme.surface,
+    borderRadius: radii.md,
+    backgroundColor: theme.surfaceSubtle,
   },
-  categoryChipSelected: {
+  categoryCardSelected: {
     borderColor: theme.primary,
-    backgroundColor: theme.primary,
+    backgroundColor: theme.primarySoft,
   },
-  categoryChipPressed: {
-    opacity: 0.82,
-    transform: [{ scale: 0.97 }],
+  categoryCardPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
   },
   categoryText: {
-    fontSize: fontSize.sm,
+    fontSize: 13,
     fontWeight: "600",
     color: theme.textPrimary,
   },
   categoryTextSelected: {
-    color: theme.onPrimary,
+    color: theme.primary,
+    fontWeight: "700",
   },
   ticketList: {
     gap: spacing.sm,

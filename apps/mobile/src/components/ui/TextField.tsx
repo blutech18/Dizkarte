@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useRef, useState, type RefObject } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { theme, radii, spacing, fontSize, MIN_TOUCH_TARGET, noWebOutline } from "../../theme";
 import { Icon } from "./Icon";
+import { useScreenScroll } from "../../providers/ScreenScrollContext";
 
 export type TextFieldProps = Omit<TextInputProps, "style"> & {
   readonly label: string;
@@ -18,6 +19,7 @@ export type TextFieldProps = Omit<TextInputProps, "style"> & {
   readonly description?: string | undefined;
   readonly required?: boolean;
   readonly containerStyle?: StyleProp<ViewStyle>;
+  readonly containerRef?: RefObject<View | null> | undefined;
 };
 
 /**
@@ -31,18 +33,29 @@ export function TextField({
   description,
   required,
   containerStyle,
+  containerRef,
   secureTextEntry,
   multiline,
   textAlignVertical,
   ...inputProps
 }: TextFieldProps) {
   const fieldId = useId();
+  const screenScroll = useScreenScroll();
+  const internalContainerRef = useRef<View>(null);
   const isPasswordField = secureTextEntry !== undefined;
   const [isSecure, setIsSecure] = useState(Boolean(secureTextEntry));
   const [isFocused, setIsFocused] = useState(false);
 
   return (
-    <View style={[styles.container, containerStyle]}>
+    <View
+      ref={(node) => {
+        (internalContainerRef as React.MutableRefObject<View | null>).current = node;
+        if (containerRef && "current" in containerRef) {
+          (containerRef as React.MutableRefObject<View | null>).current = node;
+        }
+      }}
+      style={[styles.container, containerStyle]}
+    >
       <Text style={styles.label} nativeID={`${fieldId}-label`}>
         {label}
         {required ? <Text style={styles.required}> *</Text> : null}
@@ -62,6 +75,7 @@ export function TextField({
           {...inputProps}
           onFocus={(e) => {
             setIsFocused(true);
+            screenScroll?.scrollToRef(internalContainerRef);
             inputProps.onFocus?.(e);
           }}
           onBlur={(e) => {
@@ -118,12 +132,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   inputWrapper: {
-    minHeight: MIN_TOUCH_TARGET,
+    height: 48,
+    minHeight: 48,
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
     borderColor: theme.borderControl,
-    borderRadius: radii.sm,
+    borderRadius: radii.md,
     backgroundColor: theme.surface,
     paddingRight: spacing.xs,
   },
@@ -132,6 +147,7 @@ const styles = StyleSheet.create({
   },
   inputWrapperMultiline: {
     minHeight: 136,
+    height: "auto",
     alignItems: "flex-start",
     paddingVertical: spacing.sm,
   },
@@ -140,7 +156,8 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    minHeight: MIN_TOUCH_TARGET,
+    height: 48,
+    minHeight: 48,
     paddingHorizontal: spacing.md,
     color: theme.textPrimary,
     fontSize: fontSize.md,

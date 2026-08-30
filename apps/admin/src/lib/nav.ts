@@ -30,10 +30,20 @@ export const NAV_SECTIONS: ReadonlyArray<NavSection> = [
   {
     title: "Trust & safety",
     items: [
-      { href: "/verification", label: "Identity verification", icon: ShieldIcon },
-      { href: "/taskers", label: "Tasker applications", icon: ShieldIcon },
-      { href: "/users", label: "Users", icon: ShieldIcon },
-      { href: "/tasks", label: "Tasks", icon: ClipboardIcon },
+      {
+        href: "/verification",
+        label: "Identity verification",
+        capabilities: ["ADMIN_SUPPORT"],
+        icon: ShieldIcon,
+      },
+      {
+        href: "/taskers",
+        label: "Tasker applications",
+        capabilities: ["ADMIN_SUPPORT"],
+        icon: ShieldIcon,
+      },
+      { href: "/users", label: "Users", capabilities: ["ADMIN_SUPPORT"], icon: ShieldIcon },
+      { href: "/tasks", label: "Tasks", capabilities: ["ADMIN_SUPPORT"], icon: ClipboardIcon },
       {
         href: "/media",
         label: "Task media",
@@ -44,7 +54,14 @@ export const NAV_SECTIONS: ReadonlyArray<NavSection> = [
   },
   {
     title: "Marketplace",
-    items: [{ href: "/bookings", label: "Bookings", icon: ClipboardIcon }],
+    items: [
+      {
+        href: "/bookings",
+        label: "Bookings",
+        capabilities: ["ADMIN_SUPPORT"],
+        icon: ClipboardIcon,
+      },
+    ],
   },
   {
     title: "Catalog",
@@ -55,9 +72,14 @@ export const NAV_SECTIONS: ReadonlyArray<NavSection> = [
   {
     title: "Support & disputes",
     items: [
-      { href: "/reports", label: "Reports", icon: ChatIcon },
-      { href: "/disputes", label: "Disputes", icon: ChatIcon },
-      { href: "/support", label: "Support tickets", icon: ChatIcon },
+      { href: "/reports", label: "Reports", capabilities: ["ADMIN_SUPPORT"], icon: ChatIcon },
+      { href: "/disputes", label: "Disputes", capabilities: ["ADMIN_FINANCE"], icon: ChatIcon },
+      {
+        href: "/support",
+        label: "Support tickets",
+        capabilities: ["ADMIN_SUPPORT"],
+        icon: ChatIcon,
+      },
       {
         href: "/reviews",
         label: "Reviews",
@@ -117,16 +139,32 @@ export const NAV_SECTIONS: ReadonlyArray<NavSection> = [
  */
 export const BOTTOM_NAV_ITEMS: ReadonlyArray<NavItem> = [
   { href: "/dashboard", label: "Home", icon: GridIcon },
-  { href: "/verification", label: "Verify", icon: ShieldIcon },
-  { href: "/support", label: "Support", icon: ChatIcon },
+  { href: "/verification", label: "Verify", capabilities: ["ADMIN_SUPPORT"], icon: ShieldIcon },
+  { href: "/support", label: "Support", capabilities: ["ADMIN_SUPPORT"], icon: ChatIcon },
   { href: "/payments", label: "Finance", capabilities: ["ADMIN_FINANCE"], icon: WalletIcon },
 ];
+
+/**
+ * The single capability rule used by every surface that decides whether to show
+ * a link to a page: the sidebar, the bottom nav, and the dashboard cards.
+ * `ADMIN_SUPER` always passes; an ungated destination is open to any Admin.
+ *
+ * This is presentation only. The page guard in `lib/guard.ts` is what actually
+ * authorizes — this exists so no surface offers a destination the signed-in
+ * Admin would be bounced from.
+ */
+export function hasAnyCapability(
+  capabilities: ReadonlyArray<AdminCapability>,
+  required?: ReadonlyArray<AdminCapability>,
+): boolean {
+  if (!required || required.length === 0) return true;
+  if (capabilities.includes("ADMIN_SUPER")) return true;
+  return required.some((cap) => capabilities.includes(cap));
+}
 
 export function isNavItemVisible(
   item: NavItem,
   capabilities: ReadonlyArray<AdminCapability>,
 ): boolean {
-  if (!item.capabilities) return true;
-  if (capabilities.includes("ADMIN_SUPER")) return true;
-  return item.capabilities.some((required) => capabilities.includes(required));
+  return hasAnyCapability(capabilities, item.capabilities);
 }

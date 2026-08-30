@@ -1,17 +1,34 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { requirePageCapability } from "@/lib/guard";
+import type { AdminSession } from "@/lib/session";
 import { getAdminRepository } from "@/lib/repository";
+import { formatDateTime } from "@/lib/datetime";
 import { Breadcrumbs } from "@/components/ui/Field";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { CaseHistoryList } from "@/components/ui/CaseHistoryList";
 import { EvidenceList } from "@/components/ui/EvidenceList";
-import { RestrictedCaseNotice } from "@/components/ui/AsyncState";
+import { RestrictedCaseNotice, DetailRegionSkeleton } from "@/components/ui/AsyncState";
 import { CaseActionsPanel } from "@/components/ui/CaseActionsPanel";
 import { ticketStatusLabel, ticketStatusTone, TICKET_STATUS_TRANSITIONS } from "../status";
 import { assignTicketAction, transitionTicketStatusAction } from "../actions";
 
 export const metadata: Metadata = { title: "Support ticket" };
 
+/**
+ * Support ticket detail.
+ *
+ * Everything below the breadcrumb is a single ticket record — assignment,
+ * subject, evidence, and history all come from one `getTicket` read gated by the
+ * viewing Admin — so the trail paints immediately and the record streams in
+ * behind one Suspense boundary. There is a single boundary because the whole body
+ * depends on that one record.
+ *
+ * The final crumb shows the ticket id taken from the route params rather than the
+ * fetched record: the value is identical, so sourcing it from the params keeps the
+ * trail from waiting on the query without changing what the operator reads.
+ */
 export default async function SupportTicketDetailPage({
   params,
 }: {
@@ -19,6 +36,30 @@ export default async function SupportTicketDetailPage({
 }) {
   const session = await requirePageCapability(["ADMIN_SUPPORT"]);
   const { id } = await params;
+
+  return (
+    <>
+      <Breadcrumbs
+        items={[
+          { label: "Dashboard", href: "/dashboard" },
+          { label: "Support tickets", href: "/support" },
+          { label: id },
+        ]}
+      />
+      <Suspense fallback={<DetailRegionSkeleton cards={4} lines={3} />}>
+        <SupportTicketRecord id={id} session={session} />
+      </Suspense>
+    </>
+  );
+}
+
+async function SupportTicketRecord({
+  id,
+  session,
+}: {
+  readonly id: string;
+  readonly session: AdminSession;
+}) {
   const repository = getAdminRepository();
   const detail = await repository.getTicket({ ticketId: id, actor: session.email });
 
@@ -30,30 +71,41 @@ export default async function SupportTicketDetailPage({
   const allowedTransitions = TICKET_STATUS_TRANSITIONS[detail.status] ?? [];
 
   return (
-    <>
-      <Breadcrumbs
-        items={[
-          { label: "Dashboard", href: "/dashboard" },
-          { label: "Support tickets", href: "/support" },
-          { label: detail.id },
-        ]}
-      />
-      <div className="dk-page-header">
-        <div>
-          <h1 className="dk-page-title">{detail.subject}</h1>
-          <p className="dk-page-subtitle">
-            Ticket {detail.id} · {detail.category} · Requested by {detail.requesterDisplayName} ·
-            Updated {new Date(detail.updatedAt).toLocaleString("en-PH")}
-          </p>
+    <div className="dk-detail">
+      <header className="dk-detail-header">
+        <div className="dk-detail-header-main">
+          <h1>{detail.subject}</h1>
+          <StatusBadge
+            tone={ticketStatusTone(detail.status)}
+            label={ticketStatusLabel(detail.status)}
+          />
         </div>
-        <StatusBadge
-          tone={ticketStatusTone(detail.status)}
-          label={ticketStatusLabel(detail.status)}
-        />
-      </div>
+        <dl className="dk-detail-header-meta">
+          <div className="dk-fact">
+            <dt>Requested by</dt>
+            <dd>{detail.requesterDisplayName}</dd>
+          </div>
+          <div className="dk-fact">
+            <dt>Category</dt>
+            <dd>{detail.category}</dd>
+          </div>
+          <div className="dk-fact">
+            <dt>Last updated</dt>
+            <dd>
+              <time dateTime={detail.updatedAt}>{formatDateTime(detail.updatedAt)}</time>
+            </dd>
+          </div>
+          <div className="dk-fact">
+            <dt>Ticket reference</dt>
+            <dd>
+              <code>{detail.id}</code>
+            </dd>
+          </div>
+        </dl>
+      </header>
 
       <div className="dk-card">
-        <h2 style={{ marginTop: 0 }}>Assignment</h2>
+        <h2>Assignment</h2>
         <p>
           <strong>Assignee:</strong> {detail.assignee ?? "Unassigned"}
         </p>
@@ -81,14 +133,14 @@ export default async function SupportTicketDetailPage({
       ) : (
         <>
           <div className="dk-card">
-            <h2 style={{ marginTop: 0 }}>Subject</h2>
+            <h2>Subject</h2>
             <p>{detail.caseSubject.resourceLabel}</p>
             <h3>Narrative</h3>
             <p>{detail.narrative}</p>
           </div>
 
           <div className="dk-card">
-            <h2 style={{ marginTop: 0 }}>Evidence</h2>
+            <h2>Evidence</h2>
             <p className="dk-muted">
               Attachment names only. The files themselves stay in private storage and require an
               authorized signed URL, so nothing is rendered from a raw storage path here.
@@ -97,37 +149,12 @@ export default async function SupportTicketDetailPage({
           </div>
 
           <div className="dk-card">
-            <h2 style={{ marginTop: 0 }}>History</h2>
-            <table className="dk-table">
-              <caption className="dk-visually-hidden">Ticket history</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Type</th>
-                  <th scope="col">From</th>
-                  <th scope="col">To</th>
-                  <th scope="col">Actor</th>
-                  <th scope="col">Capability</th>
-                  <th scope="col">Reason</th>
-                  <th scope="col">At</th>
-                </tr>
-              </thead>
-              <tbody>
-                {detail.history.map((event, index) => (
-                  <tr key={index}>
-                    <td>{event.type}</td>
-                    <td>{event.fromValue ?? "—"}</td>
-                    <td>{event.toValue}</td>
-                    <td>{event.actor}</td>
-                    <td>{event.capability ?? "—"}</td>
-                    <td>{event.reason ?? "—"}</td>
-                    <td>{new Date(event.at).toLocaleString("en-PH")}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <h2>History</h2>
+            <CaseHistoryList events={detail.history} statusLabel={ticketStatusLabel} />
           </div>
         </>
       )}
-    </>
+    </div>
   );
 }
+

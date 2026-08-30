@@ -24,6 +24,12 @@ export type VerificationCaseRow = {
   readonly status: "SUBMITTED" | "IN_REVIEW" | "APPROVED" | "REJECTED" | "RESUBMISSION_REQUIRED";
   readonly submittedAt: string;
   readonly documentCount: number;
+  /**
+   * Display name of the Admin holding the case, or `null` when unclaimed.
+   * Queue ownership is visible to every reviewer so two admins do not open the
+   * same case; the audited document read still requires being the assignee.
+   */
+  readonly assignedAdminName: string | null;
 };
 
 export type VerificationCaseDetail = VerificationCaseRow & {
@@ -591,8 +597,41 @@ export type DashboardSnapshot = {
   readonly pendingWithdrawalCount: number;
   /** Bookings in a state that needs human attention (disputed or payment-failed). */
   readonly attentionBookingCount: number;
-  readonly revenueTodayCentavos: number;
-  readonly netLedgerBalanceCentavos: number;
+};
+
+/** One Manila calendar day of business activity. */
+export type DashboardTrendDay = {
+  /** `YYYY-MM-DD` in Asia/Manila. */
+  readonly date: string;
+  /** Platform fee posted to the ledger that day. */
+  readonly platformFeeCentavos: number;
+  /** Agreed value of bookings created that day. */
+  readonly grossBookedCentavos: number;
+  readonly bookingsCreated: number;
+  readonly bookingsCompleted: number;
+  /** Cancelled, payment-failed, disputed, or refunded. */
+  readonly bookingsFailed: number;
+  /** Still moving through the workflow. */
+  readonly bookingsActive: number;
+};
+
+export type DashboardTrendTotals = {
+  readonly platformFeeCentavos: number;
+  readonly grossBookedCentavos: number;
+  readonly bookingsCreated: number;
+  readonly bookingsCompleted: number;
+};
+
+/**
+ * Time series for the dashboard charts plus the immediately preceding window,
+ * so a period-over-period change can be shown without a second round trip.
+ */
+export type DashboardTrends = {
+  /** Oldest to newest, zero-filled so quiet days remain visible as gaps. */
+  readonly days: ReadonlyArray<DashboardTrendDay>;
+  readonly current: DashboardTrendTotals;
+  readonly previous: DashboardTrendTotals;
+  readonly windowDays: number;
 };
 
 export type PageInput = { readonly page: number; readonly pageSize: number };
@@ -685,9 +724,15 @@ export type UserDetail = UserRow & {
 export interface AdminRepository {
   readonly synthetic: boolean;
   getDashboardSnapshot(): Promise<DashboardSnapshot>;
+  /**
+   * Daily business activity for the trend charts. Capability-scoped like every
+   * other read: an Admin without finance scope sees zero revenue rather than an
+   * error, so the caller must gate the revenue chart on the capability.
+   */
+  getDashboardTrends(input: { days: number }): Promise<DashboardTrends>;
 
   listVerificationCases(
-    input: PageInput & { status?: string },
+    input: PageInput & { status?: string; query?: string },
   ): Promise<Paginated<VerificationCaseRow>>;
   getVerificationCase(id: string): Promise<VerificationCaseDetail | null>;
   decideVerificationCase(input: {
@@ -698,7 +743,7 @@ export interface AdminRepository {
   }): Promise<{ ok: boolean; message?: string }>;
 
   listTaskerApplications(
-    input: PageInput & { status?: string },
+    input: PageInput & { status?: string; query?: string },
   ): Promise<Paginated<TaskerApplicationRow>>;
   getTaskerApplication(id: string): Promise<TaskerApplicationDetail | null>;
   decideTaskerApplication(input: {

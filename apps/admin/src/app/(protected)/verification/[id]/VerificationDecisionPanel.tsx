@@ -3,49 +3,41 @@
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { decideVerificationAction } from "../actions";
+import { verificationDecisionsFor, type VerificationDecision } from "../status";
 
-export function VerificationDecisionPanel({ caseId }: { readonly caseId: string }) {
+export function VerificationDecisionPanel({
+  caseId,
+  currentStatus,
+}: {
+  readonly caseId: string;
+  readonly currentStatus: string;
+}) {
   const router = useRouter();
+  const options = verificationDecisionsFor(currentStatus);
 
-  async function decide(
-    decision: "APPROVED" | "REJECTED" | "RESUBMISSION_REQUIRED",
-    reason: string,
-  ) {
+  async function decide(decision: VerificationDecision, reason: string) {
     const result = await decideVerificationAction({ caseId, decision, reason });
     if (result.ok) router.refresh();
     return result;
   }
 
+  if (options.length === 0) return null;
+
   return (
-    <div className="dk-row">
-      <ConfirmDialog
-        triggerLabel="Approve"
-        triggerVariant="primary"
-        title="Approve identity verification"
-        description="The user becomes eligible for marketplace actions gated on verified identity. This action is audited."
-        confirmLabel="Approve"
-        requireReason
-        onConfirm={(reason) => decide("APPROVED", reason)}
-      />
-      <ConfirmDialog
-        triggerLabel="Request resubmission"
-        triggerVariant="secondary"
-        title="Request resubmission"
-        description="The user will see this reason and can submit corrected documents."
-        confirmLabel="Request resubmission"
-        requireReason
-        onConfirm={(reason) => decide("RESUBMISSION_REQUIRED", reason)}
-      />
-      <ConfirmDialog
-        triggerLabel="Reject"
-        triggerVariant="destructive"
-        variant="destructive"
-        title="Reject identity verification"
-        description="This is a final decision. The user will not be able to resubmit this case."
-        confirmLabel="Reject"
-        requireReason
-        onConfirm={(reason) => decide("REJECTED", reason)}
-      />
+    <div className="dk-verification-decision-actions">
+      {options.map((option) => (
+        <ConfirmDialog
+          key={option.decision}
+          triggerLabel={option.label}
+          triggerVariant={option.emphasis}
+          {...(option.emphasis === "destructive" ? { variant: "destructive" as const } : {})}
+          title={option.title}
+          description={option.description}
+          confirmLabel={option.label}
+          requireReason
+          onConfirm={(reason) => decide(option.decision, reason)}
+        />
+      ))}
     </div>
   );
 }

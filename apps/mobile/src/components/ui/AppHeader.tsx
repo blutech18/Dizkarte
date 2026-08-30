@@ -82,14 +82,16 @@ export function BrandTopNavbar({ isHero = false }: { readonly isHero?: boolean |
               pressed ? styles.headerButtonPressed : null,
             ]}
           >
-            <Icon name="bell" size={22} color={theme.onPrimary} />
-            {unreadCount > 0 ? (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText} numberOfLines={1}>
-                  {unreadBadge}
-                </Text>
-              </View>
-            ) : null}
+            <View style={styles.iconBadgeAnchor}>
+              <Icon name="bell" size={25} color={theme.onPrimary} />
+              {unreadCount > 0 ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText} numberOfLines={1}>
+                    {unreadBadge}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
           </Pressable>
         </View>
       </View>
@@ -192,24 +194,26 @@ export function AppHeader({
       {showLogo ? <BrandTopNavbar isHero={isHero} /> : null}
       <View style={styles.titleRow}>
         <View style={styles.titleGroup}>
-          <Text
-            style={[
-              styles.title,
-              { fontSize: responsiveTitleSize },
-              isHero ? styles.titleHero : null,
-            ]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.78}
-            accessibilityRole="header"
-          >
-            {title}
-          </Text>
+          <View style={styles.titleWithActionRow}>
+            <Text
+              style={[
+                styles.title,
+                { fontSize: responsiveTitleSize },
+                isHero ? styles.titleHero : null,
+              ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.78}
+              accessibilityRole="header"
+            >
+              {title}
+            </Text>
+            {action ? <View style={styles.action}>{action}</View> : null}
+          </View>
           {subtitle ? (
             <Text style={[styles.subtitle, isHero ? styles.subtitleHero : null]}>{subtitle}</Text>
           ) : null}
         </View>
-        {action ? <View style={styles.action}>{action}</View> : null}
       </View>
     </View>
   );
@@ -267,16 +271,23 @@ const styles = StyleSheet.create({
     opacity: 0.7,
     transform: [{ scale: 0.94 }],
   },
+  iconBadgeAnchor: {
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 28,
+    height: 28,
+  },
   badge: {
     position: "absolute",
-    top: 4,
-    right: 4,
+    top: -5,
+    right: -8,
     minWidth: 18,
     height: 18,
     paddingHorizontal: 4,
     borderRadius: 9,
     backgroundColor: theme.errorSolid,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderColor: theme.primary,
     alignItems: "center",
     justifyContent: "center",
@@ -287,6 +298,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 12,
     fontWeight: "800",
+    textAlign: "center",
   },
   titleRow: {
     flexDirection: "row",
@@ -299,11 +311,18 @@ const styles = StyleSheet.create({
     minWidth: 0,
     flex: 1,
   },
+  titleWithActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
   title: {
     fontSize: fontSize.xxl,
     fontWeight: "700",
     color: theme.textPrimary,
     letterSpacing: -0.3,
+    flexShrink: 1,
   },
   titleHero: {
     color: theme.onPrimary,
@@ -320,6 +339,7 @@ const styles = StyleSheet.create({
   action: {
     flexShrink: 0,
     alignItems: "flex-end",
+    justifyContent: "center",
   },
   subPageNavbarTitle: {
     minWidth: 0,

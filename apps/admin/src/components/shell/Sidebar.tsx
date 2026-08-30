@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import type { AdminCapability } from "@dizkarte/domain";
 import { NAV_SECTIONS, isNavItemVisible } from "@/lib/nav";
+import { AppLink } from "@/components/ui/AppLink";
 import { CloseIcon } from "./icons";
 
 export function Sidebar({
@@ -56,12 +57,18 @@ export function Sidebar({
                   const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
                   const Icon = item.icon;
                   return (
-                    <a
+                    <AppLink
                       key={item.href}
                       href={item.href}
                       className="dk-nav-link"
                       aria-current={active ? "page" : undefined}
-                      onClick={onClose}
+                      /*
+                        The drawer already closes on route change (see AppShell),
+                        so it deliberately stays open while the navigation is
+                        pending. Re-selecting the current page never changes the
+                        pathname, so that one case closes it directly.
+                      */
+                      {...(active ? { onClick: onClose } : {})}
                     >
                       {Icon ? (
                         <span className="dk-nav-link-icon" aria-hidden="true">
@@ -69,7 +76,7 @@ export function Sidebar({
                         </span>
                       ) : null}
                       {item.label}
-                    </a>
+                    </AppLink>
                   );
                 })}
               </div>

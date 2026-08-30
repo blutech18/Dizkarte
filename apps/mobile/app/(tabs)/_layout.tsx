@@ -3,7 +3,7 @@ import { Redirect, Tabs, usePathname } from "expo-router";
 import type { BottomTabBarButtonProps } from "expo-router/js-tabs";
 import { PlatformPressable } from "expo-router/build/react-navigation/elements";
 import { AccessibilityInfo, Animated, Easing, Platform, StyleSheet, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { useSession } from "../../src/providers/SessionProvider";
 import { theme } from "../../src/theme";
@@ -44,6 +44,7 @@ export default function TabsLayout() {
   const { session, status } = useSession();
   const pathname = usePathname();
   const reduceMotion = useReducedMotionPreference();
+  const insets = useSafeAreaInsets();
 
   if (status === "loading") {
     return <LoadingState />;
@@ -54,6 +55,12 @@ export default function TabsLayout() {
 
   const isHome = pathname === "/home" || pathname === "/";
   const activeTab = isHome ? "home" : pathname.split("/")[1];
+
+  // Reserve home indicator clearance without stretching the tab bar disproportionately.
+  // On iOS devices with home indicators (e.g. iPhone 12-16), insets.bottom is 34px.
+  // Reserving 18px-20px is standard and avoids the excessive white space.
+  const bottomInset = Platform.OS === "web" ? 0 : Math.max(0, Math.min(insets.bottom, 20));
+  const tabHeight = 52 + bottomInset;
 
   return (
     <SafeAreaView style={styles.container} edges={["left", "right"]}>
@@ -81,7 +88,7 @@ export default function TabsLayout() {
           screenOptions={{
             headerShown: false,
             animation: "none",
-            tabBarActiveTintColor: theme.textSecondary,
+            tabBarActiveTintColor: theme.primary,
             tabBarInactiveTintColor: theme.textSecondary,
             tabBarActiveBackgroundColor: "transparent",
             tabBarInactiveBackgroundColor: "transparent",
@@ -89,11 +96,24 @@ export default function TabsLayout() {
             tabBarStyle: {
               backgroundColor: theme.surface,
               borderTopColor: theme.borderSubtle,
+              borderTopWidth: 1,
+              height: tabHeight,
+              paddingTop: 4,
+              paddingBottom: bottomInset > 0 ? bottomInset : 4,
               elevation: 4,
               shadowColor: "#000",
               shadowOffset: { width: 0, height: -2 },
               shadowOpacity: 0.05,
               shadowRadius: 4,
+            },
+            tabBarItemStyle: {
+              paddingVertical: 0,
+            },
+            tabBarLabelStyle: {
+              fontSize: 11,
+              fontWeight: "600",
+              marginTop: 1,
+              marginBottom: 0,
             },
           }}
         >

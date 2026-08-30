@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import {
+  Animated,
+  Easing,
+  Keyboard,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type KeyboardEvent,
+} from "react-native";
 import { Redirect, Stack, router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { TaskId } from "@dizkarte/domain";
@@ -16,6 +26,7 @@ import {
 } from "../../../src/components/task/TaskDraftForm";
 import { useSession } from "../../../src/providers/SessionProvider";
 import { useMarketplace } from "../../../src/providers/MarketplaceProvider";
+import { ScreenScrollProvider } from "../../../src/providers/ScreenScrollContext";
 import {
   TaskMediaEditor,
   type PendingTaskMedia,
@@ -52,6 +63,59 @@ export default function EditTaskScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const originalMediaRef = useRef<ReadonlyArray<TaskMediaAttachment>>([]);
   const cleanupQueueRef = useRef<ReadonlyArray<{ readonly storagePath: string }>>([]);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const footerOpacity = useRef(new Animated.Value(1)).current;
+  const footerTranslateY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const onShow = (e: KeyboardEvent) => {
+      setKeyboardVisible(true);
+      const duration = e?.duration && e.duration > 0 ? e.duration : 200;
+      Animated.parallel([
+        Animated.timing(footerOpacity, {
+          toValue: 0,
+          duration: Math.min(duration, 160),
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(footerTranslateY, {
+          toValue: 16,
+          duration: Math.min(duration, 160),
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    };
+
+    const onHide = (e: KeyboardEvent) => {
+      setKeyboardVisible(false);
+      const duration = e?.duration && e.duration > 0 ? e.duration : 220;
+      Animated.parallel([
+        Animated.timing(footerOpacity, {
+          toValue: 1,
+          duration,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(footerTranslateY, {
+          toValue: 0,
+          duration,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    };
+
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [footerOpacity, footerTranslateY]);
 
   const load = useCallback(() => {
     if (!session) return;
@@ -211,14 +275,16 @@ export default function EditTaskScreen() {
           style={styles.scroll}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingHorizontal: gutter, paddingBottom: spacing.xl },
+            { paddingHorizontal: gutter, paddingBottom: keyboardVisible ? 380 : 120 },
           ]}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
+          automaticallyAdjustKeyboardInsets={true}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.contentFrame}>
-            <View style={styles.pageIntro}>
+          <ScreenScrollProvider scrollViewRef={scrollRef}>
+            <View style={styles.contentFrame}>
+              <View style={styles.pageIntro}>
               <View style={styles.pageIntroText}>
                 <Text
                   style={styles.pageTitle}
@@ -297,9 +363,20 @@ export default function EditTaskScreen() {
               </View>
             </View>
           </View>
-        </ScrollView>
+        </ScreenScrollProvider>
+      </ScrollView>
 
-        <View style={[styles.actionFooter, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
+        <Animated.View
+          pointerEvents={keyboardVisible ? "none" : "auto"}
+          style={[
+            styles.stickyOverlayFooter,
+            {
+              paddingVertical: spacing.md,
+              opacity: footerOpacity,
+              transform: [{ translateY: footerTranslateY }],
+            },
+          ]}
+        >
           <View style={[styles.actionFooterInner, { paddingHorizontal: gutter }]}>
             <View style={styles.cancelAction}>
               <Button
@@ -321,7 +398,7 @@ export default function EditTaskScreen() {
               />
             </View>
           </View>
-        </View>
+        </Animated.View>
       </View>
     </Screen>
   );
@@ -423,16 +500,19 @@ const styles = StyleSheet.create({
     backgroundColor: theme.borderSubtle,
     marginVertical: spacing.md,
   },
-  actionFooter: {
+  stickyOverlayFooter: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: theme.surface,
     borderTopWidth: 1,
     borderTopColor: theme.borderSubtle,
-    paddingTop: spacing.sm,
-    elevation: 8,
+    elevation: 12,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
+    shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowRadius: 10,
   },
   actionFooterInner: {
     width: "100%",
@@ -440,12 +520,12 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   cancelAction: {
-    flex: 0.72,
+    flex: 0.85,
   },
   saveAction: {
-    flex: 1.28,
+    flex: 1.15,
   },
 });

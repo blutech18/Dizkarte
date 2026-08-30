@@ -41,6 +41,7 @@ export function MediaActionsPanel({ mediaId, status, previewAvailable }: MediaAc
         confirmLabel="Approve"
         requireReason
         disabled={status === "APPROVED"}
+        disabledReasonPresentation="tooltip"
         {...(status === "APPROVED" ? { disabledReason: "Already approved." } : {})}
         onConfirm={(reason) => run("approve", reason)}
       />
@@ -53,6 +54,9 @@ export function MediaActionsPanel({ mediaId, status, previewAvailable }: MediaAc
         variant="destructive"
         requireReason
         disabled={status === "HIDDEN" || !previewAvailable}
+        // A gallery repeats this control on every card, so the reason is a
+        // tooltip here and the page states the preview rule once above the grid.
+        disabledReasonPresentation="tooltip"
         {...(status === "HIDDEN"
           ? { disabledReason: "Already hidden." }
           : !previewAvailable

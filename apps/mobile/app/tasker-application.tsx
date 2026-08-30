@@ -1,5 +1,18 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  Animated,
+  Dimensions,
+  Easing,
+  Image,
+  Keyboard,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type KeyboardEvent,
+} from "react-native";
 import { Redirect, Stack, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Screen } from "../src/components/ui/Screen";
@@ -11,6 +24,7 @@ import { ProfilePageIntro, ProfilePageSection } from "../src/components/profile/
 import { LocalityPicker } from "../src/components/task/LocalityPicker";
 import { useSession } from "../src/providers/SessionProvider";
 import { useMarketplace } from "../src/providers/MarketplaceProvider";
+import { ScreenScrollProvider } from "../src/providers/ScreenScrollContext";
 import type { SpecialtyOption, TaskerApplicationRecord } from "../src/services/marketplace";
 import { theme, spacing, fontSize, lineHeight, radii, useResponsiveLayout } from "../src/theme";
 
@@ -32,6 +46,85 @@ export default function TaskerApplicationScreen() {
   const insets = useSafeAreaInsets();
   const { gutter, isTablet } = useResponsiveLayout();
   const userId = session?.userId ?? null;
+  const scrollRef = useRef<ScrollView>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const keyboardHeightRef = useRef(0);
+  const footerOpacity = useRef(new Animated.Value(1)).current;
+  const footerTranslateY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const onShow = (e: KeyboardEvent) => {
+      setKeyboardVisible(true);
+      keyboardHeightRef.current = e?.endCoordinates?.height ?? 300;
+      const duration = e?.duration && e.duration > 0 ? e.duration : 200;
+      Animated.parallel([
+        Animated.timing(footerOpacity, {
+          toValue: 0,
+          duration: Math.min(duration, 160),
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(footerTranslateY, {
+          toValue: 16,
+          duration: Math.min(duration, 160),
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    };
+
+    const onHide = (e: KeyboardEvent) => {
+      setKeyboardVisible(false);
+      keyboardHeightRef.current = 0;
+      const duration = e?.duration && e.duration > 0 ? e.duration : 220;
+      Animated.parallel([
+        Animated.timing(footerOpacity, {
+          toValue: 1,
+          duration,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(footerTranslateY, {
+          toValue: 0,
+          duration,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    };
+
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [footerOpacity, footerTranslateY]);
+
+  const scrollContentRef = useRef<View>(null);
+  const bioFieldRef = useRef<View>(null);
+  const experienceFieldRef = useRef<View>(null);
+  const serviceAreaRef = useRef<View>(null);
+
+  const scrollToRef = useCallback((ref: React.RefObject<View | null>) => {
+    if (!ref.current || !scrollRef.current) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ref.current.measureLayout(
+      scrollRef.current as unknown as any,
+      (x, y, w, h) => {
+        // Visible screen above the keyboard
+        const { height: screenHeight } = Dimensions.get("window");
+        const visibleHeight = screenHeight - keyboardHeightRef.current;
+        // Place the field near the top of the visible area with a small gap
+        const targetY = y - Math.max(16, (visibleHeight - h) / 4);
+        scrollRef.current?.scrollTo({ y: Math.max(0, targetY), animated: true });
+      },
+      () => {},
+    );
+  }, []);
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -168,17 +261,20 @@ export default function TaskerApplicationScreen() {
       ) : (
         <View style={styles.page}>
           <ScrollView
+            ref={scrollRef}
             style={styles.scroll}
             contentContainerStyle={[
               styles.scrollContent,
-              { paddingHorizontal: gutter, paddingBottom: spacing.xl },
+              { paddingHorizontal: gutter, paddingBottom: keyboardVisible ? 380 : 120 },
             ]}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
+            automaticallyAdjustKeyboardInsets={true}
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.contentFrame}>
-              <ProfilePageIntro title={intro.title} description={intro.description} />
+            <ScreenScrollProvider scrollViewRef={scrollRef}>
+              <View style={styles.contentFrame}>
+                <ProfilePageIntro title={intro.title} description={intro.description} />
 
               <View style={styles.reviewNotice}>
                 <View style={styles.noticeHeader}>
@@ -262,7 +358,7 @@ export default function TaskerApplicationScreen() {
 
                   <View style={styles.progressCard}>
                     <View style={styles.progressHeader}>
-                      <View>
+                      <View style={styles.progressHeaderInfo}>
                         <Text style={styles.progressTitle}>Application readiness</Text>
                         <Text style={styles.progressCaption}>
                           Complete every required section before submitting.
@@ -307,7 +403,10 @@ export default function TaskerApplicationScreen() {
                       </ProfilePageSection>
                     </View>
 
-                    <View style={[styles.gridItem, isTablet ? styles.gridItemTablet : null]}>
+                    <View
+                      ref={serviceAreaRef}
+                      style={[styles.gridItem, isTablet ? styles.gridItemTablet : null]}
+                    >
                       <ProfilePageSection
                         icon="map-pin"
                         title="Service area"
@@ -323,6 +422,8 @@ export default function TaskerApplicationScreen() {
                             setCityCode(next.cityCode ?? "");
                             setBarangayCode(next.barangayCode ?? "");
                           }}
+                          onOpen={() => scrollToRef(serviceAreaRef)}
+                          onClose={() => scrollToRef(serviceAreaRef)}
                           cityLabel="Service city / municipality"
                           cityRequired
                         />
@@ -335,34 +436,40 @@ export default function TaskerApplicationScreen() {
                     title="Professional profile"
                     description="Explain what you do well and the experience clients can rely on."
                   >
-                    <TextField
-                      label="Professional bio"
-                      required
-                      multiline
-                      numberOfLines={4}
-                      description="At least 20 characters. Clients see this on your offers."
-                      value={bio}
-                      onChangeText={(text) => {
-                        markChanged();
-                        setBio(text);
-                      }}
-                      maxLength={2000}
-                      placeholder="Introduce yourself and the services you provide."
-                    />
-                    <TextField
-                      label="Relevant experience"
-                      required
-                      multiline
-                      numberOfLines={4}
-                      description="Describe completed work, practical skills, or professional experience."
-                      value={experience}
-                      onChangeText={(text) => {
-                        markChanged();
-                        setExperience(text);
-                      }}
-                      maxLength={2000}
-                      placeholder="Summarize your experience."
-                    />
+                    <View ref={bioFieldRef}>
+                      <TextField
+                        label="Professional bio"
+                        required
+                        multiline
+                        numberOfLines={4}
+                        description="At least 20 characters. Clients see this on your offers."
+                        value={bio}
+                        onChangeText={(text) => {
+                          markChanged();
+                          setBio(text);
+                        }}
+                        onFocus={() => scrollToRef(bioFieldRef)}
+                        maxLength={2000}
+                        placeholder="Introduce yourself and the services you provide."
+                      />
+                    </View>
+                    <View ref={experienceFieldRef}>
+                      <TextField
+                        label="Relevant experience"
+                        required
+                        multiline
+                        numberOfLines={4}
+                        description="Describe completed work, practical skills, or professional experience."
+                        value={experience}
+                        onChangeText={(text) => {
+                          markChanged();
+                          setExperience(text);
+                        }}
+                        onFocus={() => scrollToRef(experienceFieldRef)}
+                        maxLength={2000}
+                        placeholder="Summarize your experience."
+                      />
+                    </View>
                   </ProfilePageSection>
 
                   <ProfilePageSection
@@ -411,11 +518,20 @@ export default function TaskerApplicationScreen() {
                 </>
               ) : null}
             </View>
-          </ScrollView>
+          </ScreenScrollProvider>
+        </ScrollView>
 
           {showForm ? (
-            <View
-              style={[styles.actionFooter, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}
+            <Animated.View
+              pointerEvents={keyboardVisible ? "none" : "auto"}
+              style={[
+                styles.stickyOverlayFooter,
+                {
+                  paddingVertical: spacing.md,
+                  opacity: footerOpacity,
+                  transform: [{ translateY: footerTranslateY }],
+                },
+              ]}
             >
               <View style={[styles.actionFooterInner, { paddingHorizontal: gutter }]}>
                 <View style={styles.cancelAction}>
@@ -441,7 +557,7 @@ export default function TaskerApplicationScreen() {
                   />
                 </View>
               </View>
-            </View>
+            </Animated.View>
           ) : null}
         </View>
       )}
@@ -621,6 +737,8 @@ const styles = StyleSheet.create({
     color: theme.infoOnSoft,
   },
   progressCard: {
+    minWidth: 0,
+    width: "100%",
     padding: spacing.lg,
     gap: spacing.md,
     borderWidth: 1,
@@ -629,10 +747,15 @@ const styles = StyleSheet.create({
     backgroundColor: theme.surface,
   },
   progressHeader: {
+    minWidth: 0,
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: spacing.md,
+  },
+  progressHeaderInfo: {
+    flex: 1,
+    minWidth: 0,
   },
   progressTitle: {
     fontSize: fontSize.md,
@@ -645,6 +768,8 @@ const styles = StyleSheet.create({
     color: theme.textSecondary,
   },
   progressValue: {
+    flexShrink: 0,
+    textAlign: "right",
     fontSize: fontSize.md,
     fontWeight: "800",
     color: theme.primary,
@@ -823,28 +948,32 @@ const styles = StyleSheet.create({
   statusAction: {
     width: "100%",
   },
-  actionFooter: {
+  stickyOverlayFooter: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: theme.surface,
     borderTopWidth: 1,
     borderTopColor: theme.borderSubtle,
-    paddingTop: spacing.sm,
-    elevation: 8,
+    elevation: 12,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
+    shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowRadius: 10,
   },
   actionFooterInner: {
     width: "100%",
     maxWidth: 720,
     alignSelf: "center",
     flexDirection: "row",
-    gap: spacing.sm,
+    alignItems: "center",
+    gap: spacing.md,
   },
   cancelAction: {
-    flex: 0.72,
+    flex: 0.85,
   },
   submitAction: {
-    flex: 1.28,
+    flex: 1.15,
   },
 });

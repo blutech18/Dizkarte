@@ -11,6 +11,7 @@ import {
 import { BottomSheetModal } from "../ui/BottomSheetModal";
 import { Icon } from "../ui/Icon";
 import { useMarketplace } from "../../providers/MarketplaceProvider";
+import { useScreenScroll } from "../../providers/ScreenScrollContext";
 import type { PsgcBarangay, PsgcCity } from "../../services/marketplace";
 import {
   theme,
@@ -42,6 +43,8 @@ export type LocalityPickerProps = {
   readonly barangayLabel?: string;
   /** Fill available rows and wrap fields on narrow screens. */
   readonly responsive?: boolean;
+  readonly onOpen?: (() => void) | undefined;
+  readonly onClose?: (() => void) | undefined;
 };
 
 type PickerMode = "city" | "barangay";
@@ -63,8 +66,12 @@ export function LocalityPicker({
   cityLabel = "City / Municipality",
   barangayLabel = "Barangay",
   responsive = false,
+  onOpen,
+  onClose,
 }: LocalityPickerProps) {
   const { repository } = useMarketplace();
+  const screenScroll = useScreenScroll();
+  const containerRef = useRef<View>(null);
   const [cityName, setCityName] = useState<string | null>(value.cityName ?? null);
   const [barangayName, setBarangayName] = useState<string | null>(value.barangayName ?? null);
   const [picking, setPicking] = useState<PickerMode | null>(null);
@@ -144,14 +151,18 @@ export function LocalityPicker({
   const closePicker = useCallback(() => {
     setSearchFocused(false);
     setPicking(null);
-  }, []);
+    screenScroll?.scrollToRef(containerRef);
+    onClose?.();
+  }, [onClose, screenScroll]);
 
   const openCity = useCallback(() => {
     activePicker.current = "city";
     setQuery("");
     setCityResults([]);
     setPicking("city");
-  }, []);
+    screenScroll?.scrollToRef(containerRef);
+    onOpen?.();
+  }, [onOpen, screenScroll]);
 
   const openBarangay = useCallback(() => {
     if (!value.cityCode) return;
@@ -159,7 +170,9 @@ export function LocalityPicker({
     setQuery("");
     setBarangayResults([]);
     setPicking("barangay");
-  }, [value.cityCode]);
+    screenScroll?.scrollToRef(containerRef);
+    onOpen?.();
+  }, [value.cityCode, onOpen, screenScroll]);
 
   const selectCity = useCallback(
     (city: PsgcCity) => {
@@ -203,7 +216,10 @@ export function LocalityPicker({
     : "Search for a barangay";
 
   return (
-    <View style={[styles.container, responsive ? styles.containerResponsive : null]}>
+    <View
+      ref={containerRef}
+      style={[styles.container, responsive ? styles.containerResponsive : null]}
+    >
       <SelectRow
         label={cityLabel}
         required={cityRequired}
@@ -256,7 +272,6 @@ export function LocalityPicker({
                 accessibilityLabel={searchAccessibilityLabel}
                 placeholder={searchPlaceholder}
                 placeholderTextColor={theme.textSecondary}
-                autoFocus
                 autoCorrect={false}
                 autoCapitalize="words"
                 returnKeyType="search"
@@ -420,22 +435,28 @@ const styles = StyleSheet.create({
   fieldLabel: { fontSize: fontSize.sm, fontWeight: "600", color: theme.textPrimary },
   required: { color: theme.errorSolid },
   select: {
-    minHeight: MIN_TOUCH_TARGET,
+    height: 48,
+    minHeight: 48,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: theme.borderSubtle,
+    borderColor: theme.borderControl,
     backgroundColor: theme.surface,
   },
-  selectDisabled: { backgroundColor: theme.surfaceSubtle, opacity: 0.7 },
-  selectPressed: { borderColor: theme.primary },
-  selectText: { flex: 1, fontSize: fontSize.md, color: theme.textPrimary },
-  selectPlaceholder: { color: theme.textSecondary },
+  selectDisabled: {
+    backgroundColor: theme.surfaceSubtle,
+    borderColor: theme.borderSubtle,
+  },
+  selectPressed: {
+    borderColor: theme.primary,
+    backgroundColor: theme.surfaceSubtle,
+  },
+  selectText: { flex: 1, fontSize: fontSize.sm, fontWeight: "600", color: theme.textPrimary },
+  selectPlaceholder: { color: theme.textSecondary, fontWeight: "400" },
   sheet: {
     minWidth: 0,
     maxHeight: 560,
@@ -446,7 +467,7 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: spacing.md,
-    paddingTop: spacing.lg,
+    paddingTop: spacing.sm,
     paddingHorizontal: spacing.lg,
   },
   sheetHeaderCopy: {

@@ -1,9 +1,11 @@
+import { useCallback, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { Screen } from "../ui/Screen";
 import { AppHeader } from "../ui/AppHeader";
 import { Button } from "../ui/Button";
 import { Icon, type IconName } from "../ui/Icon";
+import { useMarketplace } from "../../providers/MarketplaceProvider";
 import { theme, spacing, fontSize, lineHeight, radii, useResponsiveLayout } from "../../theme";
 
 type ApplicationStep = {
@@ -34,116 +36,159 @@ const APPLICATION_STEPS: ReadonlyArray<ApplicationStep> = [
   },
 ];
 
+export type TaskerApplicationPromptProps = {
+  readonly standalone?: boolean;
+  readonly title?: string;
+  readonly description?: string;
+};
+
 /**
- * Tasker on-ramp shown on the Browse tab to any user who is not yet an approved
- * Tasker. The capability rule remains unchanged; this is only a clearer,
- * role-appropriate Browse experience for clients and applicants.
+ * Tasker on-ramp shown on the Browse tab or unapproved subpages (e.g. Earnings)
+ * to any user who is not yet an approved Tasker.
  */
-export function TaskerApplicationPrompt() {
-  const { isTablet } = useResponsiveLayout();
-  const heroIconSize = isTablet ? 30 : 26;
+export function TaskerApplicationPrompt({
+  standalone = true,
+  title,
+  description,
+}: TaskerApplicationPromptProps = {}) {
+  const { contentWidth, isTablet } = useResponsiveLayout();
+  const { notifyChanged } = useMarketplace();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      notifyChanged();
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    } finally {
+      setRefreshing(false);
+    }
+  }, [notifyChanged]);
+
+  const heroIconSize = isTablet ? 28 : 24;
   const supportingIconSize = isTablet ? 22 : 20;
 
+  const heroTitleFontSize = isTablet ? fontSize.xl : contentWidth >= 380 ? fontSize.lg : 16;
+  const heroTitleLineHeight = isTablet ? lineHeight.xl : contentWidth >= 380 ? lineHeight.lg : 22;
+
+  const content = (
+    <View style={styles.content}>
+      <View style={[styles.heroCard, isTablet ? styles.heroCardWide : null]}>
+        <View style={styles.heroContent}>
+          <View style={styles.heroTitleRow}>
+            <View style={styles.heroIconAnchor}>
+              <Icon name="briefcase" size={heroIconSize} color={theme.onPrimary} />
+            </View>
+            <Text
+              style={[
+                styles.heroTitle,
+                { fontSize: heroTitleFontSize, lineHeight: heroTitleLineHeight },
+              ]}
+              numberOfLines={1}
+              accessibilityRole="header"
+            >
+              {title ?? "Turn your skills into income"}
+            </Text>
+          </View>
+          <Text style={styles.heroDescription}>
+            {description ??
+              "Find nearby tasks, choose work that fits your schedule, and build trusted client relationships in your community."}
+          </Text>
+        </View>
+
+        <View style={[styles.heroAction, isTablet ? styles.heroActionWide : null]}>
+          <Button
+            label="Start Tasker application"
+            icon="arrow-right"
+            variant="secondary"
+            fullWidth
+            onPress={() => router.push("/tasker-application")}
+          />
+        </View>
+      </View>
+
+      <View style={styles.sectionHeading}>
+        <Text style={styles.sectionTitle} accessibilityRole="header">
+          How it works
+        </Text>
+        <Text style={styles.sectionDescription}>
+          A straightforward review keeps work opportunities reliable for everyone.
+        </Text>
+      </View>
+
+      <View style={[styles.stepsGrid, isTablet ? styles.stepsGridWide : null]}>
+        {APPLICATION_STEPS.map((step) => (
+          <View key={step.number} style={styles.stepCard}>
+            <View style={styles.stepHeadingRow}>
+              <View style={styles.stepTitleGroup}>
+                <View style={styles.supportingIconAnchor}>
+                  <Icon name={step.icon} size={supportingIconSize} color={theme.primary} />
+                </View>
+                <Text style={styles.stepTitle} accessibilityRole="header">
+                  {step.title}
+                </Text>
+              </View>
+              <View
+                style={styles.stepNumberBadge}
+                accessible
+                accessibilityLabel={`Step ${step.number}`}
+              >
+                <Text style={styles.stepNumber}>{step.number}</Text>
+              </View>
+            </View>
+            <Text style={styles.stepDescription}>{step.description}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={[styles.guidanceGrid, isTablet ? styles.guidanceGridWide : null]}>
+        <View style={styles.earningNote}>
+          <View style={styles.noteHeadingRow}>
+            <View style={styles.supportingIconAnchor}>
+              <Icon name="wallet" size={supportingIconSize} color={theme.primaryPressed} />
+            </View>
+            <Text style={styles.noteTitle} accessibilityRole="header">
+              You stay in control
+            </Text>
+          </View>
+          <Text style={styles.noteDescription}>
+            Browse before you offer, choose tasks that suit you, and keep every booking and chat
+            organized in Dizkarte.
+          </Text>
+        </View>
+
+        <View style={styles.trustCard}>
+          <View style={styles.trustHeadingRow}>
+            <View style={styles.supportingIconAnchor}>
+              <Icon name="shield" size={supportingIconSize} color={theme.infoOnSoft} />
+            </View>
+            <Text style={styles.trustTitle} accessibilityRole="header">
+              Manual application review
+            </Text>
+          </View>
+          <Text style={styles.trustDescription}>
+            Approval is required before browsing client tasks or submitting offers.
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+
+  if (!standalone) {
+    return content;
+  }
+
   return (
-    <Screen>
+    <Screen
+      refreshing={refreshing}
+      onRefresh={handleRefresh}
+      refreshControlTintColor={theme.primary}
+    >
       <AppHeader
         title="Browse work"
         subtitle="Create a Tasker profile to unlock flexible local opportunities"
       />
-
-      <View style={styles.content}>
-        <View style={[styles.heroCard, isTablet ? styles.heroCardWide : null]}>
-          <View style={styles.heroContent}>
-            <View style={styles.heroTitleRow}>
-              <View style={styles.heroIconAnchor}>
-                <Icon name="briefcase" size={heroIconSize} color={theme.onPrimary} />
-              </View>
-              <Text style={styles.heroTitle} accessibilityRole="header">
-                Turn your skills into income
-              </Text>
-            </View>
-            <Text style={styles.heroDescription}>
-              Find nearby tasks, choose work that fits your schedule, and build trusted client
-              relationships in your community.
-            </Text>
-          </View>
-
-          <View style={[styles.heroAction, isTablet ? styles.heroActionWide : null]}>
-            <Button
-              label="Start Tasker application"
-              icon="arrow-right"
-              variant="secondary"
-              fullWidth
-              onPress={() => router.push("/tasker-application")}
-            />
-          </View>
-        </View>
-
-        <View style={styles.sectionHeading}>
-          <Text style={styles.sectionTitle} accessibilityRole="header">
-            How it works
-          </Text>
-          <Text style={styles.sectionDescription}>
-            A straightforward review keeps work opportunities reliable for everyone.
-          </Text>
-        </View>
-
-        <View style={[styles.stepsGrid, isTablet ? styles.stepsGridWide : null]}>
-          {APPLICATION_STEPS.map((step) => (
-            <View key={step.number} style={styles.stepCard}>
-              <View style={styles.stepHeadingRow}>
-                <View style={styles.stepTitleGroup}>
-                  <View style={styles.supportingIconAnchor}>
-                    <Icon name={step.icon} size={supportingIconSize} color={theme.primary} />
-                  </View>
-                  <Text style={styles.stepTitle} accessibilityRole="header">
-                    {step.title}
-                  </Text>
-                </View>
-                <View
-                  style={styles.stepNumberBadge}
-                  accessible
-                  accessibilityLabel={`Step ${step.number}`}
-                >
-                  <Text style={styles.stepNumber}>{step.number}</Text>
-                </View>
-              </View>
-              <Text style={styles.stepDescription}>{step.description}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={[styles.guidanceGrid, isTablet ? styles.guidanceGridWide : null]}>
-          <View style={styles.earningNote}>
-            <View style={styles.noteHeadingRow}>
-              <View style={styles.supportingIconAnchor}>
-                <Icon name="wallet" size={supportingIconSize} color={theme.primaryPressed} />
-              </View>
-              <Text style={styles.noteTitle} accessibilityRole="header">
-                You stay in control
-              </Text>
-            </View>
-            <Text style={styles.noteDescription}>
-              Browse before you offer, choose tasks that suit you, and keep every booking and chat
-              organized in Dizkarte.
-            </Text>
-          </View>
-
-          <View style={styles.trustCard}>
-            <View style={styles.trustHeadingRow}>
-              <View style={styles.supportingIconAnchor}>
-                <Icon name="shield" size={supportingIconSize} color={theme.infoOnSoft} />
-              </View>
-              <Text style={styles.trustTitle} accessibilityRole="header">
-                Every application is reviewed manually
-              </Text>
-            </View>
-            <Text style={styles.trustDescription}>
-              Approval is required before browsing client tasks or submitting offers.
-            </Text>
-          </View>
-        </View>
-      </View>
+      {content}
     </Screen>
   );
 }
@@ -158,8 +203,8 @@ const styles = StyleSheet.create({
     minWidth: 0,
     backgroundColor: theme.primary,
     borderRadius: radii.lg,
-    padding: spacing.xl,
-    gap: spacing.lg,
+    padding: spacing.lg,
+    gap: spacing.md,
     shadowColor: "#30106B",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.16,
@@ -180,7 +225,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   heroIconAnchor: {
     alignItems: "center",
@@ -191,8 +236,6 @@ const styles = StyleSheet.create({
     minWidth: 0,
     flex: 1,
     color: theme.onPrimary,
-    fontSize: fontSize.xl,
-    lineHeight: lineHeight.xl,
     fontWeight: "800",
     letterSpacing: -0.3,
   },
@@ -251,7 +294,7 @@ const styles = StyleSheet.create({
   stepHeadingRow: {
     minWidth: 0,
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.sm,
   },
@@ -259,12 +302,12 @@ const styles = StyleSheet.create({
     minWidth: 0,
     flex: 1,
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: spacing.sm,
   },
   supportingIconAnchor: {
     width: 22,
-    height: lineHeight.md,
+    height: 22,
     flexShrink: 0,
     alignItems: "center",
     justifyContent: "center",
@@ -317,7 +360,7 @@ const styles = StyleSheet.create({
   noteHeadingRow: {
     minWidth: 0,
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: spacing.sm,
   },
   noteTitle: {
@@ -346,7 +389,7 @@ const styles = StyleSheet.create({
   trustHeadingRow: {
     minWidth: 0,
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     gap: spacing.sm,
   },
   trustTitle: {

@@ -13,6 +13,9 @@ export function reportStatusTone(status: string): BadgeTone {
   }
 }
 
+/** Every report status, in triage order. */
+export const REPORT_STATUS_OPTIONS = ["OPEN", "TRIAGED", "ACTIONED", "DISMISSED"] as const;
+
 export function reportStatusLabel(status: string): string {
   return status.charAt(0) + status.slice(1).toLowerCase();
 }

@@ -45,6 +45,8 @@ export type AnimatedFilterTextProps = {
   readonly disabled?: boolean;
   readonly disabledColor?: string;
   readonly numberOfLines?: number;
+  readonly adjustsFontSizeToFit?: boolean;
+  readonly minimumFontScale?: number;
 };
 
 export type AnimatedFilterViewProps = {
@@ -197,6 +199,8 @@ export function AnimatedFilterText({
   disabled = false,
   disabledColor = theme.disabledForeground,
   numberOfLines,
+  adjustsFontSizeToFit,
+  minimumFontScale,
 }: AnimatedFilterTextProps) {
   const selectionProgress = useContext(FilterSelectionProgressContext);
   const color = disabled
@@ -209,7 +213,12 @@ export function AnimatedFilterText({
       : inactiveColor;
 
   return (
-    <Animated.Text style={[style, { color }]} numberOfLines={numberOfLines}>
+    <Animated.Text
+      style={[style, { color }]}
+      numberOfLines={numberOfLines}
+      adjustsFontSizeToFit={adjustsFontSizeToFit}
+      minimumFontScale={minimumFontScale}
+    >
       {children}
     </Animated.Text>
   );

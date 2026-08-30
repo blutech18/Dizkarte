@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { mapUserContext, type UserContextSource } from "./auth-context.js";
+import {
+  mapUserContext,
+  userContextSourceFromRow,
+  type RawUserContextRow,
+  type UserContextSource,
+} from "./auth-context.js";
 
 const USER_ID = "33333333-3333-4333-8333-333333333333";
 
@@ -88,5 +93,80 @@ describe("mapUserContext", () => {
       source({ capabilities: [{ capability: "ADMIN_SUPER" }], latestVerification: null }),
     );
     expect(ctx.capabilities).toEqual(["ADMIN_SUPER"]);
+  });
+});
+
+describe("userContextSourceFromRow", () => {
+  function row(overrides: Partial<RawUserContextRow> = {}): RawUserContextRow {
+    return {
+      display_name: "Maria Santos",
+      account_status: "active",
+      capabilities: ["CLIENT"],
+      verification_status: "APPROVED",
+      tasker_application_status: null,
+      tasker_approved_at: null,
+      tasker_suspended_at: null,
+      ...overrides,
+    };
+  }
+
+  it("produces the same context the five per-table reads produced", () => {
+    const fromView = mapUserContext(userContextSourceFromRow(USER_ID, row()));
+    const fromTables = mapUserContext(source());
+    expect(fromView).toEqual(fromTables);
+  });
+
+  it("keeps Tasker approval derived from both timestamps", () => {
+    const approved = mapUserContext(
+      userContextSourceFromRow(
+        USER_ID,
+        row({
+          capabilities: ["TASKER"],
+          tasker_application_status: "APPROVED",
+          tasker_approved_at: "2026-07-01T00:00:00Z",
+        }),
+      ),
+    );
+    expect(approved.taskerApproved).toBe(true);
+    expect(approved.taskerApplicationStatus).toBe("APPROVED");
+
+    const suspended = mapUserContext(
+      userContextSourceFromRow(
+        USER_ID,
+        row({
+          capabilities: ["TASKER"],
+          tasker_application_status: "SUSPENDED",
+          tasker_approved_at: "2026-07-01T00:00:00Z",
+          tasker_suspended_at: "2026-08-01T00:00:00Z",
+        }),
+      ),
+    );
+    expect(suspended.taskerApproved).toBe(false);
+  });
+
+  it("falls back to the most restrictive account status when the row is incomplete", () => {
+    const ctx = mapUserContext(
+      userContextSourceFromRow(
+        USER_ID,
+        row({ display_name: null, account_status: null, capabilities: null }),
+      ),
+    );
+    expect(ctx.displayName).toBe("");
+    expect(ctx.accountStatus).toBe("deactivated");
+    expect(ctx.capabilities).toEqual([]);
+  });
+
+  it("drops capability strings it does not recognize", () => {
+    const ctx = mapUserContext(
+      userContextSourceFromRow(USER_ID, row({ capabilities: ["CLIENT", "ROOT", ""] })),
+    );
+    expect(ctx.capabilities).toEqual(["CLIENT"]);
+  });
+
+  it("treats an absent verification case as DRAFT", () => {
+    const ctx = mapUserContext(
+      userContextSourceFromRow(USER_ID, row({ verification_status: null })),
+    );
+    expect(ctx.verificationStatus).toBe("DRAFT");
   });
 });

@@ -166,7 +166,9 @@ export function BookingStatusWorkspace({
 
       {actionError ? (
         <View style={styles.errorBanner}>
-          <Icon name="alert-circle" size={16} color={theme.errorOnSoft} />
+          <View style={styles.errorBannerIconSlot}>
+            <Icon name="alert-circle" size={16} color={theme.errorOnSoft} />
+          </View>
           <Text
             style={styles.errorBannerText}
             accessibilityRole="alert"
@@ -279,31 +281,12 @@ function BookingIdentityDocument({
 
 function StatusHero({
   presentation,
-  toneStyle,
 }: {
   readonly presentation: BookingStatusPresentation;
-  readonly toneStyle: ToneStyle;
+  readonly toneStyle?: ToneStyle;
 }) {
   return (
     <View style={styles.heroCard}>
-      <View style={styles.heroHeaderRow}>
-        <View
-          style={[styles.heroStatePill, { backgroundColor: toneStyle.soft }]}
-          accessible
-          accessibilityRole="text"
-          accessibilityLabel={`Status: ${presentation.stateLabel}`}
-        >
-          <View style={[styles.heroStateDot, { backgroundColor: toneStyle.solid }]} />
-          <Text style={[styles.heroStateText, { color: toneStyle.onSoft }]}>
-            {presentation.stateLabel}
-          </Text>
-        </View>
-
-        <View style={[styles.heroIconWrap, { backgroundColor: toneStyle.soft }]}>
-          <Icon name={presentation.icon} size={18} color={toneStyle.solid} />
-        </View>
-      </View>
-
       <View style={styles.heroCopy}>
         <Text style={styles.heroTitle} accessibilityRole="header">
           {presentation.title}
@@ -452,14 +435,15 @@ function StatusPrimaryPanel({
 
       {kind === "waiting" ? (
         <View style={styles.waitingPanel}>
-          <Icon name="more-horizontal" size={16} color={theme.textSecondary} />
+          <View style={styles.waitingIconSlot}>
+            <Icon name="more-horizontal" size={16} color={theme.textSecondary} />
+          </View>
           <Text style={styles.waitingText}>{waitingText(presentation)}</Text>
         </View>
       ) : null}
 
       {kind === "closure" ? (
         <View style={[styles.closureNote, { backgroundColor: toneStyle.soft }]}>
-          <Icon name={presentation.icon} size={16} color={toneStyle.solid} />
           <Text style={[styles.closureNoteText, { color: toneStyle.onSoft }]}>
             {closureText(presentation)}
           </Text>
@@ -724,7 +708,17 @@ const styles = StyleSheet.create({
   },
   taskSummary: {
     minWidth: 0,
+    backgroundColor: theme.surface,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    padding: spacing.lg,
     gap: spacing.sm,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
   },
   summaryTopRow: {
     minWidth: 0,
@@ -747,10 +741,10 @@ const styles = StyleSheet.create({
   },
   taskTitle: {
     color: theme.textPrimary,
-    fontSize: fontSize.lg,
-    lineHeight: lineHeight.lg,
+    fontSize: fontSize.xl,
+    lineHeight: lineHeight.xl,
     fontWeight: "800",
-    letterSpacing: -0.2,
+    letterSpacing: -0.3,
   },
   overviewCard: {
     minWidth: 0,
@@ -868,41 +862,6 @@ const styles = StyleSheet.create({
   heroCard: {
     minWidth: 0,
     gap: spacing.md,
-  },
-  heroHeaderRow: {
-    minWidth: 0,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-  },
-  heroStatePill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: spacing.sm + 2,
-    paddingVertical: 5,
-    borderRadius: radii.pill,
-    alignSelf: "flex-start",
-  },
-  heroStateDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  heroStateText: {
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 0.4,
-    textTransform: "uppercase",
-  },
-  heroIconWrap: {
-    width: 34,
-    height: 34,
-    flexShrink: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 17,
   },
   heroCopy: {
     minWidth: 0,
@@ -1067,12 +1026,18 @@ const styles = StyleSheet.create({
     lineHeight: lineHeight.xs,
   },
   waitingPanel: {
+    minWidth: 0,
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: spacing.sm,
     padding: spacing.md,
     borderRadius: radii.md,
     backgroundColor: theme.surfaceSubtle,
+  },
+  waitingIconSlot: {
+    height: lineHeight.sm,
+    alignItems: "center",
+    justifyContent: "center",
   },
   waitingText: {
     minWidth: 0,
@@ -1083,15 +1048,11 @@ const styles = StyleSheet.create({
   },
   closureNote: {
     minWidth: 0,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.sm,
     padding: spacing.md,
     borderRadius: radii.md,
   },
   closureNoteText: {
     minWidth: 0,
-    flex: 1,
     fontSize: fontSize.sm,
     lineHeight: lineHeight.sm,
     fontWeight: "600",
@@ -1347,6 +1308,11 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     borderRadius: radii.md,
     backgroundColor: theme.errorSoft,
+  },
+  errorBannerIconSlot: {
+    height: lineHeight.sm,
+    alignItems: "center",
+    justifyContent: "center",
   },
   errorBannerText: {
     minWidth: 0,

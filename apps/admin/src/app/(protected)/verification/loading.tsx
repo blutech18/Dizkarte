@@ -1,5 +1,5 @@
 import { ListPageSkeleton } from "@/components/ui/AsyncState";
 
 export default function Loading() {
-  return <ListPageSkeleton columns={4} filters={4} />;
+  return <ListPageSkeleton columns={5} filters={6} />;
 }

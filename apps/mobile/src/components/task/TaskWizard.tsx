@@ -16,6 +16,7 @@ import { TextField } from "../ui/TextField";
 import { Button } from "../ui/Button";
 import { Icon, type IconName } from "../ui/Icon";
 import { CenterDialogModal } from "../ui/CenterDialogModal";
+import { KeyboardAvoider } from "../ui/KeyboardAvoider";
 import {
   budgetToCentavos,
   canContinue,
@@ -276,7 +277,7 @@ export function TaskWizard({
   });
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoider style={styles.container}>
       <View style={styles.header}>
         <Pressable
           onPress={goBack}
@@ -378,7 +379,7 @@ export function TaskWizard({
           </View>
         </View>
       </CenterDialogModal>
-    </View>
+    </KeyboardAvoider>
   );
 }
 

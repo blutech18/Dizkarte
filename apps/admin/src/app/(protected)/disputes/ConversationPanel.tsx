@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import { formatDateTime } from "@/lib/datetime";
 import { Button } from "@/components/ui/Button";
 import type { ConversationMessage } from "@/lib/repository/types";
 import { readDisputeConversationAction } from "./actions";
@@ -97,7 +98,9 @@ export function ConversationPanel({ disputeId, disabled }: ConversationPanelProp
             <tbody>
               {messages.map((message) => (
                 <tr key={message.id}>
-                  <td>{new Date(message.sentAt).toLocaleString("en-PH")}</td>
+                  <td>
+                    <time dateTime={message.sentAt}>{formatDateTime(message.sentAt)}</time>
+                  </td>
                   <td>{message.senderDisplayName}</td>
                   <td>{message.body ?? "No text"}</td>
                   <td>{message.attachmentCount}</td>

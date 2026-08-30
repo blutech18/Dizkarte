@@ -6,6 +6,7 @@ import { Screen } from "../../src/components/ui/Screen";
 import { TextField } from "../../src/components/ui/TextField";
 import { Button } from "../../src/components/ui/Button";
 import { AuthBackButton } from "../../src/components/auth/AuthBackButton";
+import { AuthSuccessModal } from "../../src/components/auth/AuthSuccessModal";
 import { useSession } from "../../src/providers/SessionProvider";
 import { SocialSignIn } from "../../src/components/auth/SocialSignIn";
 import { theme, spacing, fontSize } from "../../src/theme";
@@ -17,6 +18,12 @@ export default function SignInScreen() {
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  function handleProceed() {
+    setShowSuccess(false);
+    router.replace("/(tabs)/home");
+  }
 
   async function handleSubmit() {
     setFormError(null);
@@ -38,7 +45,7 @@ export default function SignInScreen() {
       setFormError(result.message ?? "Sign-in failed. Please try again.");
       return;
     }
-    router.replace("/(tabs)/home");
+    setShowSuccess(true);
   }
 
   return (
@@ -101,16 +108,24 @@ export default function SignInScreen() {
           </View>
         </View>
       </View>
+
+      <AuthSuccessModal
+        visible={showSuccess}
+        title="Signed in successfully!"
+        message="Redirecting to your dashboard..."
+        onProceed={handleProceed}
+      />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   centerContainer: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: spacing.md,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xxl + spacing.lg,
     paddingHorizontal: spacing.md,
   },
   formContent: {

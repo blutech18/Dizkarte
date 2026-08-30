@@ -31,6 +31,7 @@ export type IconName =
   | "chat"
   | "wallet"
   | "bank"
+  | "check"
   | "check-circle"
   | "close"
   | "log-out"
@@ -45,7 +46,10 @@ export type IconName =
   | "chevron-right"
   | "send"
   | "lock"
-  | "phone";
+  | "phone"
+  | "refresh"
+  | "clock"
+  | "settings";
 
 export type IconProps = {
   readonly name: IconName;
@@ -237,6 +241,12 @@ export function Icon({ name, size = 20, color = "currentColor" }: IconProps) {
           />
         </Frame>
       );
+    case "check":
+      return (
+        <Frame size={size} color={color}>
+          <Path {...STROKE_PROPS} stroke={color} d="M5 12.5l4.5 4.5L19 7" />
+        </Frame>
+      );
     case "check-circle":
       return (
         <Frame size={size} color={color}>
@@ -348,6 +358,34 @@ export function Icon({ name, size = 20, color = "currentColor" }: IconProps) {
             {...STROKE_PROPS}
             stroke={color}
             d="M6.6 10.8c1.4 2.8 3.8 5.2 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.6 21 3 13.4 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.2.2 2.4.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"
+          />
+        </Frame>
+      );
+    case "refresh":
+      return (
+        <Frame size={size} color={color}>
+          <Path
+            {...STROKE_PROPS}
+            stroke={color}
+            d="M21 12a9 9 0 1 1-2.64-6.36L21 8M21 3v5h-5"
+          />
+        </Frame>
+      );
+    case "clock":
+      return (
+        <Frame size={size} color={color}>
+          <Circle {...STROKE_PROPS} stroke={color} cx="12" cy="12" r="9" />
+          <Path {...STROKE_PROPS} stroke={color} d="M12 6v6l4 2" />
+        </Frame>
+      );
+    case "settings":
+      return (
+        <Frame size={size} color={color}>
+          <Circle {...STROKE_PROPS} stroke={color} cx="12" cy="12" r="3" />
+          <Path
+            {...STROKE_PROPS}
+            stroke={color}
+            d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
           />
         </Frame>
       );

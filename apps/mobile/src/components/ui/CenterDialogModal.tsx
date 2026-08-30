@@ -113,8 +113,10 @@ export function CenterDialogModal({
 
         <Animated.View
           accessibilityViewIsModal
-          style={[styles.cardWrapper, { opacity: fade, transform: [{ scale }] }]}
-          pointerEvents="box-none"
+          style={[
+            styles.cardWrapper,
+            { opacity: fade, transform: [{ scale }], pointerEvents: "box-none" },
+          ]}
         >
           {children}
         </Animated.View>

@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function NotFound() {
   return (
     <main
@@ -13,9 +15,9 @@ export default function NotFound() {
       <div className="dk-state" role="status">
         <p className="dk-state-title">Page not found</p>
         <p>The page you are looking for does not exist or you may not have access to it.</p>
-        <a href="/dashboard" className="dk-btn dk-btn-primary">
+        <Link href="/dashboard" className="dk-btn dk-btn-primary">
           Back to dashboard
-        </a>
+        </Link>
       </div>
     </main>
   );

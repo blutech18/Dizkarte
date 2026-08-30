@@ -4,6 +4,7 @@ import {
   Alert,
   FlatList,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -66,6 +67,7 @@ export function TaskerDiscoveryFeed() {
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [state, setState] = useState<LoadState>("loading");
+  const [refreshing, setRefreshing] = useState(false);
   const [openingTaskId, setOpeningTaskId] = useState<TaskId | null>(null);
   const openingTaskRef = useRef(false);
   const listRef = useRef<FlatList<PublicTaskFeedItem>>(null);
@@ -89,6 +91,24 @@ export function TaskerDiscoveryFeed() {
     },
     [repository],
   );
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const [result] = await Promise.all([
+        repository.searchOpenTasks(buildTaskSearchQuery(page, PAGE_SIZE, appliedKeyword, filters)),
+        new Promise((resolve) => setTimeout(resolve, 500)),
+      ]);
+      setItems([...result.items]);
+      setTotal(result.total);
+      setHasMore(result.hasMore);
+      setState("loaded");
+    } catch {
+      setState("error");
+    } finally {
+      setRefreshing(false);
+    }
+  }, [repository, page, appliedKeyword, filters]);
 
   useEffect(() => {
     void load(appliedKeyword, filters, page);
@@ -344,6 +364,15 @@ export function TaskerDiscoveryFeed() {
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={theme.primary}
+              colors={[theme.primary]}
+              progressBackgroundColor={theme.surface}
+            />
+          }
         >
           {listHeader}
           <EmptyState
@@ -369,6 +398,15 @@ export function TaskerDiscoveryFeed() {
           contentContainerStyle={styles.listContent}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              tintColor={theme.primary}
+              colors={[theme.primary]}
+              progressBackgroundColor={theme.surface}
+            />
+          }
           ListHeaderComponent={listHeader}
           renderItem={({ item }) => (
             <TaskCard

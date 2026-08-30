@@ -3,6 +3,14 @@ import type { ReactNode } from "react";
 /* ---------- Skeleton primitives ---------- */
 
 /**
+ * Column counts the skeleton grid has CSS for. A loading state that shows a
+ * different number of columns than the table it stands in for causes a visible
+ * reflow the moment real rows arrive, so every real table width is covered here
+ * rather than approximated by the nearest supported value.
+ */
+export type SkeletonColumnCount = 3 | 4 | 5 | 6 | 7 | 8;
+
+/**
  * Base skeleton bone. Accepts preset size modifiers via the `variant` prop.
  * All variants share the shared shimmer animation from globals.css.
  */
@@ -67,7 +75,7 @@ export function SkeletonTable({
   columns = 4,
   rows = 5,
 }: {
-  readonly columns?: 3 | 4 | 5 | 6;
+  readonly columns?: SkeletonColumnCount;
   readonly rows?: number;
 } = {}) {
   return (
@@ -133,6 +141,91 @@ export function SkeletonDetailCard({ lines = 3 }: { readonly lines?: number } = 
   );
 }
 
+/**
+ * Simulates the media queue's card gallery.
+ *
+ * The media queue is a gallery, not a table, so a table skeleton would show rows
+ * that are then replaced by image cards — the layout jumped on every load. Shared
+ * by the route-level `loading.tsx` and the streamed region fallback so both
+ * describe the same final shape.
+ */
+export function SkeletonMediaGrid({ count = 6 }: { readonly count?: number } = {}) {
+  return (
+    <ul className="dk-media-grid" aria-hidden="true">
+      {Array.from({ length: count }).map((_, index) => (
+        <li className="dk-card dk-media-card" key={index}>
+          <SkeletonBone style={{ width: "100%", aspectRatio: "4 / 3", borderRadius: 8 }} />
+          <SkeletonBone variant="text" style={{ width: "70%" }} />
+          <SkeletonBone variant="text-sm" style={{ width: "45%" }} />
+          <div className="dk-row" style={{ marginTop: 4 }}>
+            <SkeletonBone variant="btn" style={{ width: 88 }} />
+            <SkeletonBone variant="btn" style={{ width: 72 }} />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/* ---------- Streaming region fallbacks ---------- */
+
+/*
+  Suspense fallbacks for the *data* region of a page, as opposed to the
+  `loading.tsx` skeletons below which stand in for a whole route.
+
+  Pages render their shell — breadcrumbs, heading, filter row — without waiting
+  for any query, and suspend only the part that needs data. Deliberately built
+  from the same primitives as the route-level skeletons: the route skeleton hands
+  over to the real shell plus one of these, so the table or cards stay in place
+  and only the surrounding chrome fills in. A differently shaped fallback would
+  turn one navigation into two visible jumps.
+*/
+
+/** Data region of a list page: results table plus its pagination bar. */
+export function TableRegionSkeleton({
+  columns = 4,
+  rows = 5,
+}: {
+  readonly columns?: SkeletonColumnCount;
+  readonly rows?: number;
+} = {}) {
+  return (
+    <div role="status" aria-live="polite">
+      <span className="dk-visually-hidden">Loading results…</span>
+      <SkeletonTable columns={columns} rows={rows} />
+      <SkeletonPagination />
+    </div>
+  );
+}
+
+/** Data region of the media queue: card gallery plus its pagination bar. */
+export function GalleryRegionSkeleton({ cards = 6 }: { readonly cards?: number } = {}) {
+  return (
+    <div role="status" aria-live="polite">
+      <span className="dk-visually-hidden">Loading task media…</span>
+      <SkeletonMediaGrid count={cards} />
+      <SkeletonPagination />
+    </div>
+  );
+}
+
+/** Data region of a detail page: one or more record cards. */ export function DetailRegionSkeleton({
+  cards = 2,
+  lines = 3,
+}: {
+  readonly cards?: number;
+  readonly lines?: number;
+} = {}) {
+  return (
+    <div role="status" aria-live="polite">
+      <span className="dk-visually-hidden">Loading details…</span>
+      {Array.from({ length: cards }).map((_, index) => (
+        <SkeletonDetailCard key={index} lines={lines} />
+      ))}
+    </div>
+  );
+}
+
 /* ---------- Composed page-level skeletons ---------- */
 
 /**
@@ -144,7 +237,7 @@ export function ListPageSkeleton({
   rows = 5,
   filters = 3,
 }: {
-  readonly columns?: 3 | 4 | 5 | 6;
+  readonly columns?: SkeletonColumnCount;
   readonly rows?: number;
   readonly filters?: number;
 } = {}) {
@@ -187,16 +280,40 @@ export function DetailPageSkeleton({
  */
 export function DashboardSkeleton() {
   return (
-    <div role="status" aria-live="polite">
-      <span className="dk-visually-hidden">Loading…</span>
-      <SkeletonPageHeader />
-      <div style={{ marginBottom: 32 }}>
-        <SkeletonBone variant="text-sm" style={{ width: 160, marginBottom: 16 }} />
-        <SkeletonCardGrid count={4} />
+    <div className="dk-dashboard" role="status" aria-live="polite">
+      <span className="dk-visually-hidden">Loading dashboard…</span>
+      <div className="dk-dashboard-hero" aria-hidden="true">
+        <div className="dk-dashboard-hero-copy">
+          <SkeletonBone variant="title" style={{ width: 240 }} />
+          <SkeletonBone variant="subtitle" style={{ width: "64%", marginTop: 10 }} />
+        </div>
+        <div className="dk-dashboard-hero-actions">
+          <SkeletonBone variant="text-sm" style={{ width: 190 }} />
+          <SkeletonBone variant="btn" style={{ width: 132 }} />
+        </div>
       </div>
-      <div>
-        <SkeletonBone variant="text-sm" style={{ width: 200, marginBottom: 16 }} />
-        <SkeletonCardGrid count={3} />
+      <div className="dk-kpi-grid" aria-hidden="true">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="dk-kpi">
+            <SkeletonBone variant="text-sm" style={{ width: "68%" }} />
+            <SkeletonBone variant="title" style={{ width: "52%", marginTop: 10 }} />
+            <SkeletonBone variant="text-sm" style={{ width: "80%", marginTop: 8 }} />
+          </div>
+        ))}
+      </div>
+      <div className="dk-chart-grid" aria-hidden="true">
+        {Array.from({ length: 2 }).map((_, i) => (
+          <div key={i} className="dk-chart-card">
+            <SkeletonBone variant="title" style={{ width: "46%" }} />
+            <SkeletonBone variant="text-sm" style={{ width: "72%", marginTop: 8 }} />
+            <SkeletonBone style={{ height: 200, marginTop: 18, borderRadius: 8 }} />
+          </div>
+        ))}
+      </div>
+      <div className="dk-queue-list" aria-hidden="true">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <SkeletonBone key={i} style={{ height: 50, borderRadius: 8 }} />
+        ))}
       </div>
     </div>
   );

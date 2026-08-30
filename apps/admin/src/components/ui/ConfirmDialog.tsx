@@ -13,6 +13,13 @@ export type ConfirmDialogProps = {
   readonly triggerVariant?: "primary" | "secondary" | "destructive" | "text";
   readonly disabled?: boolean;
   readonly disabledReason?: string;
+  /**
+   * Where the disabled reason is shown. `text` (default) renders it under the
+   * button, which is right for a one-off control. A gallery repeats the same
+   * control on every card, so `tooltip` keeps the reason reachable without
+   * printing the same sentence a dozen times down the page.
+   */
+  readonly disabledReasonPresentation?: "text" | "tooltip";
   readonly onConfirm: (reason: string) => Promise<{ ok: boolean; message?: string }>;
 };
 
@@ -32,6 +39,7 @@ export function ConfirmDialog({
   triggerVariant = "secondary",
   disabled = false,
   disabledReason,
+  disabledReasonPresentation = "text",
   onConfirm,
 }: ConfirmDialogProps) {
   const [open, setOpen] = useState(false);
@@ -82,7 +90,9 @@ export function ConfirmDialog({
       >
         {triggerLabel}
       </Button>
-      {disabled && disabledReason ? <p className="dk-field-description">{disabledReason}</p> : null}
+      {disabled && disabledReason && disabledReasonPresentation === "text" ? (
+        <p className="dk-field-description">{disabledReason}</p>
+      ) : null}
       {open ? (
         <div
           className="dk-overlay"
@@ -140,3 +150,4 @@ export function ConfirmDialog({
     </>
   );
 }
+

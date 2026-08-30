@@ -1,6 +1,7 @@
-import Link from "next/link";
+import { AppLink } from "./AppLink";
 import { Fragment } from "react";
 import { formatPhp } from "@dizkarte/domain";
+import { formatDateTime } from "@/lib/datetime";
 import type { CaseSubject } from "@/lib/repository/types";
 
 /**
@@ -40,15 +41,15 @@ export function CaseSubjectCard({
           </p>
           {subject.exists ? (
             <>
-              <dl>
+              <dl className="dk-fact-grid">
                 {subject.subjectUserName ? (
                   <>
                     <dt>Responsible party</dt>
                     <dd>
                       {subject.subjectUserId ? (
-                        <Link href={`/users/${subject.subjectUserId}`}>
+                        <AppLink href={`/users/${subject.subjectUserId}`}>
                           {subject.subjectUserName}
-                        </Link>
+                        </AppLink>
                       ) : (
                         subject.subjectUserName
                       )}
@@ -76,16 +77,16 @@ export function CaseSubjectCard({
                 {subject.occurredAt ? (
                   <>
                     <dt>Created</dt>
-                    <dd>{new Date(subject.occurredAt).toLocaleString("en-PH")}</dd>
+                    <dd>{formatDateTime(subject.occurredAt)}</dd>
                   </>
                 ) : null}
                 {subject.bookingId ? (
                   <>
                     <dt>Booking</dt>
                     <dd>
-                      <Link href={`/bookings/${subject.bookingId}`}>
+                      <AppLink href={`/bookings/${subject.bookingId}`}>
                         {subject.taskTitle ?? "Open booking"}
-                      </Link>
+                      </AppLink>
                     </dd>
                   </>
                 ) : null}
@@ -132,3 +133,4 @@ function formatExtraValue(value: string | number | boolean | null): string {
   if (typeof value === "boolean") return value ? "Yes" : "No";
   return String(value);
 }
+

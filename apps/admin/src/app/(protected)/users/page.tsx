@@ -1,50 +1,40 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { Suspense } from "react";
+import { AppLink } from "@/components/ui/AppLink";
 import { requirePageCapability } from "@/lib/guard";
 import { getAdminRepository } from "@/lib/repository";
 import { Breadcrumbs } from "@/components/ui/Field";
 import { PageSection, Pagination } from "@/components/ui/Pagination";
-import { EmptyState } from "@/components/ui/AsyncState";
+import { EmptyState, TableRegionSkeleton } from "@/components/ui/AsyncState";
 import { RecordList, type ColumnDef } from "@/components/ui/RecordList";
-import { StatusBadge, type BadgeTone } from "@/components/ui/StatusBadge";
-import { StatusFilterBar } from "@/components/ui/StatusFilterBar";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { QueueFilters } from "@/components/ui/QueueFilters";
 import type { UserRow } from "@/lib/repository/types";
+import { USER_STATUS_OPTIONS, userStatusLabel, userStatusTone } from "./status";
 import { UserRowActions } from "./UserRowActions";
 
 export const metadata: Metadata = { title: "Users" };
 
 const PAGE_SIZE = 20;
 
-function tone(status: string): BadgeTone {
-  switch (status) {
-    case "active":
-      return "success";
-    case "suspended":
-      return "warning";
-    case "banned":
-      return "error";
-    default:
-      return "neutral";
-  }
-}
+type UsersQuery = {
+  readonly page: number;
+  readonly query: string | undefined;
+  readonly status: string | undefined;
+};
 
-const STATUS_OPTIONS = ["active", "suspended", "banned", "deactivated"] as const;
-
-function statusLabel(status: string): string {
-  switch (status) {
-    case "active":
-      return "Active";
-    case "suspended":
-      return "Suspended";
-    case "banned":
-      return "Banned";
-    case "deactivated":
-      return "Deactivated";
-    default:
-      return status;
-  }
-}
-
+/**
+ * Users queue.
+ *
+ * The shell — breadcrumbs, heading, filter row — depends on no query, so it is
+ * returned immediately and the results table streams in behind its own Suspense
+ * boundary. Awaiting the query here instead would hold back the whole page,
+ * including controls the operator can already read and use.
+ *
+ * The boundary is keyed by the applied filters so changing a filter shows the
+ * skeleton again rather than leaving the previous result set on screen looking
+ * like the answer to the new query.
+ */
 export default async function UsersPage({
   searchParams,
 }: {
@@ -53,22 +43,67 @@ export default async function UsersPage({
   await requirePageCapability(["ADMIN_SUPPORT"]);
   const { q, page: pageParam, status } = await searchParams;
   const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
-  const active = (STATUS_OPTIONS as ReadonlyArray<string>).includes(status ?? "")
+  const active = (USER_STATUS_OPTIONS as ReadonlyArray<string>).includes(status ?? "")
     ? status
     : undefined;
-  const repository = getAdminRepository();
-  const result = await repository.listUsers({
+
+  return (
+    <>
+      <Breadcrumbs items={[{ label: "Dashboard", href: "/dashboard" }, { label: "Users" }]} />
+      <PageSection
+        title="Users"
+        subtitle="Privacy-safe projections only — never raw IDs, exact locations, or chat bodies."
+      >
+        {/*
+          Suspend and ban already live on the user detail page with their own
+          moderation history. What was missing was reviewing frozen accounts as a
+          set, which is a filter, not a separate module.
+        */}
+        <QueueFilters
+          basePath="/users"
+          search={{
+            label: "Search users by display name",
+            placeholder: "Search by display name",
+            value: q?.trim() ?? "",
+          }}
+          selects={[
+            {
+              name: "status",
+              label: "Filter by account status",
+              allLabel: "All accounts",
+              value: active,
+              options: USER_STATUS_OPTIONS.map((option) => ({
+                value: option,
+                label: userStatusLabel(option),
+              })),
+            },
+          ]}
+        />
+
+        <Suspense
+          key={`${q ?? ""}|${active ?? ""}|${page}`}
+          fallback={<TableRegionSkeleton columns={4} />}
+        >
+          <UsersTable page={page} query={q} status={active} />
+        </Suspense>
+      </PageSection>
+    </>
+  );
+}
+
+async function UsersTable({ page, query, status }: UsersQuery) {
+  const result = await getAdminRepository().listUsers({
     page,
     pageSize: PAGE_SIZE,
-    ...(q ? { query: q } : {}),
-    ...(active ? { status: active } : {}),
+    ...(query ? { query } : {}),
+    ...(status ? { status } : {}),
   });
 
   const columns: ReadonlyArray<ColumnDef<UserRow>> = [
     {
       key: "name",
       header: "Name",
-      render: (row) => <Link href={`/users/${row.id}`}>{row.displayName}</Link>,
+      render: (row) => <AppLink href={`/users/${row.id}`}>{row.displayName}</AppLink>,
     },
     {
       key: "verified",
@@ -84,7 +119,10 @@ export default async function UsersPage({
       key: "status",
       header: "Account status",
       render: (row) => (
-        <StatusBadge tone={tone(row.accountStatus)} label={statusLabel(row.accountStatus)} />
+        <StatusBadge
+          tone={userStatusTone(row.accountStatus)}
+          label={userStatusLabel(row.accountStatus)}
+        />
       ),
     },
     {
@@ -97,69 +135,32 @@ export default async function UsersPage({
 
   function hrefFor(nextPage: number): string {
     const params = new URLSearchParams();
-    if (q) params.set("q", q);
-    if (active) params.set("status", active);
+    if (query) params.set("q", query);
+    if (status) params.set("status", status);
     params.set("page", String(nextPage));
     return `/users?${params.toString()}`;
   }
 
+  if (result.items.length === 0) {
+    return <EmptyState title="No users found" description="Try a different search term." />;
+  }
+
   return (
     <>
-      <Breadcrumbs items={[{ label: "Dashboard", href: "/dashboard" }, { label: "Users" }]} />
-      <PageSection
-        title="Users"
-        subtitle="Privacy-safe projections only — never raw IDs, exact locations, or chat bodies."
-      >
-        <form method="get" className="dk-row" style={{ marginBottom: 16 }} role="search">
-          <label className="dk-visually-hidden" htmlFor="q">
-            Search users
-          </label>
-          <input
-            id="q"
-            name="q"
-            defaultValue={q ?? ""}
-            className="dk-input"
-            placeholder="Search by display name"
-          />
-          <button type="submit" className="dk-btn dk-btn-secondary dk-btn-sm">
-            Search
-          </button>
-        </form>
-
-        {/*
-          Suspend and ban already live on the user detail page with their own
-          moderation history. What was missing was reviewing frozen accounts as a
-          set, which is a filter, not a separate module.
-        */}
-        <StatusFilterBar
-          basePath="/users"
-          options={STATUS_OPTIONS}
-          active={active}
-          label={statusLabel}
-          allLabel="All accounts"
-        />
-
-        {result.items.length === 0 ? (
-          <EmptyState title="No users found" description="Try a different search term." />
-        ) : (
-          <>
-            <RecordList
-              rows={result.items}
-              columns={columns}
-              getRowKey={(row) => row.id}
-              caption="Users"
-              cardTitle={(row) => row.displayName}
-            />
-            <Pagination
-              page={result.page}
-              pageSize={result.pageSize}
-              total={result.total}
-              hasMore={result.hasMore}
-              makeHref={hrefFor}
-            />
-          </>
-        )}
-      </PageSection>
+      <RecordList
+        rows={result.items}
+        columns={columns}
+        getRowKey={(row) => row.id}
+        caption="Users"
+        cardTitle={(row) => row.displayName}
+      />
+      <Pagination
+        page={result.page}
+        pageSize={result.pageSize}
+        total={result.total}
+        hasMore={result.hasMore}
+        makeHref={hrefFor}
+      />
     </>
   );
 }

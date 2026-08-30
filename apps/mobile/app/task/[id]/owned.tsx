@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   AccessibilityInfo,
   Animated,
@@ -17,6 +17,7 @@ import { Screen } from "../../../src/components/ui/Screen";
 import { Button } from "../../../src/components/ui/Button";
 import { Icon, type IconName } from "../../../src/components/ui/Icon";
 import { StatusBadge } from "../../../src/components/ui/StatusBadge";
+import { Collapsible } from "../../../src/components/ui/Collapsible";
 import { CenterDialogModal } from "../../../src/components/ui/CenterDialogModal";
 import {
   AnimatedFilterPressable,
@@ -145,6 +146,42 @@ export default function OwnedTaskDetailScreen() {
   const [showCancel, setShowCancel] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [showAllOffers, setShowAllOffers] = useState(false);
+  const [showAllQuestions, setShowAllQuestions] = useState(false);
+
+  /**
+   * Sort offers to prioritize top-rated, most completed, and verified Taskers.
+   * Must be declared here (before any early returns) to satisfy the Rules of Hooks.
+   * 1. Selected offer (if any) is always pinned at the top.
+   * 2. Verified Taskers first.
+   * 3. Highest average rating (5.0 -> 1.0).
+   * 4. Most review count.
+   * 5. Most completed tasks.
+   */
+  const sortedOffers = useMemo(() => {
+    return [...offers].sort((a, b) => {
+      if (a.status === "SELECTED" && b.status !== "SELECTED") return -1;
+      if (b.status === "SELECTED" && a.status !== "SELECTED") return 1;
+
+      const aVerified = a.taskerProfile.verifiedIdentity ? 1 : 0;
+      const bVerified = b.taskerProfile.verifiedIdentity ? 1 : 0;
+      if (aVerified !== bVerified) return bVerified - aVerified;
+
+      const aRating = a.taskerProfile.ratingAverage ?? 0;
+      const bRating = b.taskerProfile.ratingAverage ?? 0;
+      if (aRating !== bRating) return bRating - aRating;
+
+      const aReviews = a.taskerProfile.ratingCount ?? 0;
+      const bReviews = b.taskerProfile.ratingCount ?? 0;
+      if (aReviews !== bReviews) return bReviews - aReviews;
+
+      const aCompleted = a.taskerProfile.completionCount ?? 0;
+      const bCompleted = b.taskerProfile.completionCount ?? 0;
+      if (aCompleted !== bCompleted) return bCompleted - aCompleted;
+
+      return 0;
+    });
+  }, [offers]);
 
   const load = useCallback(() => {
     if (!session) return;
@@ -345,12 +382,14 @@ export default function OwnedTaskDetailScreen() {
 
   const canSelectOffer = task.status === "OPEN" && !task.activeBookingId;
   const paymentPending = task.status === "BOOKING_PENDING" && task.activeBookingId;
+  const displayedOffers = showAllOffers ? sortedOffers : sortedOffers.slice(0, 3);
+  const displayedQuestions = showAllQuestions ? questions : questions.slice(0, 3);
 
   return (
     <OwnedTaskPageShell>
       <View style={styles.container}>
         <View style={styles.ownedTaskDocument}>
-          <View style={styles.taskSummary}>
+          <View style={styles.taskSummaryCard}>
             <Text style={styles.taskTitle} accessibilityRole="header">
               {task.draft.title || "Untitled task"}
             </Text>
@@ -372,10 +411,7 @@ export default function OwnedTaskDetailScreen() {
 
           <View style={styles.overviewCard}>
             <View style={styles.summaryTopRow}>
-              <View style={styles.taskTypeChip}>
-                <Icon name="briefcase" size={15} color={theme.primary} />
-                <Text style={styles.taskSummaryLabel}>YOUR TASK</Text>
-              </View>
+              <Text style={styles.overviewSectionTitle}>Details</Text>
               <StatusBadge
                 tone={STATUS_PRESENTATION[task.status].tone}
                 label={STATUS_PRESENTATION[task.status].label}
@@ -386,16 +422,20 @@ export default function OwnedTaskDetailScreen() {
             <View style={styles.overviewDivider} />
 
             <View style={styles.metaRow}>
-              <Text style={styles.metaLabel}>SCHEDULE</Text>
+              <View style={styles.metaLabelRow}>
+                <Icon name="calendar" size={14} color={theme.primary} />
+                <Text style={styles.metaLabel}>SCHEDULE</Text>
+              </View>
               <Text style={styles.metaValue}>{taskTimingLabel(task.draft)}</Text>
             </View>
 
-            <View style={styles.overviewDivider} />
-
             <View style={styles.metaRow}>
-              <Text style={styles.metaLabel}>
-                {task.draft.locationType === "online" ? "LOCATION" : "APPROXIMATE AREA"}
-              </Text>
+              <View style={styles.metaLabelRow}>
+                <Icon name="map-pin" size={14} color={theme.primary} />
+                <Text style={styles.metaLabel}>
+                  {task.draft.locationType === "online" ? "LOCATION" : "APPROXIMATE AREA"}
+                </Text>
+              </View>
               <Text style={styles.metaValue}>
                 {task.draft.locationType === "online"
                   ? "Online / Remote"
@@ -408,37 +448,34 @@ export default function OwnedTaskDetailScreen() {
             <View style={styles.overviewDivider} />
 
             <View style={styles.budgetRow}>
-              <Text style={styles.budgetLabel}>Budget</Text>
-              <Text
-                style={styles.budgetAmount}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.75}
-              >
-                {formatPhp(task.draft.budgetCentavos)}
-              </Text>
-            </View>
+              <View style={styles.budgetCol}>
+                <Text style={styles.budgetLabel}>Budget</Text>
+                <Text style={styles.budgetAmount} numberOfLines={1}>
+                  {formatPhp(task.draft.budgetCentavos)}
+                </Text>
+              </View>
 
-            {task.activeBookingId ? (
-              <Pressable
-                onPress={() =>
-                  router.push({
-                    pathname: "/booking/[id]",
-                    params: { id: task.activeBookingId! },
-                  })
-                }
-                accessibilityRole="button"
-                accessibilityLabel="View active booking"
-                style={({ pressed }) => [
-                  styles.bookingButton,
-                  pressed ? styles.bookingButtonPressed : null,
-                ]}
-              >
-                <Icon name="note" size={14} color={theme.primary} />
-                <Text style={styles.bookingButtonText}>Booking</Text>
-                <Icon name="arrow-right" size={12} color={theme.primary} />
-              </Pressable>
-            ) : null}
+              {task.activeBookingId ? (
+                <Pressable
+                  onPress={() =>
+                    router.push({
+                      pathname: "/booking/[id]",
+                      params: { id: task.activeBookingId! },
+                    })
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel="View active booking"
+                  style={({ pressed }) => [
+                    styles.bookingButton,
+                    pressed ? styles.bookingButtonPressed : null,
+                  ]}
+                >
+                  <Icon name="note" size={13} color={theme.primary} />
+                  <Text style={styles.bookingButtonText}>Booking</Text>
+                  <Icon name="arrow-right" size={12} color={theme.primary} />
+                </Pressable>
+              ) : null}
+            </View>
           </View>
         </View>
 
@@ -521,7 +558,7 @@ export default function OwnedTaskDetailScreen() {
                   Compare price, trust signals, timing, and relevant experience before selecting.
                 </Text>
 
-                {offers.length === 0 ? (
+                {sortedOffers.length === 0 ? (
                   <EmptyState
                     icon="briefcase"
                     title="No offers yet"
@@ -529,7 +566,7 @@ export default function OwnedTaskDetailScreen() {
                   />
                 ) : (
                   <View style={styles.offerList}>
-                    {offers.map((offer) => (
+                    {displayedOffers.map((offer) => (
                       <OfferRow
                         key={offer.id}
                         offer={offer}
@@ -538,6 +575,22 @@ export default function OwnedTaskDetailScreen() {
                         onSelect={() => handleSelect(offer)}
                       />
                     ))}
+
+                    {sortedOffers.length > 3 ? (
+                      <View style={styles.expandAction}>
+                        <Button
+                          label={
+                            showAllOffers
+                              ? "Show top 3 offers"
+                              : `Show all ${sortedOffers.length} offers (${sortedOffers.length - 3} more)`
+                          }
+                          icon={showAllOffers ? "chevron-up" : "chevron-down"}
+                          variant="secondary"
+                          onPress={() => setShowAllOffers((prev) => !prev)}
+                          fullWidth
+                        />
+                      </View>
+                    ) : null}
                   </View>
                 )}
 
@@ -568,11 +621,11 @@ export default function OwnedTaskDetailScreen() {
                   />
                 ) : (
                   <View style={styles.questionList}>
-                    {questions.map((question, index) => (
+                    {displayedQuestions.map((question, index) => (
                       <QuestionRow
                         key={question.id}
                         question={question}
-                        separated={index < questions.length - 1}
+                        separated={index < displayedQuestions.length - 1}
                         onAnswer={async (answer) => {
                           if (!session) return;
                           const updated = await repository.answerQuestion(
@@ -588,6 +641,22 @@ export default function OwnedTaskDetailScreen() {
                         }}
                       />
                     ))}
+
+                    {questions.length > 3 ? (
+                      <View style={styles.expandAction}>
+                        <Button
+                          label={
+                            showAllQuestions
+                              ? "Show top 3 questions"
+                              : `Show all ${questions.length} questions (${questions.length - 3} more)`
+                          }
+                          icon={showAllQuestions ? "chevron-up" : "chevron-down"}
+                          variant="secondary"
+                          onPress={() => setShowAllQuestions((prev) => !prev)}
+                          fullWidth
+                        />
+                      </View>
+                    ) : null}
                   </View>
                 )}
               </>
@@ -903,6 +972,13 @@ function EmptyState({
   );
 }
 
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
 function OfferRow({
   offer,
   canSelect,
@@ -914,9 +990,29 @@ function OfferRow({
   readonly selecting: boolean;
   readonly onSelect: () => void;
 }) {
+  const [showSpecs, setShowSpecs] = useState(false);
+  const chevronProgress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(chevronProgress, {
+      toValue: showSpecs ? 1 : 0,
+      duration: showSpecs ? 280 : 220,
+      easing: showSpecs ? Easing.bezier(0.16, 1, 0.3, 1) : Easing.bezier(0.4, 0, 0.2, 1),
+      useNativeDriver: true,
+    }).start();
+  }, [showSpecs, chevronProgress]);
+
+  const chevronRotate = chevronProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "180deg"],
+  });
+
   const unavailable =
     offer.status === "WITHDRAWN" || offer.status === "REJECTED" || offer.status === "EXPIRED";
   const selected = offer.status === "SELECTED";
+  const hasSpecs = Boolean(
+    offer.etaText?.trim() || offer.availabilityText?.trim() || offer.experienceText?.trim()
+  );
 
   return (
     <View
@@ -926,98 +1022,186 @@ function OfferRow({
         unavailable ? styles.offerCardUnavailable : undefined,
       ]}
     >
-      <View style={styles.offerHeaderRow}>
-        <Pressable
-          onPress={() => router.push({ pathname: "/profile/[id]", params: { id: offer.taskerId } })}
-          accessibilityRole="button"
-          accessibilityLabel={`View ${offer.taskerDisplayName}'s profile`}
-          style={({ pressed }) => [styles.offerTaskerButton, pressed ? { opacity: 0.7 } : null]}
+      {selected ? (
+        <View
+          style={styles.selectedEdgeBadge}
+          accessibilityRole="text"
+          accessibilityLabel="Selected offer"
         >
+          <Icon name="check" size={16} color={theme.onPrimary} />
+        </View>
+      ) : null}
+
+      <Pressable
+        onPress={() => router.push({ pathname: "/profile/[id]", params: { id: offer.taskerId } })}
+        accessibilityRole="button"
+        accessibilityLabel={`View ${offer.taskerDisplayName}'s profile`}
+        style={({ pressed }) => [styles.offerHeader, pressed ? { opacity: 0.8 } : null]}
+      >
+        <View style={styles.offerAvatar}>
+          <Text style={styles.offerAvatarText}>{getInitials(offer.taskerDisplayName)}</Text>
+        </View>
+
+        <View style={styles.offerTaskerMeta}>
           <Text style={styles.offerTaskerName} numberOfLines={1}>
             {offer.taskerDisplayName}
           </Text>
-          <Icon name="eye" size={15} color={theme.primary} />
-        </Pressable>
 
-        <View style={styles.offerHeaderRight}>
-          {selected ? <StatusBadge tone="success" label="Selected" /> : null}
-          {offer.status === "WITHDRAWN" ? <StatusBadge tone="neutral" label="Withdrawn" /> : null}
-          {offer.status === "REJECTED" ? <StatusBadge tone="neutral" label="Not selected" /> : null}
-          {offer.status === "EXPIRED" ? <StatusBadge tone="neutral" label="Expired" /> : null}
-        </View>
-      </View>
+          <View style={styles.trustLine}>
+            {offer.taskerProfile.ratingCount > 0 ? (
+              <View style={styles.trustItem}>
+                <Icon name="star" size={11} color="#F59E0B" />
+                <Text style={styles.trustText}>
+                  <Text style={styles.trustBold}>
+                    {offer.taskerProfile.ratingAverage?.toFixed(1)}
+                  </Text>{" "}
+                  ({offer.taskerProfile.ratingCount})
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.trustText}>New Tasker</Text>
+            )}
 
-      <View style={styles.trustLine}>
-        {offer.taskerProfile.ratingCount > 0 ? (
-          <View style={styles.trustItem}>
-            <Icon name="star" size={13} color="#F59E0B" />
-            <Text style={styles.trustText}>
-              <Text style={styles.trustBold}>{offer.taskerProfile.ratingAverage?.toFixed(1)}</Text>{" "}
-              ({offer.taskerProfile.ratingCount})
-            </Text>
-          </View>
-        ) : (
-          <Text style={styles.trustText}>No reviews yet</Text>
-        )}
-
-        <Text style={styles.trustDot}>•</Text>
-
-        <Text style={styles.trustText}>
-          <Text style={styles.trustBold}>{offer.taskerProfile.completionCount}</Text> completed
-        </Text>
-
-        {offer.taskerProfile.verifiedIdentity ? (
-          <>
             <Text style={styles.trustDot}>•</Text>
-            <View style={styles.trustItem}>
-              <Icon name="shield" size={13} color={theme.successSolid} />
-              <Text style={styles.trustVerifiedText}>Verified</Text>
+
+            <Text style={styles.trustText}>
+              <Text style={styles.trustBold}>{offer.taskerProfile.completionCount}</Text> completed
+            </Text>
+
+            {offer.taskerProfile.verifiedIdentity ? (
+              <>
+                <Text style={styles.trustDot}>•</Text>
+                <View style={styles.trustItem}>
+                  <Icon name="check-circle" size={12} color={theme.successSolid} />
+                  <Text style={styles.trustVerifiedText}>Verified</Text>
+                </View>
+              </>
+            ) : null}
+          </View>
+        </View>
+      </Pressable>
+
+      {offer.message ? (
+        <View style={styles.offerMessageBubble}>
+          <Text style={styles.offerMessage}>{offer.message}</Text>
+        </View>
+      ) : null}
+
+      {hasSpecs ? (
+        <View style={styles.specsAccordion}>
+          <Pressable
+            onPress={() => setShowSpecs((prev) => !prev)}
+            accessibilityRole="button"
+            accessibilityState={{ expanded: showSpecs }}
+            accessibilityLabel={
+              showSpecs
+                ? "Hide proposal details"
+                : "View proposal details (ETA, schedule and experience)"
+            }
+            style={({ pressed }) => [
+              styles.specsHeader,
+              pressed ? styles.specsHeaderPressed : null,
+            ]}
+          >
+            <View style={styles.specsHeaderLeft}>
+              <Icon name="clock" size={15} color={theme.primary} />
+              <Text style={styles.specsHeaderText}>Proposal details</Text>
             </View>
-          </>
-        ) : null}
-      </View>
+            <Animated.View style={{ transform: [{ rotate: chevronRotate }] }}>
+              <Icon
+                name="chevron-down"
+                size={14}
+                color={theme.textSecondary}
+              />
+            </Animated.View>
+          </Pressable>
 
-      {offer.message ? <Text style={styles.offerMessage}>{offer.message}</Text> : null}
+          <Collapsible expanded={showSpecs} maxHeight={360}>
+            <View style={styles.specsBody}>
+              {offer.etaText?.trim() ? (
+                <View style={styles.specItem}>
+                  <Text style={styles.specLabel}>ESTIMATED COMPLETION</Text>
+                  <Text style={styles.specValue}>{offer.etaText}</Text>
+                </View>
+              ) : null}
 
-      <View style={styles.offerDivider} />
+              {offer.etaText?.trim() &&
+              (offer.availabilityText?.trim() || offer.experienceText?.trim()) ? (
+                <View style={styles.specDivider} />
+              ) : null}
 
-      <View style={styles.offerTermsRow}>
-        <View style={styles.offerTermItem}>
-          <Text style={styles.offerTermLabel}>ETA</Text>
-          <Text style={styles.offerTermValue}>{offer.etaText}</Text>
+              {offer.availabilityText?.trim() ? (
+                <View style={styles.specItem}>
+                  <Text style={styles.specLabel}>AVAILABILITY</Text>
+                  <Text style={styles.specValue}>{offer.availabilityText}</Text>
+                </View>
+              ) : null}
+
+              {offer.availabilityText?.trim() && offer.experienceText?.trim() ? (
+                <View style={styles.specDivider} />
+              ) : null}
+
+              {offer.experienceText?.trim() ? (
+                <View style={styles.specItem}>
+                  <Text style={styles.specLabel}>RELEVANT EXPERIENCE</Text>
+                  <Text style={styles.specValue}>{offer.experienceText}</Text>
+                </View>
+              ) : null}
+            </View>
+          </Collapsible>
         </View>
-        <View style={styles.offerTermItem}>
-          <Text style={styles.offerTermLabel}>AVAILABILITY</Text>
-          <Text style={styles.offerTermValue}>{offer.availabilityText}</Text>
-        </View>
-        <View style={styles.offerTermItem}>
-          <Text style={styles.offerTermLabel}>EXPERIENCE</Text>
-          <Text style={styles.offerTermValue}>{offer.experienceText}</Text>
-        </View>
-      </View>
+      ) : null}
 
       <View style={styles.offerDivider} />
 
       <View style={styles.offerFooter}>
         <View style={styles.offerPriceRow}>
-          <Text style={styles.offerFooterLabel}>Offer amount</Text>
-          <Text
-            style={styles.offerFooterAmount}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.75}
-          >
-            {formatPhp(offer.amountCentavos)}
-          </Text>
+          <View style={styles.offerPriceLabelGroup}>
+            <Text style={styles.offerFooterLabel}>Offer amount</Text>
+            {offer.status === "WITHDRAWN" ? (
+              <StatusBadge tone="neutral" label="Withdrawn" />
+            ) : null}
+            {offer.status === "REJECTED" ? (
+              <StatusBadge tone="neutral" label="Not selected" />
+            ) : null}
+            {offer.status === "EXPIRED" ? (
+              <StatusBadge tone="neutral" label="Expired" />
+            ) : null}
+          </View>
+          <Text style={styles.offerFooterAmount}>{formatPhp(offer.amountCentavos)}</Text>
         </View>
 
         {canSelect && offer.status === "SUBMITTED" ? (
-          <View style={styles.offerAction}>
+          <View style={styles.offerActionRow}>
+            <View style={styles.offerActionSecondary}>
+              <Button
+                label="View profile"
+                variant="secondary"
+                onPress={() =>
+                  router.push({ pathname: "/profile/[id]", params: { id: offer.taskerId } })
+                }
+                fullWidth
+              />
+            </View>
+            <View style={styles.offerActionPrimary}>
+              <Button
+                label="Select offer"
+                icon="check-circle"
+                onPress={onSelect}
+                loading={selecting}
+                fullWidth
+              />
+            </View>
+          </View>
+        ) : !unavailable && !selected ? (
+          <View style={styles.offerActionSingle}>
             <Button
-              label="Select this offer"
-              icon="check-circle"
-              onPress={onSelect}
-              loading={selecting}
+              label="View profile"
+              variant="secondary"
+              onPress={() =>
+                router.push({ pathname: "/profile/[id]", params: { id: offer.taskerId } })
+              }
+              fullWidth
             />
           </View>
         ) : null}
@@ -1251,10 +1435,20 @@ const styles = StyleSheet.create({
     minWidth: 0,
     width: "100%",
   },
-  taskSummary: {
+  taskSummaryCard: {
     minWidth: 0,
-    gap: spacing.xs,
+    backgroundColor: theme.surface,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    padding: spacing.lg,
+    gap: spacing.sm,
     marginBottom: spacing.lg,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
   },
   summaryTopRow: {
     minWidth: 0,
@@ -1278,16 +1472,16 @@ const styles = StyleSheet.create({
   taskTitle: {
     minWidth: 0,
     color: theme.textPrimary,
-    fontSize: fontSize.lg,
-    lineHeight: lineHeight.lg,
+    fontSize: fontSize.xl,
+    lineHeight: lineHeight.xl,
     fontWeight: "800",
-    letterSpacing: -0.2,
+    letterSpacing: -0.3,
   },
   taskDescription: {
     minWidth: 0,
     color: theme.textSecondary,
     fontSize: fontSize.sm,
-    lineHeight: lineHeight.sm,
+    lineHeight: lineHeight.sm + 4,
   },
   answerList: {
     minWidth: 0,
@@ -1318,6 +1512,11 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
+  overviewSectionTitle: {
+    color: theme.textPrimary,
+    fontSize: fontSize.md,
+    fontWeight: "800",
+  },
   taskTypeChip: {
     minWidth: 0,
     flexDirection: "row",
@@ -1332,6 +1531,11 @@ const styles = StyleSheet.create({
     minWidth: 0,
     gap: 3,
     paddingVertical: 1,
+  },
+  metaLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
   },
   metaLabel: {
     color: theme.textSecondary,
@@ -1352,14 +1556,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: spacing.sm,
-    paddingVertical: 2,
+    gap: spacing.md,
+    paddingTop: 2,
+  },
+  budgetCol: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
   },
   budgetLabel: {
     color: theme.textSecondary,
-    fontSize: fontSize.sm,
-    lineHeight: lineHeight.sm,
+    fontSize: fontSize.xs,
     fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   budgetAmount: {
     color: theme.primary,
@@ -1372,13 +1582,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
     borderRadius: radii.md,
-    backgroundColor: theme.surfaceSubtle,
+    backgroundColor: theme.primarySoft,
     borderWidth: 1,
     borderColor: theme.borderSubtle,
-    marginTop: spacing.xs,
+    flexShrink: 0,
   },
   bookingButtonPressed: {
     opacity: 0.85,
@@ -1462,16 +1672,19 @@ const styles = StyleSheet.create({
     minWidth: 0,
     borderTopWidth: 1,
     borderTopColor: theme.borderSubtle,
+    gap: spacing.md,
+    paddingTop: spacing.md,
   },
   checkpointFactsTablet: {
     flexDirection: "row",
     alignItems: "stretch",
-    paddingVertical: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: 0,
+    gap: spacing.md,
   },
   checkpointFact: {
     minWidth: 0,
     gap: spacing.xs,
-    paddingVertical: spacing.md,
   },
   checkpointFactTablet: {
     flex: 1,
@@ -1479,14 +1692,10 @@ const styles = StyleSheet.create({
     paddingRight: spacing.md,
     paddingBottom: 0,
   },
-  checkpointFactSecondary: {
-    borderTopWidth: 1,
-    borderTopColor: theme.borderSubtle,
-  },
+  checkpointFactSecondary: {},
   checkpointFactSecondaryTablet: {
     paddingRight: 0,
     paddingLeft: spacing.md,
-    borderTopWidth: 0,
     borderLeftWidth: 1,
     borderLeftColor: theme.borderSubtle,
   },
@@ -1747,20 +1956,23 @@ const styles = StyleSheet.create({
     width: "100%",
     gap: spacing.md,
   },
+  expandAction: {
+    paddingTop: spacing.xs,
+  },
   offerCard: {
     minWidth: 0,
     width: "100%",
     backgroundColor: theme.surface,
-    borderRadius: radii.md,
+    borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: theme.borderSubtle,
-    padding: spacing.md,
-    gap: spacing.sm + 2,
+    padding: spacing.md + 2,
+    gap: spacing.md,
     shadowColor: "#0F172A",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 1,
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
   offerCardSelected: {
     borderColor: theme.primary,
@@ -1769,37 +1981,71 @@ const styles = StyleSheet.create({
   offerCardUnavailable: {
     opacity: 0.6,
   },
-  offerHeaderRow: {
+  offerHeader: {
     minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.sm,
+    gap: spacing.sm + 2,
   },
-  offerTaskerButton: {
-    minWidth: 0,
+  offerAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: radii.pill,
+    backgroundColor: theme.primarySoft,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  offerAvatarText: {
+    color: theme.primary,
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  offerTaskerMeta: {
     flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  offerTaskerNameRow: {
+    minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 5,
   },
   offerTaskerName: {
-    minWidth: 0,
     flexShrink: 1,
     color: theme.textPrimary,
-    fontSize: fontSize.md,
-    lineHeight: lineHeight.md,
-    fontWeight: "800",
+    fontSize: 15,
+    lineHeight: 19,
+    fontWeight: "700",
+  },
+  verifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2.5,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: radii.pill,
+    backgroundColor: theme.successSoft,
+  },
+  verifiedText: {
+    color: theme.successSolid,
+    fontSize: 9.5,
+    fontWeight: "700",
   },
   offerHeaderRight: {
     flexShrink: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
   },
   trustLine: {
     minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
-    flexWrap: "wrap",
-    gap: 6,
+    gap: 5,
   },
   trustItem: {
     flexDirection: "row",
@@ -1808,65 +2054,114 @@ const styles = StyleSheet.create({
   },
   trustDot: {
     color: theme.textSecondary,
-    fontSize: 10,
-    opacity: 0.6,
+    fontSize: 9,
+    opacity: 0.5,
   },
   trustText: {
     color: theme.textSecondary,
-    fontSize: fontSize.xs + 1,
-    lineHeight: lineHeight.xs + 3,
-    fontWeight: "500",
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "400",
   },
   trustBold: {
     color: theme.textPrimary,
-    fontWeight: "700",
+    fontWeight: "600",
   },
   trustVerifiedText: {
     color: theme.successSolid,
-    fontSize: fontSize.xs + 1,
-    lineHeight: lineHeight.xs + 3,
-    fontWeight: "700",
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "600",
+  },
+  offerMessageBubble: {
+    minWidth: 0,
+    backgroundColor: theme.surfaceSubtle,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   offerMessage: {
     minWidth: 0,
     color: theme.textPrimary,
-    fontSize: fontSize.sm,
-    lineHeight: lineHeight.sm + 4,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "400",
+  },
+  specsAccordion: {
+    minWidth: 0,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    backgroundColor: theme.surfaceSubtle,
+    overflow: "hidden",
+  },
+  specsHeader: {
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    backgroundColor: theme.surfaceSubtle,
+  },
+  specsHeaderOpen: {
+    borderBottomWidth: 1,
+    borderBottomColor: theme.borderSubtle,
+  },
+  specsHeaderPressed: {
+    backgroundColor: theme.primarySoft,
+  },
+  specsHeaderLeft: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  specsHeaderText: {
+    flex: 1,
+    minWidth: 0,
+    color: theme.textPrimary,
+    fontSize: 13.5,
+    fontWeight: "700",
+  },
+  specsBody: {
+    padding: 12,
+    gap: spacing.sm,
+    backgroundColor: theme.surface,
+    borderTopWidth: 1,
+    borderTopColor: theme.borderSubtle,
+  },
+  specItem: {
+    gap: 2,
+  },
+  specLabel: {
+    color: theme.textSecondary,
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+  },
+  specValue: {
+    color: theme.textPrimary,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: "500",
+  },
+  specDivider: {
+    height: 1,
+    backgroundColor: theme.borderSubtle,
   },
   offerDivider: {
     height: 1,
     backgroundColor: theme.borderSubtle,
   },
-  offerTermsRow: {
-    minWidth: 0,
-    gap: spacing.xs + 2,
-  },
-  offerTermItem: {
-    minWidth: 0,
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: spacing.sm,
-  },
-  offerTermLabel: {
-    width: 85,
-    color: theme.textSecondary,
-    fontSize: 9,
-    fontWeight: "800",
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
-  },
-  offerTermValue: {
-    minWidth: 0,
-    flex: 1,
-    color: theme.textPrimary,
-    fontSize: fontSize.xs + 1,
-    lineHeight: lineHeight.xs + 3,
-    fontWeight: "600",
-  },
   offerFooter: {
     minWidth: 0,
     width: "100%",
-    gap: spacing.sm,
+    gap: spacing.sm + 2,
     paddingTop: 2,
   },
   offerPriceRow: {
@@ -1877,22 +2172,54 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: spacing.sm,
   },
+  offerPriceLabelGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    flexWrap: "wrap",
+    flex: 1,
+    minWidth: 0,
+  },
+  selectedEdgeBadge: {
+    position: "absolute",
+    top: -9,
+    right: -9,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: theme.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10,
+  },
   offerFooterLabel: {
     color: theme.textSecondary,
-    fontSize: fontSize.sm,
-    lineHeight: lineHeight.sm,
-    fontWeight: "600",
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: "500",
   },
   offerFooterAmount: {
     color: theme.primary,
-    fontSize: fontSize.xl,
-    lineHeight: lineHeight.xl,
+    fontSize: 20,
+    lineHeight: 24,
     fontWeight: "800",
   },
-  offerAction: {
-    minWidth: 0,
+  offerActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
     width: "100%",
-    paddingTop: spacing.xs,
+  },
+  offerActionSecondary: {
+    flex: 1,
+    minWidth: 0,
+  },
+  offerActionPrimary: {
+    flex: 1.35,
+    minWidth: 0,
+  },
+  offerActionSingle: {
+    width: "100%",
   },
   errorBanner: {
     minWidth: 0,

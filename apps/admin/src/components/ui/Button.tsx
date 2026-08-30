@@ -1,4 +1,6 @@
-import type { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, ComponentProps, ReactNode } from "react";
+import type Link from "next/link";
+import { AppLink } from "./AppLink";
 
 type Variant = "primary" | "secondary" | "destructive" | "text";
 type Size = "md" | "sm";
@@ -52,8 +54,17 @@ export function Button({
   );
 }
 
-export type LinkButtonProps = CommonProps & AnchorHTMLAttributes<HTMLAnchorElement>;
+export type LinkButtonProps = CommonProps & ComponentProps<typeof Link>;
 
+/**
+ * Anchor styled as a button. Uses `AppLink` so an in-app destination is a
+ * client-side navigation that reports its pending state to the shell — a plain
+ * anchor would tear down and re-boot the whole console on every click, and a
+ * bare `next/link` would navigate with no sign the click registered.
+ *
+ * Props are taken from `Link` itself rather than `AnchorHTMLAttributes`, because
+ * the two disagree under `exactOptionalPropertyTypes`.
+ */
 export function LinkButton({
   variant = "secondary",
   size = "md",
@@ -62,8 +73,8 @@ export function LinkButton({
   ...rest
 }: LinkButtonProps) {
   return (
-    <a className={classesFor(variant, size, className)} {...rest}>
+    <AppLink className={classesFor(variant, size, className)} {...rest}>
       {children}
-    </a>
+    </AppLink>
   );
 }

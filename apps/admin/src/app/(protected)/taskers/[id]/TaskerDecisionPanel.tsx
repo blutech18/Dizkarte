@@ -3,7 +3,16 @@
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { decideTaskerApplicationAction } from "../actions";
+import { taskerDecisionsFor, type TaskerApplicationDecision } from "../status";
 
+/**
+ * Decision controls for a Tasker application.
+ *
+ * Which buttons appear is derived from the current status (see
+ * `taskerDecisionsFor`), so the panel never offers a decision that would be a
+ * no-op. Every decision requires a written reason, which is what the applicant
+ * sees and what lands in the moderation record.
+ */
 export function TaskerDecisionPanel({
   applicationId,
   currentStatus,
@@ -12,58 +21,31 @@ export function TaskerDecisionPanel({
   readonly currentStatus: string;
 }) {
   const router = useRouter();
+  const options = taskerDecisionsFor(currentStatus);
 
-  async function decide(
-    decision: "APPROVED" | "REJECTED" | "RESUBMISSION_REQUIRED" | "SUSPENDED",
-    reason: string,
-  ) {
+  async function decide(decision: TaskerApplicationDecision, reason: string) {
     const result = await decideTaskerApplicationAction({ applicationId, decision, reason });
     if (result.ok) router.refresh();
     return result;
   }
 
+  if (options.length === 0) return null;
+
   return (
-    <div className="dk-row">
-      <ConfirmDialog
-        triggerLabel="Approve"
-        triggerVariant="primary"
-        title="Approve Tasker application"
-        description="The applicant becomes an approved Tasker able to submit offers and take paid work."
-        confirmLabel="Approve"
-        requireReason
-        onConfirm={(reason) => decide("APPROVED", reason)}
-      />
-      <ConfirmDialog
-        triggerLabel="Request resubmission"
-        triggerVariant="secondary"
-        title="Request resubmission"
-        description="The applicant will see this reason and can submit a corrected application."
-        confirmLabel="Request resubmission"
-        requireReason
-        onConfirm={(reason) => decide("RESUBMISSION_REQUIRED", reason)}
-      />
-      <ConfirmDialog
-        triggerLabel="Reject"
-        triggerVariant="destructive"
-        variant="destructive"
-        title="Reject Tasker application"
-        description="This is a final decision for this application."
-        confirmLabel="Reject"
-        requireReason
-        onConfirm={(reason) => decide("REJECTED", reason)}
-      />
-      {currentStatus === "APPROVED" ? (
+    <div className="dk-tasker-decision-actions">
+      {options.map((option) => (
         <ConfirmDialog
-          triggerLabel="Suspend"
-          triggerVariant="destructive"
-          variant="destructive"
-          title="Suspend approved Tasker"
-          description="The Tasker will be unable to submit new offers or start new paid work until reinstated."
-          confirmLabel="Suspend"
+          key={option.label}
+          triggerLabel={option.label}
+          triggerVariant={option.emphasis}
+          {...(option.emphasis === "destructive" ? { variant: "destructive" as const } : {})}
+          title={option.title}
+          description={option.description}
+          confirmLabel={option.label}
           requireReason
-          onConfirm={(reason) => decide("SUSPENDED", reason)}
+          onConfirm={(reason) => decide(option.decision, reason)}
         />
-      ) : null}
+      ))}
     </div>
   );
 }

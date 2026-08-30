@@ -7,10 +7,16 @@ import { Screen } from "../../src/components/ui/Screen";
 import { AppHeader } from "../../src/components/ui/AppHeader";
 import { Icon } from "../../src/components/ui/Icon";
 import {
-  BOOKING_FILTERS,
-  BookingStatusFilterPanel,
-  type BookingFilterKey,
-} from "../../src/components/booking/BookingStatusFilterPanel";
+  DEFAULT_BOOKING_FILTERS,
+  activeBookingFilterCount,
+  countBookingsByStage,
+  describeBookingFilters,
+  matchesBookingFilters,
+  sortBookings,
+  type BookingFilterContext,
+  type BookingFilterState,
+} from "../../src/components/booking/bookingFilters";
+import { BookingFilterPanel } from "../../src/components/booking/BookingFilterPanel";
 import { LoadingState, ErrorState, EmptyState } from "../../src/components/ui/AsyncState";
 import { useSession } from "../../src/providers/SessionProvider";
 import { useMarketplace } from "../../src/providers/MarketplaceProvider";
@@ -123,35 +129,6 @@ function bookingAction(status: BookingStatus, isClient: boolean): BookingAction 
   }
 }
 
-function matchesFilter(
-  booking: BookingRecord,
-  filter: BookingFilterKey,
-  isClient: boolean,
-): boolean {
-  switch (filter) {
-    case "all":
-      return true;
-    case "attention":
-      return bookingAction(booking.status, isClient).needsAttention;
-    case "payment":
-      return booking.status === "PAYMENT_PENDING" || booking.status === "PAYMENT_FAILED";
-    case "active":
-      return (
-        booking.status === "CONFIRMED" ||
-        booking.status === "IN_PROGRESS" ||
-        booking.status === "COMPLETION_REQUESTED"
-      );
-    case "completed":
-      return booking.status === "COMPLETED";
-    case "issues":
-      return (
-        booking.status === "CANCELLED" ||
-        booking.status === "DISPUTED" ||
-        booking.status === "REFUNDED"
-      );
-  }
-}
-
 function counterpartFor(booking: BookingRecord, isClient: boolean): string {
   const name = isClient ? booking.taskerDisplayName : booking.clientDisplayName;
   return name.trim() || "Dizkarte user";
@@ -203,15 +180,17 @@ export default function BookingsScreen() {
     new Map(),
   );
   const [state, setState] = useState<LoadState>("loading");
-  const [filter, setFilter] = useState<BookingFilterKey>("all");
+  const [filters, setFilters] = useState<BookingFilterState>(DEFAULT_BOOKING_FILTERS);
+  const [draftFilters, setDraftFilters] = useState<BookingFilterState>(DEFAULT_BOOKING_FILTERS);
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
   const viewerId = session?.userId;
 
   const load = useCallback(() => {
-    if (!session) return;
+    if (!session) return Promise.resolve();
     setState("loading");
-    repository
+    return repository
       .listMyBookings(session.userId)
       .then((result) => {
         setBookings(result);
@@ -224,8 +203,8 @@ export default function BookingsScreen() {
   // still render if the summary query fails, and a chat preview is never worth
   // blanking the payment/completion actions the user came here for.
   const loadConversations = useCallback(() => {
-    if (!session) return;
-    repository
+    if (!session) return Promise.resolve();
+    return repository
       .listConversationSummaries(session.userId)
       .then((rows) => {
         setConversations(new Map(rows.map((row) => [row.bookingId as unknown as string, row])));
@@ -234,68 +213,85 @@ export default function BookingsScreen() {
   }, [repository, session]);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load, revision]);
 
   useEffect(() => {
-    loadConversations();
+    void loadConversations();
   }, [loadConversations, revision]);
 
-  const counts = useMemo(() => {
-    const next: Record<BookingFilterKey, number> = {
-      all: bookings.length,
-      attention: 0,
-      payment: 0,
-      active: 0,
-      completed: 0,
-      issues: 0,
-    };
-
-    for (const booking of bookings) {
-      const isClient = viewerId === booking.clientId;
-      if (bookingAction(booking.status, isClient).needsAttention) next.attention += 1;
-      if (booking.status === "PAYMENT_PENDING" || booking.status === "PAYMENT_FAILED") {
-        next.payment += 1;
-      }
-      if (
-        booking.status === "CONFIRMED" ||
-        booking.status === "IN_PROGRESS" ||
-        booking.status === "COMPLETION_REQUESTED"
-      ) {
-        next.active += 1;
-      }
-      if (booking.status === "COMPLETED") next.completed += 1;
-      if (
-        booking.status === "CANCELLED" ||
-        booking.status === "DISPUTED" ||
-        booking.status === "REFUNDED"
-      ) {
-        next.issues += 1;
-      }
+  const handleRefresh = useCallback(async () => {
+    if (!session) return;
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        repository.listMyBookings(session.userId).then((result) => {
+          setBookings(result);
+          setState("loaded");
+        }),
+        repository.listConversationSummaries(session.userId).then((rows) => {
+          setConversations(new Map(rows.map((row) => [row.bookingId as unknown as string, row])));
+        }),
+        new Promise((resolve) => setTimeout(resolve, 500)),
+      ]);
+    } finally {
+      setRefreshing(false);
     }
+  }, [repository, session]);
 
-    return next;
-  }, [bookings, viewerId]);
+  const filterContext = useMemo<BookingFilterContext>(
+    () => ({
+      viewerId: viewerId ?? "",
+      unreadCount: (booking) =>
+        conversations.get(booking.id as unknown as string)?.unreadCount ?? 0,
+      statusLabel: (status) => STATUS_LABEL[status],
+    }),
+    [conversations, viewerId],
+  );
 
-  const activeCount = counts.active;
-  const attentionCount = counts.attention;
-  const activeStatusFilterCount = filter === "all" ? 0 : 1;
+  // Overview tiles describe the whole list, so they are deliberately measured
+  // against the defaults: a tile that moved when a filter changed would stop
+  // being an at-a-glance total.
+  const overviewCounts = useMemo(
+    () => countBookingsByStage(bookings, DEFAULT_BOOKING_FILTERS, filterContext),
+    [bookings, filterContext],
+  );
 
-  const filtered = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    return bookings.filter((booking) => {
-      const isClient = viewerId === booking.clientId;
-      if (!matchesFilter(booking, filter, isClient)) return false;
-      if (!query) return true;
+  // Sheet badges count against the draft, excluding the stage choice itself.
+  const counts = useMemo(
+    () => countBookingsByStage(bookings, draftFilters, filterContext, searchQuery),
+    [bookings, draftFilters, filterContext, searchQuery],
+  );
 
-      const counterpart = counterpartFor(booking, isClient).toLowerCase();
-      return (
-        booking.taskTitle.toLowerCase().includes(query) ||
-        counterpart.includes(query) ||
-        STATUS_LABEL[booking.status].toLowerCase().includes(query)
-      );
-    });
-  }, [bookings, filter, searchQuery, viewerId]);
+  const draftMatchingCount = useMemo(
+    () =>
+      bookings.filter((booking) =>
+        matchesBookingFilters(booking, draftFilters, filterContext, searchQuery),
+      ).length,
+    [bookings, draftFilters, filterContext, searchQuery],
+  );
+
+  const activeCount = overviewCounts.active;
+  const attentionCount = overviewCounts.attention;
+  const activeStatusFilterCount = activeBookingFilterCount(filters);
+  const filterChips = useMemo(() => describeBookingFilters(filters), [filters]);
+
+  const applyFilters = useCallback((next: BookingFilterState) => {
+    setFilters(next);
+    setDraftFilters(next);
+    setFilterPanelOpen(false);
+  }, []);
+
+  const filtered = useMemo(
+    () =>
+      sortBookings(
+        bookings.filter((booking) =>
+          matchesBookingFilters(booking, filters, filterContext, searchQuery),
+        ),
+        filters.sort,
+      ),
+    [bookings, filters, filterContext, searchQuery],
+  );
 
   if (!session) {
     return (
@@ -309,17 +305,16 @@ export default function BookingsScreen() {
   }
 
   const clearSearchAndFilters = () => {
-    setFilter("all");
+    applyFilters(DEFAULT_BOOKING_FILTERS);
     setSearchQuery("");
   };
 
-  const handleApplyFilter = (nextFilter: BookingFilterKey) => {
-    setFilter(nextFilter);
-    setFilterPanelOpen(false);
-  };
-
   return (
-    <Screen>
+    <Screen
+      refreshing={refreshing}
+      onRefresh={handleRefresh}
+      refreshControlTintColor={theme.primary}
+    >
       <View style={styles.container}>
         <AppHeader title="Bookings" subtitle="Manage payment, work, completion, and support" />
 
@@ -411,9 +406,6 @@ export default function BookingsScreen() {
             <View style={styles.controlsCard}>
               <View style={styles.controlsHeading}>
                 <Text style={styles.controlsTitle}>Find and organise bookings</Text>
-                <Text style={styles.controlsDescription}>
-                  Search by task or participant, then focus on one booking stage.
-                </Text>
               </View>
 
               <View style={styles.searchFilterRow}>
@@ -471,12 +463,10 @@ export default function BookingsScreen() {
                 </Pressable>
               </View>
 
-              {filter !== "all" || searchQuery.trim() ? (
+              {activeStatusFilterCount > 0 || searchQuery.trim() ? (
                 <View style={styles.activeFiltersBlock}>
                   <Text style={styles.activeFiltersText} numberOfLines={2}>
-                    {filter === "all"
-                      ? "All bookings"
-                      : (BOOKING_FILTERS.find((item) => item.key === filter)?.label ?? "Selected")}
+                    {filterChips.length > 0 ? filterChips.join(" · ") : "All bookings"}
                     {searchQuery.trim() ? ` · “${searchQuery.trim()}”` : ""}
                   </Text>
                   <Pressable
@@ -534,12 +524,17 @@ export default function BookingsScreen() {
         ) : null}
       </View>
 
-      <BookingStatusFilterPanel
+      <BookingFilterPanel
         visible={filterPanelOpen}
-        filter={filter}
+        filters={filters}
         counts={counts}
-        onApply={handleApplyFilter}
-        onClose={() => setFilterPanelOpen(false)}
+        matchingCount={draftMatchingCount}
+        onApply={applyFilters}
+        onDraftChange={setDraftFilters}
+        onClose={() => {
+          setDraftFilters(filters);
+          setFilterPanelOpen(false);
+        }}
       />
     </Screen>
   );
@@ -611,8 +606,6 @@ function BookingCard({
         </View>
       </Pressable>
 
-      <View style={styles.cardDivider} />
-
       {preview ? (
         <>
           <Pressable
@@ -671,7 +664,9 @@ function BookingCard({
 
           <View style={styles.cardDivider} />
         </>
-      ) : null}
+      ) : (
+        <View style={styles.cardDivider} />
+      )}
 
       <Pressable
         onPress={openBooking}
@@ -758,11 +753,6 @@ const styles = StyleSheet.create({
     color: theme.textPrimary,
     fontSize: fontSize.md,
     fontWeight: "800",
-  },
-  controlsDescription: {
-    color: theme.textSecondary,
-    fontSize: fontSize.xs,
-    lineHeight: lineHeight.xs,
   },
   searchFilterRow: {
     minWidth: 0,

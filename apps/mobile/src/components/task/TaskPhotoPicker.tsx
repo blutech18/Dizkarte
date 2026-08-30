@@ -140,7 +140,7 @@ export function TaskPhotoPicker({ value, onChange, disabled = false }: TaskPhoto
             accessibilityLabel="Add task photos"
             accessibilityState={{ disabled: disabled || busy, busy }}
           >
-            <View pointerEvents="none" style={styles.addContent}>
+            <View style={[styles.addContent, { pointerEvents: "none" }]}>
               <Icon name="plus" size={26} color={theme.primary} />
               <Text style={styles.addLabel}>{busy ? "Opening…" : "Add photo"}</Text>
             </View>

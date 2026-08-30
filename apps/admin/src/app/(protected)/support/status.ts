@@ -13,6 +13,9 @@ export function ticketStatusTone(status: string): BadgeTone {
   }
 }
 
+/** Every ticket status, in handling order. */
+export const TICKET_STATUS_OPTIONS = ["OPEN", "PENDING", "RESOLVED", "CLOSED"] as const;
+
 export function ticketStatusLabel(status: string): string {
   return status.charAt(0) + status.slice(1).toLowerCase();
 }

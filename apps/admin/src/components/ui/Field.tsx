@@ -1,3 +1,4 @@
+import { AppLink } from "./AppLink";
 import { Children, cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
 
 export function Breadcrumbs({
@@ -15,7 +16,7 @@ export function Breadcrumbs({
             style={{ display: "inline-flex", alignItems: "center", gap: 6 }}
           >
             {item.href && !isLast ? (
-              <a href={item.href}>{item.label}</a>
+              <AppLink href={item.href}>{item.label}</AppLink>
             ) : (
               <span
                 aria-current={isLast ? "page" : undefined}

@@ -11,7 +11,7 @@ import { useMarketplace } from "../../src/providers/MarketplaceProvider";
 import { useSession } from "../../src/providers/SessionProvider";
 import { useCategories } from "../../src/providers/CategoriesProvider";
 import { isEligibleTasker } from "../../src/services/session-types";
-import { theme, spacing, fontSize, lineHeight, useResponsiveLayout } from "../../src/theme";
+import { theme, spacing, radii, fontSize, lineHeight, useResponsiveLayout } from "../../src/theme";
 import { QuestionAndOfferPanel } from "../../src/components/task/QuestionAndOfferPanel";
 import type { TaskAnswerRecord } from "../../src/services/marketplace/types";
 
@@ -107,36 +107,37 @@ export default function TaskDetailScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.page}>
         <View style={styles.briefDocument}>
-          <View style={styles.badgeRow}>
-            <StatusBadge tone="brand" label={categoryLabel} />
-            <StatusBadge tone="success" label="Open" />
-            {task.sameDay ? <StatusBadge tone="warning" label="Same-day" /> : null}
-          </View>
-
-          <View style={styles.titleBlock}>
-            <Text style={styles.eyebrow}>TASK BRIEF</Text>
-            <Text style={styles.title} accessibilityRole="header">
-              {task.title}
-            </Text>
-            <Text style={styles.description}>{task.description}</Text>
-          </View>
-
-          {/*
-            Category-specific specifics the Client answered when posting (property
-            type, stairs, key items). Shown as their own labelled rows because
-            this is what a Tasker actually quotes against.
-          */}
-          {answers.length > 0 ? (
-            <View style={styles.answerList}>
-              <Text style={styles.eyebrow}>TASK SPECIFICS</Text>
-              {answers.map((answer) => (
-                <View key={answer.questionId} style={styles.answerRow}>
-                  <Text style={styles.answerLabel}>{answer.label}</Text>
-                  <Text style={styles.answerValue}>{answer.answer}</Text>
-                </View>
-              ))}
+          <View style={styles.titleCard}>
+            <View style={styles.badgeRow}>
+              <StatusBadge tone="brand" label={categoryLabel} />
+              <StatusBadge tone="success" label="Open" />
+              {task.sameDay ? <StatusBadge tone="warning" label="Same-day" /> : null}
             </View>
-          ) : null}
+
+            <View style={styles.titleBlock}>
+              <Text style={styles.title} accessibilityRole="header">
+                {task.title}
+              </Text>
+              <Text style={styles.description}>{task.description}</Text>
+            </View>
+
+            {/*
+              Category-specific specifics the Client answered when posting (property
+              type, stairs, key items). Shown as their own labelled rows because
+              this is what a Tasker actually quotes against.
+            */}
+            {answers.length > 0 ? (
+              <View style={styles.answerList}>
+                <Text style={styles.eyebrow}>TASK SPECIFICS</Text>
+                {answers.map((answer) => (
+                  <View key={answer.questionId} style={styles.answerRow}>
+                    <Text style={styles.answerLabel}>{answer.label}</Text>
+                    <Text style={styles.answerValue}>{answer.answer}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
 
           <View style={[styles.summaryRow, isTablet ? styles.summaryRowTablet : null]}>
             <View style={[styles.summaryItem, isTablet ? styles.summaryItemTablet : null]}>
@@ -201,6 +202,26 @@ const styles = StyleSheet.create({
     minWidth: 0,
     width: "100%",
     gap: spacing.lg,
+  },
+  titleCard: {
+    minWidth: 0,
+    backgroundColor: theme.surface,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    padding: spacing.lg,
+    gap: spacing.md,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  taskTypeChip: {
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
   badgeRow: {
     flexDirection: "row",

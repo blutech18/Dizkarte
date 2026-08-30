@@ -136,6 +136,61 @@ describe("Admin marketplace oversight", () => {
     });
   });
 
+  describe("verification queue search", () => {
+    it("narrows the queue by subject display name, case-insensitively", async () => {
+      const all = await repo.listVerificationCases({ page: 1, pageSize: 50 });
+      const target = all.items[0]!;
+      const term = target.userDisplayName.slice(0, 3).toLowerCase();
+
+      const result = await repo.listVerificationCases({ page: 1, pageSize: 50, query: term });
+
+      expect(result.items.length).toBeGreaterThan(0);
+      expect(result.items.length).toBeLessThanOrEqual(all.items.length);
+      for (const item of result.items) {
+        expect(item.userDisplayName.toLowerCase()).toContain(term);
+      }
+    });
+
+    it("returns an empty page rather than the whole queue when nothing matches", async () => {
+      const result = await repo.listVerificationCases({
+        page: 1,
+        pageSize: 50,
+        query: "zzz-no-such-person",
+      });
+
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
+    });
+
+    it("applies the search and the status filter together", async () => {
+      const all = await repo.listVerificationCases({ page: 1, pageSize: 50 });
+      const target = all.items[0]!;
+
+      const result = await repo.listVerificationCases({
+        page: 1,
+        pageSize: 50,
+        query: target.userDisplayName,
+        status: target.status,
+      });
+
+      expect(result.items.length).toBeGreaterThan(0);
+      for (const item of result.items) {
+        expect(item.status).toBe(target.status);
+        expect(item.userDisplayName).toBe(target.userDisplayName);
+      }
+
+      // A status the matched case is not in must not fall back to name-only.
+      const otherStatus = target.status === "APPROVED" ? "REJECTED" : "APPROVED";
+      const mismatched = await repo.listVerificationCases({
+        page: 1,
+        pageSize: 50,
+        query: target.userDisplayName,
+        status: otherStatus,
+      });
+      expect(mismatched.items.every((item) => item.status === otherStatus)).toBe(true);
+    });
+  });
+
   describe("dashboard", () => {
     it("includes a bookings-needing-attention count", async () => {
       const snapshot = await repo.getDashboardSnapshot();

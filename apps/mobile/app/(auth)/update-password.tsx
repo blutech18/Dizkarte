@@ -1,31 +1,28 @@
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
-import { passwordSchema } from "@dizkarte/domain";
+import { passwordUpdateSchema } from "@dizkarte/domain";
 import { Screen } from "../../src/components/ui/Screen";
 import { TextField } from "../../src/components/ui/TextField";
 import { Button } from "../../src/components/ui/Button";
 import { AuthBackButton } from "../../src/components/auth/AuthBackButton";
-import { useSession } from "../../src/providers/SessionProvider";
-import { updatePassword } from "../../src/services/auth";
+import { AuthSuccessModal } from "../../src/components/auth/AuthSuccessModal";
+import { updatePassword, signOut } from "../../src/services/auth";
 import { theme, spacing, fontSize } from "../../src/theme";
 
-type FieldErrors = { password?: string; confirm?: string };
-
-/**
- * Set-new-password screen reached after tapping the reset link in the
- * password-recovery email. Supabase has already established a temporary
- * recovery session; here we validate and commit the new password.
- */
 export default function UpdatePasswordScreen() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [fieldErrors, setFieldErrors] = useState<{ password?: string; confirm?: string }>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const { signOut } = useSession();
+  const [showSuccess, setShowSuccess] = useState(false);
 
-  /** Abandon the reset: end the temporary recovery session and return to sign-in. */
+  function handleProceed() {
+    setShowSuccess(false);
+    router.replace("/(tabs)/home");
+  }
+
   async function handleCancel() {
     await signOut();
     router.replace("/(auth)/sign-in");
@@ -33,29 +30,25 @@ export default function UpdatePasswordScreen() {
 
   async function handleSubmit() {
     setFormError(null);
-    const parsed = passwordSchema.safeParse(password);
-    const next: FieldErrors = {};
+    const parsed = passwordUpdateSchema.safeParse({ password, confirm });
     if (!parsed.success) {
-      next.password = parsed.error.issues[0]?.message ?? "Enter a valid password.";
-    }
-    if (password !== confirm) {
-      next.confirm = "Passwords do not match.";
-    }
-    if (next.password || next.confirm) {
+      const next: { password?: string; confirm?: string } = {};
+      for (const issue of parsed.error.issues) {
+        if (issue.path[0] === "password") next.password = issue.message;
+        if (issue.path[0] === "confirm") next.confirm = issue.message;
+      }
       setFieldErrors(next);
       return;
     }
     setFieldErrors({});
     setSubmitting(true);
-    const result = await updatePassword(password);
+    const result = await updatePassword(parsed.data.password);
     setSubmitting(false);
     if (!result.ok) {
-      setFormError(result.message);
+      setFormError(result.message ?? "Password update failed. Please try again.");
       return;
     }
-    // The recovery session is now a normal authenticated session; the index
-    // gate routes to the right place.
-    router.replace("/");
+    setShowSuccess(true);
   }
 
   return (
@@ -103,16 +96,24 @@ export default function UpdatePasswordScreen() {
           <Button label="Update password" onPress={handleSubmit} loading={submitting} fullWidth />
         </View>
       </View>
+
+      <AuthSuccessModal
+        visible={showSuccess}
+        title="Password updated!"
+        message="Redirecting to your dashboard..."
+        onProceed={handleProceed}
+      />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   centerContainer: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: spacing.md,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.xxl + spacing.lg,
     paddingHorizontal: spacing.md,
   },
   formContent: {

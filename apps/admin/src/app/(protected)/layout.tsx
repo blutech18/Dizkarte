@@ -9,6 +9,24 @@ import { ConfigurationBlockedState } from "@/components/ui/AsyncState";
 /**
  * Every protected page depends on the request-scoped session cookie and
  * server configuration, so none of it can be statically prerendered.
+ *
+ * This is not a tuning choice that can be relaxed per route. Authorization is
+ * derived from the httpOnly Supabase auth cookie (`createSupabaseServerClient`
+ * calls `cookies()`), and a route that reads cookies is dynamic by definition —
+ * so neither static rendering nor per-route `revalidate` is available to any
+ * page under this layout, however static its content looks.
+ *
+ * Nor may the data itself be cached across requests. The repository client is
+ * bound to the calling Admin's JWT and every read is RLS-scoped, so a result
+ * cached under one Admin and replayed for another would hand over rows their
+ * capabilities do not permit. `unstable_cache` and friends are therefore off
+ * limits here regardless of how rarely a table changes.
+ *
+ * What is safe, and is already in place, is request-scoped sharing: both
+ * `readSession` and `getAdminRepository` are wrapped in React `cache()`, so this
+ * layout, the page it renders, and every Suspense boundary inside that page
+ * share one session read and one Supabase client per request instead of
+ * repeating the work per component.
  */
 export const dynamic = "force-dynamic";
 

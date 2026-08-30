@@ -13,7 +13,7 @@ import { theme, spacing, fontSize, lineHeight, radii } from "../../theme";
  * `require` is used because Metro needs a static literal to bundle an asset.
  */
 /* eslint-disable @typescript-eslint/no-require-imports -- static asset requires are standard RN */
-const CATEGORY_ART: Readonly<Record<CategoryArtSlug, ImageSourcePropType>> = {
+export const CATEGORY_ART: Readonly<Record<CategoryArtSlug, ImageSourcePropType>> = {
   gardening: require("../../../assets/icons/gardening.png"),
   painting: require("../../../assets/icons/painting.png"),
   cleaning: require("../../../assets/icons/cleaning.png"),

@@ -1,375 +1,397 @@
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
-import { formatPhpSigned } from "@dizkarte/domain";
+import { Suspense } from "react";
+import { AppLink } from "@/components/ui/AppLink";
+import type { AdminCapability } from "@dizkarte/domain";
+import { formatPhp } from "@dizkarte/domain";
 import { getAdminRepository } from "@/lib/repository";
+import { percentChange } from "@/lib/repository/dashboard-trends";
+import type { DashboardTrendDay } from "@/lib/repository/types";
+import { hasAnyCapability } from "@/lib/nav";
 import { requireAdminSession } from "@/lib/session";
+import { formatDateTime } from "@/lib/datetime";
+import { BarChart, type BarChartDatum } from "@/components/ui/BarChart";
+import { SkeletonBone } from "@/components/ui/AsyncState";
+import { DashboardRefreshButton } from "./DashboardRefreshButton";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
-type MetricCard = {
-  readonly href: string;
+/** Two weeks: long enough to show a weekly rhythm, short enough to read daily bars. */
+const WINDOW_DAYS = 14;
+
+/** Compact peso axis labels: `₱0`, `₱2.5k`, `₱1.2M`. */
+function formatPesoAxis(centavos: number): string {
+  const pesos = centavos / 100;
+  if (pesos >= 1_000_000) return `₱${trimZero(pesos / 1_000_000)}M`;
+  if (pesos >= 1_000) return `₱${trimZero(pesos / 1_000)}k`;
+  return `₱${trimZero(pesos)}`;
+}
+
+function trimZero(value: number): string {
+  return value.toFixed(1).replace(/\.0$/, "");
+}
+
+function formatWholeNumber(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+function dayLabels(day: DashboardTrendDay): { label: string; axisLabel: string } {
+  // Midday avoids any chance of the date shifting when formatted.
+  const date = new Date(`${day.date}T12:00:00+08:00`);
+  return {
+    label: new Intl.DateTimeFormat("en-PH", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: "Asia/Manila",
+    }).format(date),
+    axisLabel: new Intl.DateTimeFormat("en-PH", {
+      day: "numeric",
+      timeZone: "Asia/Manila",
+    }).format(date),
+  };
+}
+
+/** Period-over-period delta. Renders nothing when there is no baseline. */
+function DeltaNote({
+  current,
+  previous,
+  invert = false,
+}: {
+  readonly current: number;
+  readonly previous: number;
+  /** True when a rise is bad news, e.g. failed bookings. */
+  readonly invert?: boolean;
+}) {
+  const change = percentChange(current, previous);
+  if (change === null) {
+    return <small className="dk-kpi-delta">No activity in the previous {WINDOW_DAYS} days</small>;
+  }
+
+  const rounded = Math.round(change);
+  const rising = rounded > 0;
+  const good = rounded === 0 ? null : invert ? !rising : rising;
+  const tone = good === null ? "flat" : good ? "up" : "down";
+
+  return (
+    <small className={`dk-kpi-delta dk-kpi-delta-${tone}`}>
+      {rounded > 0 ? "+" : ""}
+      {rounded}% vs previous {WINDOW_DAYS} days
+    </small>
+  );
+}
+
+function KpiCard({
+  label,
+  value,
+  delta,
+}: {
   readonly label: string;
   readonly value: string;
-  readonly hint: string;
-  readonly category: "operational" | "finance";
-  readonly visible: boolean;
-  readonly icon: ReactNode;
-  readonly urgent?: boolean;
+  readonly delta?: React.ReactNode;
+}) {
+  return (
+    <article className="dk-kpi">
+      <span className="dk-kpi-label">{label}</span>
+      <strong className="dk-kpi-value">{value}</strong>
+      {delta}
+    </article>
+  );
+}
+
+type QueueLink = {
+  readonly href: string;
+  readonly label: string;
+  readonly count: number;
+  readonly capabilities: ReadonlyArray<AdminCapability>;
 };
 
+/**
+ * Operations dashboard.
+ *
+ * The hero — the greeting and the "updated" line — needs only the session the
+ * guard has already resolved, so it paints immediately rather than waiting on a
+ * query. The two data regions are independent queries and each streams behind
+ * its own boundary: the KPI and chart region waits on the trend series, while
+ * the "needs attention" queue counts wait on the snapshot. Keeping them as
+ * separate sibling boundaries means the two fetches still run in parallel, a
+ * slow snapshot never holds back the revenue charts, and neither holds back the
+ * greeting.
+ */
 export default async function DashboardPage() {
   const session = await requireAdminSession();
-  const repository = getAdminRepository();
-  const snapshot = await repository.getDashboardSnapshot();
 
-  const isFinanceOrSuper =
-    session.capabilities.includes("ADMIN_FINANCE") || session.capabilities.includes("ADMIN_SUPER");
+  const canViewFinance = hasAnyCapability(session.capabilities, ["ADMIN_FINANCE"]);
+  const canViewQueues = hasAnyCapability(session.capabilities, ["ADMIN_SUPPORT"]);
 
-  const cards: ReadonlyArray<MetricCard> = [
+  return (
+    <section className="dk-dashboard">
+      <header className="dk-dashboard-hero">
+        <div className="dk-dashboard-hero-copy">
+          <h1>Good day, {session.displayName}</h1>
+          <p>
+            Business performance for the last {WINDOW_DAYS} days, compared with the {WINDOW_DAYS}{" "}
+            days before it.
+          </p>
+        </div>
+        <div className="dk-dashboard-hero-actions">
+          <span className="dk-dashboard-updated">
+            Updated {formatDateTime(new Date().toISOString())} PHT
+          </span>
+          <DashboardRefreshButton />
+        </div>
+      </header>
+
+      <Suspense fallback={<DashboardChartsFallback />}>
+        <DashboardCharts canViewFinance={canViewFinance} />
+      </Suspense>
+
+      <Suspense fallback={<DashboardQueuesFallback />}>
+        <DashboardQueues capabilities={session.capabilities} />
+      </Suspense>
+
+      {!canViewFinance && !canViewQueues ? (
+        <p className="dk-muted">Your current role has no assigned queues or finance scope.</p>
+      ) : null}
+    </section>
+  );
+}
+
+async function DashboardCharts({ canViewFinance }: { readonly canViewFinance: boolean }) {
+  const trends = await getAdminRepository().getDashboardTrends({ days: WINDOW_DAYS });
+
+  const revenueData: ReadonlyArray<BarChartDatum> = trends.days.map((day) => ({
+    ...dayLabels(day),
+    values: { fee: day.platformFeeCentavos },
+  }));
+
+  const volumeData: ReadonlyArray<BarChartDatum> = trends.days.map((day) => ({
+    ...dayLabels(day),
+    values: {
+      completed: day.bookingsCompleted,
+      active: day.bookingsActive,
+      failed: day.bookingsFailed,
+    },
+  }));
+
+  const completedTotal = trends.current.bookingsCompleted;
+  const failedTotal = trends.days.reduce((sum, day) => sum + day.bookingsFailed, 0);
+  const completionRate =
+    trends.current.bookingsCreated > 0
+      ? (completedTotal / trends.current.bookingsCreated) * 100
+      : null;
+
+  return (
+    <>
+      <div className="dk-kpi-grid">
+        {canViewFinance ? (
+          <KpiCard
+            label={`Platform revenue (${WINDOW_DAYS}d)`}
+            value={formatPhp(trends.current.platformFeeCentavos)}
+            delta={
+              <DeltaNote
+                current={trends.current.platformFeeCentavos}
+                previous={trends.previous.platformFeeCentavos}
+              />
+            }
+          />
+        ) : null}
+        <KpiCard
+          label={`Marketplace value booked (${WINDOW_DAYS}d)`}
+          value={formatPhp(trends.current.grossBookedCentavos)}
+          delta={
+            <DeltaNote
+              current={trends.current.grossBookedCentavos}
+              previous={trends.previous.grossBookedCentavos}
+            />
+          }
+        />
+        <KpiCard
+          label={`Bookings completed (${WINDOW_DAYS}d)`}
+          value={String(completedTotal)}
+          delta={
+            <DeltaNote current={completedTotal} previous={trends.previous.bookingsCompleted} />
+          }
+        />
+        <KpiCard
+          label="Completion rate"
+          value={completionRate === null ? "No bookings yet" : `${Math.round(completionRate)}%`}
+          delta={
+            <small className="dk-kpi-delta">
+              {completedTotal} completed and {failedTotal} failed of{" "}
+              {trends.current.bookingsCreated} created
+            </small>
+          }
+        />
+      </div>
+
+      <div className="dk-chart-grid">
+        {canViewFinance ? (
+          <BarChart
+            data={revenueData}
+            description="Platform fee posted to the ledger each day."
+            formatValue={formatPesoAxis}
+            id="revenue-chart"
+            meta={
+              <>
+                <strong>{formatPhp(trends.current.platformFeeCentavos)}</strong> earned in this
+                period
+              </>
+            }
+            series={[{ key: "fee", label: "Platform fee", tone: "primary" }]}
+            summary={`Platform fee per day for the last ${WINDOW_DAYS} days`}
+            title="Revenue over time"
+          />
+        ) : null}
+
+        <BarChart
+          data={volumeData}
+          description="Bookings created each day, split by how they ended."
+          formatValue={formatWholeNumber}
+          id="volume-chart"
+          meta={
+            <>
+              <strong>{trends.current.bookingsCreated}</strong> bookings created in this period
+            </>
+          }
+          series={[
+            { key: "completed", label: "Completed", tone: "success" },
+            { key: "active", label: "In progress", tone: "primary" },
+            { key: "failed", label: "Cancelled, disputed, or failed", tone: "danger" },
+          ]}
+          summary={`Bookings per day by outcome for the last ${WINDOW_DAYS} days`}
+          title="Booking volume and outcomes"
+        />
+      </div>
+    </>
+  );
+}
+
+async function DashboardQueues({
+  capabilities,
+}: {
+  readonly capabilities: ReadonlyArray<AdminCapability>;
+}) {
+  const snapshot = await getAdminRepository().getDashboardSnapshot();
+
+  /*
+    Queue counts stay on the dashboard because unattended queues are the thing
+    that quietly breaks the business, but they sit below the money and volume
+    charts as a short list rather than a wall of individual metric cards.
+  */
+  const allQueues: ReadonlyArray<QueueLink> = [
     {
-      href: "/verification?status=SUBMITTED",
-      label: "Identity verification queue",
-      value: String(snapshot.pendingVerificationCount),
-      hint: "Cases awaiting a decision",
-      category: "operational",
-      visible: true,
-      urgent: snapshot.pendingVerificationCount > 0,
-      icon: (
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-          <path d="m9 12 2 2 4-4" />
-        </svg>
-      ),
+      href: "/verification",
+      label: "Identity verification",
+      count: snapshot.pendingVerificationCount,
+      capabilities: ["ADMIN_SUPPORT"],
     },
     {
-      href: "/taskers?status=SUBMITTED",
-      label: "Tasker applications queue",
-      value: String(snapshot.pendingTaskerApplicationCount),
-      hint: "Applications awaiting review",
-      category: "operational",
-      visible: true,
-      urgent: snapshot.pendingTaskerApplicationCount > 0,
-      icon: (
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-          <circle cx="9" cy="7" r="4" />
-          <polyline points="16 11 18 13 22 9" />
-        </svg>
-      ),
+      href: "/taskers",
+      label: "Tasker applications",
+      count: snapshot.pendingTaskerApplicationCount,
+      capabilities: ["ADMIN_SUPPORT"],
+    },
+    {
+      href: "/support",
+      label: "Support tickets",
+      count: snapshot.openTicketCount,
+      capabilities: ["ADMIN_SUPPORT"],
     },
     {
       href: "/reports?status=OPEN",
-      label: "Open reports",
-      value: String(snapshot.openReportCount),
-      hint: "Unresolved user reports",
-      category: "operational",
-      visible: true,
-      urgent: snapshot.openReportCount > 0,
-      icon: (
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
-          <line x1="4" y1="22" x2="4" y2="15" />
-        </svg>
-      ),
+      label: "User reports",
+      count: snapshot.openReportCount,
+      capabilities: ["ADMIN_SUPPORT"],
     },
     {
-      href: "/disputes?status=OPEN",
-      label: "Open disputes",
-      value: String(snapshot.openDisputeCount),
-      hint: "Bookings under dispute",
-      category: "operational",
-      visible: true,
-      urgent: snapshot.openDisputeCount > 0,
-      icon: (
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="12" />
-          <line x1="12" y1="16" x2="12.01" y2="16" />
-        </svg>
-      ),
-    },
-    {
-      href: "/support?status=OPEN",
-      label: "Open support tickets",
-      value: String(snapshot.openTicketCount),
-      hint: "Tickets awaiting a reply",
-      category: "operational",
-      visible: true,
-      urgent: snapshot.openTicketCount > 0,
-      icon: (
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-        </svg>
-      ),
-    },
-    {
-      href: "/bookings?status=DISPUTED",
+      href: "/bookings",
       label: "Bookings needing attention",
-      value: String(snapshot.attentionBookingCount),
-      hint: "Disputed or payment-failed bookings",
-      category: "operational",
-      visible: true,
-      urgent: snapshot.attentionBookingCount > 0,
-      icon: (
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-          <line x1="16" y1="2" x2="16" y2="6" />
-          <line x1="8" y1="2" x2="8" y2="6" />
-          <line x1="3" y1="10" x2="21" y2="10" />
-        </svg>
-      ),
+      count: snapshot.attentionBookingCount,
+      capabilities: ["ADMIN_SUPPORT"],
+    },
+    {
+      href: "/disputes",
+      label: "Open disputes",
+      count: snapshot.openDisputeCount,
+      capabilities: ["ADMIN_FINANCE"],
+    },
+    {
+      href: "/withdrawals",
+      label: "Pending withdrawals",
+      count: snapshot.pendingWithdrawalCount,
+      capabilities: ["ADMIN_FINANCE"],
     },
     {
       href: "/payments?status=QUARANTINED",
       label: "Quarantined payment events",
-      value: String(snapshot.quarantinedPaymentEventCount),
-      hint: "Webhook events needing reconciliation",
-      category: "finance",
-      visible: isFinanceOrSuper,
-      urgent: snapshot.quarantinedPaymentEventCount > 0,
-      icon: (
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
-          <line x1="1" y1="10" x2="23" y2="10" />
-        </svg>
-      ),
-    },
-    {
-      href: "/withdrawals?status=REQUESTED",
-      label: "Pending withdrawals",
-      value: String(snapshot.pendingWithdrawalCount),
-      hint: "Payout requests awaiting action",
-      category: "finance",
-      visible: isFinanceOrSuper,
-      urgent: snapshot.pendingWithdrawalCount > 0,
-      icon: (
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <line x1="12" y1="1" x2="12" y2="23" />
-          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-        </svg>
-      ),
-    },
-    {
-      href: "/payments",
-      label: "Ledger balance (all events)",
-      value: formatPhpSigned(snapshot.netLedgerBalanceCentavos),
-      hint: "Sum of processed provider events — reconciliation view, not a live P&L",
-      category: "finance",
-      visible: isFinanceOrSuper,
-      icon: (
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <line x1="18" y1="20" x2="18" y2="10" />
-          <line x1="12" y1="20" x2="12" y2="4" />
-          <line x1="6" y1="20" x2="6" y2="14" />
-        </svg>
-      ),
+      count: snapshot.quarantinedPaymentEventCount,
+      capabilities: ["ADMIN_FINANCE"],
     },
   ];
 
-  const operationalCards = cards.filter((c) => c.visible && c.category === "operational");
-  const financeCards = cards.filter((c) => c.visible && c.category === "finance");
+  const queues = allQueues.filter((queue) => hasAnyCapability(capabilities, queue.capabilities));
 
-  return (
-    <section className="dk-stack" style={{ gap: 32 }}>
-      <div className="dk-page-header">
-        <div>
-          <h1 className="dk-page-title">Executive Dashboard</h1>
-          <p className="dk-page-subtitle">
-            Welcome back, <strong>{session.displayName}</strong>. Actionable operational queues and
-            financial oversight metrics below — select any card to open its management view.
-          </p>
-        </div>
+  return queues.length > 0 ? (
+    <section className="dk-dashboard-section" aria-labelledby="dashboard-queues-heading">
+      <div className="dk-dashboard-section-heading">
+        <h2 id="dashboard-queues-heading">Needs attention now</h2>
+        <p>Open work waiting on your team. Select a queue to review it.</p>
       </div>
-
-      <div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 16,
-          }}
-        >
-          <h2
-            style={{
-              fontSize: 16,
-              fontWeight: 700,
-              margin: 0,
-              color: "var(--dk-textPrimary)",
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-            }}
-          >
-            <span
-              style={{ width: 8, height: 8, borderRadius: 999, background: "var(--dk-primary)" }}
-            />
-            Operational Queues
-          </h2>
-          <span className="dk-badge dk-badge-neutral">
-            {operationalCards.length} queues monitored
-          </span>
-        </div>
-        <div className="dk-card-grid">
-          {operationalCards.map((card) => (
-            <a key={card.href} href={card.href} className="dk-stat-card">
-              <span className="dk-stat-card-label">
-                <span>{card.label}</span>
-                <span
-                  className="dk-nav-link-icon"
-                  style={{
-                    opacity: card.urgent ? 1 : 0.6,
-                    color: card.urgent ? "var(--dk-warningOnSoft)" : "inherit",
-                  }}
-                >
-                  {card.icon}
-                </span>
-              </span>
-              <span
-                className="dk-stat-card-value"
-                style={{ color: card.urgent ? "var(--dk-textPrimary)" : undefined }}
-              >
-                {card.value}
-              </span>
-              <span className="dk-stat-card-hint">{card.hint}</span>
-            </a>
-          ))}
-        </div>
-      </div>
-
-      {financeCards.length > 0 ? (
-        <div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 16,
-            }}
-          >
-            <h2
-              style={{
-                fontSize: 16,
-                fontWeight: 700,
-                margin: 0,
-                color: "var(--dk-textPrimary)",
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-              }}
-            >
-              <span
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: 999,
-                  background: "var(--dk-successOnSoft)",
-                }}
-              />
-              Financial Oversight & Reconciliation
-            </h2>
-            <span className="dk-badge dk-badge-info">Finance Admin Scope</span>
-          </div>
-          <div className="dk-card-grid">
-            {financeCards.map((card) => (
-              <a key={card.href} href={card.href} className="dk-stat-card">
-                <span className="dk-stat-card-label">
-                  <span>{card.label}</span>
-                  <span
-                    className="dk-nav-link-icon"
-                    style={{ opacity: 0.8, color: "var(--dk-primary)" }}
-                  >
-                    {card.icon}
-                  </span>
-                </span>
-                <span className="dk-stat-card-value">{card.value}</span>
-                <span className="dk-stat-card-hint">{card.hint}</span>
-              </a>
-            ))}
-          </div>
-        </div>
-      ) : null}
+      <ul className="dk-queue-list">
+        {queues.map((queue) => (
+          <li key={queue.href}>
+            <AppLink href={queue.href}>
+              <span className="dk-queue-label">{queue.label}</span>
+              <span className="dk-queue-count">{queue.count === 0 ? "Clear" : queue.count}</span>
+            </AppLink>
+          </li>
+        ))}
+      </ul>
     </section>
+  ) : null;
+}
+
+/*
+  Fallbacks reuse the exact dk-kpi-grid / dk-chart-grid / dk-queue-list shapes
+  from DashboardSkeleton (the route-level loading.tsx), so the handoff from the
+  route skeleton to the streamed shell only fills in the real hero and never
+  reshapes the regions underneath it.
+*/
+function DashboardChartsFallback() {
+  return (
+    <div role="status" aria-live="polite">
+      <span className="dk-visually-hidden">Loading business metrics…</span>
+      <div className="dk-kpi-grid" aria-hidden="true">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="dk-kpi">
+            <SkeletonBone variant="text-sm" style={{ width: "68%" }} />
+            <SkeletonBone variant="title" style={{ width: "52%", marginTop: 10 }} />
+            <SkeletonBone variant="text-sm" style={{ width: "80%", marginTop: 8 }} />
+          </div>
+        ))}
+      </div>
+      <div className="dk-chart-grid" aria-hidden="true">
+        {Array.from({ length: 2 }).map((_, i) => (
+          <div key={i} className="dk-chart-card">
+            <SkeletonBone variant="title" style={{ width: "46%" }} />
+            <SkeletonBone variant="text-sm" style={{ width: "72%", marginTop: 8 }} />
+            <SkeletonBone style={{ height: 200, marginTop: 18, borderRadius: 8 }} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DashboardQueuesFallback() {
+  return (
+    <div role="status" aria-live="polite">
+      <span className="dk-visually-hidden">Loading queues…</span>
+      <div className="dk-queue-list" aria-hidden="true">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <SkeletonBone key={i} style={{ height: 50, borderRadius: 8 }} />
+        ))}
+      </div>
+    </div>
   );
 }

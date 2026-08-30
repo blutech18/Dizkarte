@@ -18,6 +18,7 @@ import {
   toWithdrawalStatus,
   type RawProfileNameRow,
 } from "./supabase-mappers";
+import { buildDashboardTrends } from "./dashboard-trends";
 import {
   PROVIDER_UNAVAILABLE,
   type AdminRepository,
@@ -31,6 +32,7 @@ import {
   type CategoryHistoryEvent,
   type CategoryRow,
   type DashboardSnapshot,
+  type DashboardTrends,
   type DisputeDetail,
   type DisputeRow,
   type DisputeStatus,
@@ -97,6 +99,13 @@ import {
 /** Reasons are required by the RPCs; the console always supplies one. */
 const MISSING_REASON = "A reason is required for this action.";
 
+/**
+ * Maximum number of people a queue name-search resolves to before the operator
+ * is expected to narrow the term. Bounded so one broad search cannot turn into
+ * an unbounded `IN (...)` filter against the queue view.
+ */
+const SEARCH_SUBJECT_LIMIT = 200;
+
 type MutationResult = { ok: boolean; message?: string; code?: string };
 
 type RawCountResult = { readonly count: number | null; readonly error: { message: string } | null };
@@ -156,6 +165,11 @@ export class SupabaseAdminRepository implements AdminRepository {
    * Counts are read with `head: true` so only the count crosses the wire. Each
    * source is RLS-scoped, and a capability the Admin lacks simply yields zero
    * rather than failing the whole dashboard.
+   *
+   * Every read is issued in one wave. This used to fan out the counts, then
+   * await the full finance summary, then two more ledger queries — five
+   * sequential round-trips deep — to populate two fields no page rendered. The
+   * counts are all that is displayed, so they are all that is fetched.
    */
   async getDashboardSnapshot(): Promise<DashboardSnapshot> {
     const db = await this.db();
@@ -176,19 +190,6 @@ export class SupabaseAdminRepository implements AdminRepository {
         db.from("bookings").select("id", head).in("status", ["DISPUTED", "PAYMENT_FAILED"]),
       ]);
 
-    const finance = await this.getFinanceSummary();
-    const startOfDay = new Date();
-    startOfDay.setUTCHours(0, 0, 0, 0);
-    const { data: todayFees } = await db
-      .from("ledger_transactions")
-      .select("id")
-      .eq("type", "FEE_CHARGE")
-      .gte("created_at", startOfDay.toISOString());
-    const revenueTodayCentavos = await this.sumEntriesForTransactions(
-      ((todayFees ?? []) as ReadonlyArray<{ id: string }>).map((row) => row.id),
-      "PLATFORM_FEE",
-    );
-
     return {
       pendingVerificationCount: countOf(verif),
       pendingTaskerApplicationCount: countOf(apps),
@@ -198,9 +199,68 @@ export class SupabaseAdminRepository implements AdminRepository {
       quarantinedPaymentEventCount: countOf(quarantined),
       pendingWithdrawalCount: countOf(withdrawals),
       attentionBookingCount: countOf(attention),
-      revenueTodayCentavos,
-      netLedgerBalanceCentavos: finance.ledgerBalanceCentavos,
     };
+  }
+
+  /**
+   * Daily platform fee and booking activity for the trend charts.
+   *
+   * Both reads are windowed in the database (`gte` on the timestamp) so the page
+   * cost stays proportional to the window, not to the lifetime of the ledger.
+   * Fees are attributed to the day of their *transaction*, not the day the entry
+   * row happened to be written, which is what makes the series reconcilable;
+   * that attribution now lives in the `admin_platform_fee_events` view, so the
+   * fee series arrives in the same round-trip as the bookings instead of
+   * requiring two further queries to resolve entries and account types.
+   */
+  async getDashboardTrends(input: { days: number }): Promise<DashboardTrends> {
+    const db = await this.db();
+    const days = Math.max(1, Math.min(Math.floor(input.days), 90));
+    // Two windows are fetched: the visible one and the one before it, which is
+    // what the period-over-period comparison is measured against.
+    const sinceMs = Date.now() - days * 2 * 24 * 60 * 60 * 1000;
+    const since = new Date(sinceMs).toISOString();
+
+    const [feeRes, bookingRes] = await Promise.all([
+      db
+        .from("admin_platform_fee_events")
+        .select("occurred_at,amount_centavos")
+        .gte("occurred_at", since),
+      db.from("bookings").select("agreed_centavos,status,created_at").gte("created_at", since),
+    ]);
+
+    // A failed fee read must not be rendered as a flat ₱0 revenue chart. Swallowing
+    // it would state, as fact, that the platform earned nothing in the period —
+    // and a live run against a database missing this view did exactly that until
+    // the error was surfaced. The chart region has its own Suspense boundary, so
+    // failing here costs the charts, not the whole dashboard.
+    if (feeRes.error) {
+      throw new Error(`Failed to read platform fee events: ${feeRes.error.message}`);
+    }
+
+    const fees = (
+      (feeRes.data ?? []) as ReadonlyArray<{
+        occurred_at: string;
+        amount_centavos: number | string;
+      }>
+    ).map((row) => ({
+      at: row.occurred_at,
+      amountCentavos: Number(row.amount_centavos),
+    }));
+
+    const bookings = (
+      (bookingRes.data ?? []) as ReadonlyArray<{
+        agreed_centavos: number | string | null;
+        status: string;
+        created_at: string;
+      }>
+    ).map((row) => ({
+      at: row.created_at,
+      status: row.status,
+      amountCentavos: Number(row.agreed_centavos ?? 0),
+    }));
+
+    return buildDashboardTrends({ fees, bookings, days });
   }
 
   /** Sum ledger entry amounts for the given transactions, optionally by account type. */
@@ -241,10 +301,23 @@ export class SupabaseAdminRepository implements AdminRepository {
   // =========================================================================
 
   async listVerificationCases(
-    input: PageInput & { status?: string },
+    input: PageInput & { status?: string; query?: string },
   ): Promise<Paginated<VerificationCaseRow>> {
     const db = await this.db();
     const { from, to } = pageRange(input.page, input.pageSize);
+
+    /*
+      Search matches the subject's display name, which lives in `profiles` and
+      not in the queue view, so the name is resolved to user ids first and the
+      queue is then filtered by them.
+    */
+    const subjectIds = await this.subjectIdsMatchingName(input.query);
+    // No matching person means no matching case: return an empty page rather
+    // than dropping the filter and showing the unfiltered queue.
+    if (subjectIds?.length === 0) {
+      return paginate<VerificationCaseRow>([], input.page, input.pageSize, 0);
+    }
+
     let query = db
       .from("admin_verification_queue")
       .select("id,user_id,status,version,assigned_admin_id,submitted_at,created_at", {
@@ -253,6 +326,7 @@ export class SupabaseAdminRepository implements AdminRepository {
       // DRAFT cases have not been submitted for review, so they are not queue work.
       .neq("status", "DRAFT");
     if (input.status) query = query.eq("status", input.status);
+    if (subjectIds) query = query.in("user_id", subjectIds);
     const { data, count, error } = await query
       .order("submitted_at", { ascending: true, nullsFirst: false })
       .range(from, to);
@@ -264,8 +338,14 @@ export class SupabaseAdminRepository implements AdminRepository {
       status: string;
       submitted_at: string | null;
       created_at: string;
+      assigned_admin_id: string | null;
     }>;
-    const names = await this.displayNames(rows.map((row) => row.user_id));
+    // One name lookup for subjects and assignees together: the assignee is an
+    // Admin profile, so it resolves through the same capability-scoped read.
+    const names = await this.displayNames([
+      ...rows.map((row) => row.user_id),
+      ...rows.flatMap((row) => (row.assigned_admin_id ? [row.assigned_admin_id] : [])),
+    ]);
     const items = rows.map((row) => ({
       id: row.id,
       userDisplayName: displayNameFor(names, row.user_id),
@@ -274,6 +354,9 @@ export class SupabaseAdminRepository implements AdminRepository {
       // Document rows are self-only in RLS; the count is revealed by the
       // audited detail read, not the queue list.
       documentCount: 0,
+      assignedAdminName: row.assigned_admin_id
+        ? displayNameFor(names, row.assigned_admin_id)
+        : null,
     }));
     return paginate(items, input.page, input.pageSize, count ?? items.length);
   }
@@ -300,7 +383,10 @@ export class SupabaseAdminRepository implements AdminRepository {
     } | null;
     if (!queue) return null;
 
-    const names = await this.displayNames([queue.user_id]);
+    const names = await this.displayNames([
+      queue.user_id,
+      ...(queue.assigned_admin_id ? [queue.assigned_admin_id] : []),
+    ]);
     const { data: docsData } = await db.rpc("admin_read_verification_case", {
       p_case_id: id,
       p_reason: "Admin console verification detail review.",
@@ -315,6 +401,9 @@ export class SupabaseAdminRepository implements AdminRepository {
       status: queue.status as VerificationCaseRow["status"],
       submittedAt: queue.submitted_at ?? queue.created_at,
       documentCount: documents.length,
+      assignedAdminName: queue.assigned_admin_id
+        ? displayNameFor(names, queue.assigned_admin_id)
+        : null,
       // Decision history is subject-only in RLS and is not exposed to the
       // console; the audit log is the Admin-side record of decisions.
       history: [],
@@ -348,15 +437,22 @@ export class SupabaseAdminRepository implements AdminRepository {
   // =========================================================================
 
   async listTaskerApplications(
-    input: PageInput & { status?: string },
+    input: PageInput & { status?: string; query?: string },
   ): Promise<Paginated<TaskerApplicationRow>> {
     const db = await this.db();
     const { from, to } = pageRange(input.page, input.pageSize);
+
+    const subjectIds = await this.subjectIdsMatchingName(input.query);
+    if (subjectIds?.length === 0) {
+      return paginate<TaskerApplicationRow>([], input.page, input.pageSize, 0);
+    }
+
     let query = db
       .from("tasker_applications")
       .select("id,user_id,status,submitted_at,created_at", { count: "exact" })
       .neq("status", "DRAFT");
     if (input.status) query = query.eq("status", input.status);
+    if (subjectIds) query = query.in("user_id", subjectIds);
     const { data, count, error } = await query
       .order("submitted_at", { ascending: true, nullsFirst: false })
       .range(from, to);
@@ -380,6 +476,28 @@ export class SupabaseAdminRepository implements AdminRepository {
       submittedAt: row.submitted_at ?? row.created_at,
     }));
     return paginate(items, input.page, input.pageSize, count ?? items.length);
+  }
+
+  /**
+   * User ids whose display name matches a queue search term.
+   *
+   * Returns `null` when no search is applied, so a caller can tell "no filter"
+   * from "filter that matched nobody" — the latter must yield an empty page, not
+   * the unfiltered queue. Shared by every queue whose searchable name lives in
+   * `profiles` rather than in the queue view itself.
+   */
+  private async subjectIdsMatchingName(
+    term: string | undefined,
+  ): Promise<ReadonlyArray<string> | null> {
+    const search = term?.trim();
+    if (!search) return null;
+    const db = await this.db();
+    const { data } = await db
+      .from("profiles")
+      .select("id")
+      .ilike("display_name", `%${search}%`)
+      .limit(SEARCH_SUBJECT_LIMIT);
+    return ((data ?? []) as ReadonlyArray<{ id: string }>).map((row) => row.id);
   }
 
   private async specialtiesFor(
@@ -1645,53 +1763,52 @@ export class SupabaseAdminRepository implements AdminRepository {
    * Finance totals derived from the balanced append-only ledger, not from any
    * mutable balance column. Each figure is the signed sum of entries against the
    * account type that represents that stage of the money's life.
+   *
+   * The sums are computed in the database (`admin_ledger_totals`). Reading every
+   * ledger entry and adding it up in the app made this page's cost grow with the
+   * lifetime of the platform, and would have reported a confidently wrong total
+   * the moment the row count exceeded any PostgREST `max-rows` cap. The view is
+   * `security_invoker`, so an operator still only ever aggregates entries their
+   * RLS policies allow them to read.
    */
   async getFinanceSummary(): Promise<FinanceSummary> {
     const db = await this.db();
-    const [entriesRes, accountsRes, feeRes] = await Promise.all([
-      db.from("ledger_entries").select("amount_centavos,account_id"),
-      db.from("ledger_accounts").select("id,account_type"),
+    const [totalsRes, feeRes] = await Promise.all([
+      db.from("admin_ledger_totals").select("account_type,total_centavos"),
       db.from("app_settings").select("typed_value").eq("key", "platform_fee_bps").maybeSingle(),
     ]);
 
-    const entries = (entriesRes.data ?? []) as ReadonlyArray<{
-      amount_centavos: number;
-      account_id: string;
-    }>;
-    const accounts = (accountsRes.data ?? []) as ReadonlyArray<{
-      id: string;
-      account_type: string;
-    }>;
-    const typeById = new Map(accounts.map((account) => [account.id, account.account_type]));
+    // Financial figures must never be silently reported as zero: a failed read
+    // is surfaced rather than rendered as "no money in the system".
+    if (totalsRes.error) {
+      throw new Error(`Failed to read ledger totals: ${totalsRes.error.message}`);
+    }
 
-    const totalFor = (accountType: string): number =>
-      entries
-        .filter((entry) => typeById.get(entry.account_id) === accountType)
-        .reduce((total, entry) => total + Number(entry.amount_centavos), 0);
+    const totals = (totalsRes.data ?? []) as ReadonlyArray<{
+      account_type: string;
+      total_centavos: number | string;
+    }>;
+    const totalByType = new Map(
+      totals.map((row) => [row.account_type, Number(row.total_centavos)]),
+    );
+    const totalFor = (accountType: string): number => totalByType.get(accountType) ?? 0;
 
     const feeRaw = (feeRes.data as { typed_value: unknown } | null)?.typed_value;
     const platformFeeBps = typeof feeRaw === "number" ? feeRaw : Number(feeRaw ?? 0) || 0;
 
-    const protectedCentavos = totalFor("PROTECTED_HOLD");
-    const capturedCentavos = -totalFor("CLIENT_FUNDING");
-    const releasedCentavos = totalFor("TASKER_AVAILABLE");
-    const refundedCentavos = totalFor("REFUND_CLEARING");
-    const platformFeeCentavos = totalFor("PLATFORM_FEE");
-
     return {
       synthetic: false,
-      protectedCentavos,
-      capturedCentavos,
-      releasedCentavos,
-      refundedCentavos,
-      platformFeeCentavos,
+      protectedCentavos: totalFor("PROTECTED_HOLD"),
+      capturedCentavos: -totalFor("CLIENT_FUNDING"),
+      releasedCentavos: totalFor("TASKER_AVAILABLE"),
+      refundedCentavos: totalFor("REFUND_CLEARING"),
+      platformFeeCentavos: totalFor("PLATFORM_FEE"),
       platformFeeBps,
       // A correct double-entry ledger always sums to zero; a non-zero value here
-      // is itself the signal that something needs reconciliation.
-      ledgerBalanceCentavos: entries.reduce(
-        (total, entry) => total + Number(entry.amount_centavos),
-        0,
-      ),
+      // is itself the signal that something needs reconciliation. Every entry
+      // belongs to exactly one account and every account has a type, so summing
+      // the per-type totals is the same figure as summing every entry.
+      ledgerBalanceCentavos: totals.reduce((total, row) => total + Number(row.total_centavos), 0),
     };
   }
 

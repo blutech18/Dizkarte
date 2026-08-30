@@ -36,10 +36,14 @@ export default function EarningsScreen() {
   // tab uses, so "become a Tasker" is never a dead end.
   if (!isApprovedTasker(session)) {
     return (
-      <>
+      <Screen scroll subPageTitle="Earnings & payouts">
         <Stack.Screen options={{ headerShown: false }} />
-        <TaskerApplicationPrompt />
-      </>
+        <TaskerApplicationPrompt
+          standalone={false}
+          title="Turn your skills into income"
+          description="Create and complete your Tasker application to start earning, track completed jobs, and manage your payouts."
+        />
+      </Screen>
     );
   }
 

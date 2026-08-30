@@ -68,6 +68,9 @@ export function Button({
               variantStyles[variant].label,
               isDisabled ? styles.disabledLabel : null,
             ]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
           >
             {label}
           </Text>
@@ -79,13 +82,14 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
-    minHeight: MIN_TOUCH_TARGET,
+    height: 48,
+    minHeight: 48,
     borderRadius: radii.md,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     flexDirection: "row",
-    gap: spacing.sm,
+    gap: spacing.xs + 2,
   },
   fullWidth: {
     width: "100%",
@@ -93,6 +97,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: fontSize.md,
     fontWeight: "600",
+    textAlign: "center",
   },
   disabled: {
     backgroundColor: theme.disabledBackground,

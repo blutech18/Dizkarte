@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { Animated, Modal, Pressable, StyleSheet, View } from "react-native";
+import {
+  Animated,
+  Easing,
+  Modal,
+  PanResponder,
+  Pressable,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { MOTION_DURATION, MOTION_EASING, MOTION_NATIVE_DRIVER } from "../../theme/motion";
-import { MAX_CONTENT_WIDTH, theme, radii } from "../../theme";
-
-/** How far below its resting position the sheet starts, so it slides up into view. */
-const SHEET_OFFSET = 480;
+import { MOTION_DURATION, MOTION_EASING } from "../../theme/motion";
+import { MAX_CONTENT_WIDTH, theme, radii, spacing } from "../../theme";
 
 export type BottomSheetModalProps = {
   readonly visible: boolean;
@@ -35,27 +41,114 @@ export type BottomSheetModalProps = {
  */
 export function BottomSheetModal({ visible, onClose, children }: BottomSheetModalProps) {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
+  const screenHeight = windowHeight || 800;
+  const sheetOffset = screenHeight;
+  const dismissThreshold = screenHeight * 0.60;
+
   const [rendered, setRendered] = useState(visible);
   const fade = useRef(new Animated.Value(0)).current;
-  const slide = useRef(new Animated.Value(SHEET_OFFSET)).current;
+  const slide = useRef(new Animated.Value(sheetOffset)).current;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
+      onPanResponderGrant: () => {
+        slide.stopAnimation();
+        fade.stopAnimation();
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy > 0) {
+          slide.setValue(gestureState.dy);
+          const remaining = Math.max(0, 1 - gestureState.dy / screenHeight);
+          fade.setValue(remaining);
+        } else {
+          // Subtle rubber-band resistance when dragging up past top
+          slide.setValue(gestureState.dy * 0.12);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        // Fast swipe down to bottom (flick) OR pulled down past 60% of screen height
+        const isFastSwipeDown = gestureState.vy > 0.45 && gestureState.dy > 25;
+        const reachedThreshold = gestureState.dy >= dismissThreshold;
+
+        if (isFastSwipeDown || reachedThreshold) {
+          Animated.parallel([
+            Animated.timing(fade, {
+              toValue: 0,
+              duration: 250,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: false,
+            }),
+            Animated.timing(slide, {
+              toValue: sheetOffset,
+              duration: 250,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: false,
+            }),
+          ]).start(({ finished }) => {
+            if (finished) {
+              setRendered(false);
+              onClose();
+            }
+          });
+        } else {
+          // Smoothly snap back to top resting position
+          Animated.parallel([
+            Animated.spring(slide, {
+              toValue: 0,
+              bounciness: 2,
+              speed: 12,
+              useNativeDriver: false,
+            }),
+            Animated.timing(fade, {
+              toValue: 1,
+              duration: 220,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: false,
+            }),
+          ]).start();
+        }
+      },
+      onPanResponderTerminate: () => {
+        Animated.parallel([
+          Animated.spring(slide, {
+            toValue: 0,
+            bounciness: 2,
+            speed: 12,
+            useNativeDriver: false,
+          }),
+          Animated.timing(fade, {
+            toValue: 1,
+            duration: 220,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: false,
+          }),
+        ]).start();
+      },
+    }),
+  ).current;
 
   useEffect(() => {
     if (visible) {
       setRendered(true);
       fade.setValue(0);
-      slide.setValue(SHEET_OFFSET);
+      slide.setValue(sheetOffset);
       Animated.parallel([
         Animated.timing(fade, {
           toValue: 1,
           duration: MOTION_DURATION.open,
           easing: MOTION_EASING.open,
-          useNativeDriver: MOTION_NATIVE_DRIVER,
+          useNativeDriver: false,
         }),
         Animated.timing(slide, {
           toValue: 0,
           duration: MOTION_DURATION.open,
           easing: MOTION_EASING.open,
-          useNativeDriver: MOTION_NATIVE_DRIVER,
+          useNativeDriver: false,
         }),
       ]).start();
     } else if (rendered) {
@@ -64,13 +157,13 @@ export function BottomSheetModal({ visible, onClose, children }: BottomSheetModa
           toValue: 0,
           duration: MOTION_DURATION.close,
           easing: MOTION_EASING.close,
-          useNativeDriver: MOTION_NATIVE_DRIVER,
+          useNativeDriver: false,
         }),
         Animated.timing(slide, {
-          toValue: SHEET_OFFSET,
+          toValue: sheetOffset,
           duration: MOTION_DURATION.close,
           easing: MOTION_EASING.close,
-          useNativeDriver: MOTION_NATIVE_DRIVER,
+          useNativeDriver: false,
         }),
       ]).start(({ finished }) => {
         if (finished) setRendered(false);
@@ -78,7 +171,7 @@ export function BottomSheetModal({ visible, onClose, children }: BottomSheetModa
     }
     // `rendered` deliberately excluded: it is only read to skip the close
     // animation before the sheet has ever opened, not to re-trigger it.
-  }, [visible, fade, slide]);
+  }, [visible, fade, slide, sheetOffset]);
 
   if (!rendered) return null;
 
@@ -114,11 +207,20 @@ export function BottomSheetModal({ visible, onClose, children }: BottomSheetModa
           style={[
             styles.sheet,
             {
-              paddingBottom: insets.bottom,
+              paddingBottom: insets.bottom > 0 ? Math.min(insets.bottom, 8) : 0,
               transform: [{ translateY: slide }],
             },
           ]}
         >
+          <View
+            {...panResponder.panHandlers}
+            accessibilityRole="button"
+            accessibilityLabel="Collapse modal"
+            accessibilityHint="Drag down or tap to collapse this sheet"
+            style={styles.handleBar}
+          >
+            <View style={styles.handlePill} />
+          </View>
           {children}
         </Animated.View>
       </View>
@@ -149,5 +251,18 @@ const styles = StyleSheet.create({
     backgroundColor: theme.surface,
     borderTopLeftRadius: radii.lg,
     borderTopRightRadius: radii.lg,
+  },
+  handleBar: {
+    width: "100%",
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: theme.surface,
+  },
+  handlePill: {
+    width: 44,
+    height: 5,
+    borderRadius: radii.pill,
+    backgroundColor: theme.borderControl,
   },
 });

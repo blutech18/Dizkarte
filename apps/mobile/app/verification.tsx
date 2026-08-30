@@ -1,5 +1,15 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  Animated,
+  Easing,
+  Keyboard,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type KeyboardEvent,
+} from "react-native";
 import { Redirect, Stack, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Screen } from "../src/components/ui/Screen";
@@ -9,6 +19,7 @@ import { LoadingState, ErrorState } from "../src/components/ui/AsyncState";
 import { VerificationDocumentPicker } from "../src/components/verification/VerificationDocumentPicker";
 import { useSession } from "../src/providers/SessionProvider";
 import { useMarketplace } from "../src/providers/MarketplaceProvider";
+import { ScreenScrollProvider } from "../src/providers/ScreenScrollContext";
 import type {
   VerificationCaseRecord,
   VerificationDocumentKind,
@@ -37,6 +48,60 @@ export default function VerificationScreen() {
   const [verificationCase, setVerificationCase] = useState<VerificationCaseRecord | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const footerOpacity = useRef(new Animated.Value(1)).current;
+  const footerTranslateY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const onShow = (e: KeyboardEvent) => {
+      setKeyboardVisible(true);
+      const duration = e?.duration && e.duration > 0 ? e.duration : 200;
+      Animated.parallel([
+        Animated.timing(footerOpacity, {
+          toValue: 0,
+          duration: Math.min(duration, 160),
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(footerTranslateY, {
+          toValue: 16,
+          duration: Math.min(duration, 160),
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    };
+
+    const onHide = (e: KeyboardEvent) => {
+      setKeyboardVisible(false);
+      const duration = e?.duration && e.duration > 0 ? e.duration : 220;
+      Animated.parallel([
+        Animated.timing(footerOpacity, {
+          toValue: 1,
+          duration,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(footerTranslateY, {
+          toValue: 0,
+          duration,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    };
+
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [footerOpacity, footerTranslateY]);
 
   const load = useCallback(() => {
     if (!session) return;
@@ -159,149 +224,186 @@ export default function VerificationScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.page}>
         <ScrollView
+          ref={scrollRef}
           style={styles.scroll}
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingHorizontal: gutter, paddingBottom: spacing.xl },
+            { paddingHorizontal: gutter, paddingBottom: keyboardVisible ? 380 : 120 },
           ]}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          automaticallyAdjustKeyboardInsets={true}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.contentFrame}>
-            <View style={styles.intro}>
-              <Text
-                style={styles.pageTitle}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.8}
-                accessibilityRole="header"
-              >
-                {introCopy.title}
-              </Text>
-              <Text style={styles.pageSubtitle}>{introCopy.description}</Text>
-            </View>
+          <ScreenScrollProvider scrollViewRef={scrollRef}>
+            <View style={styles.contentFrame}>
 
-            <View style={styles.privacyNotice}>
-              <View style={styles.noticeHeader}>
-                <View style={styles.cardHeaderIcon}>
-                  <Icon name="shield" size={22} color={theme.infoOnSoft} />
+            {/* APPROVED: full hero success state */}
+            {status === "APPROVED" ? (
+              <View style={styles.approvedHero}>
+                {/* Hero checkmark ring */}
+                <View style={styles.heroIconRing}>
+                  <Icon name="check-circle" size={40} color={theme.successSolid} />
                 </View>
-                <Text style={styles.noticeTitle}>Private and securely stored</Text>
-              </View>
-              <Text style={styles.noticeBody}>
-                Your documents are never public. Only an assigned verification reviewer can access
-                them through an audited, short-lived link.
-              </Text>
-            </View>
 
-            {status === "SUBMITTED" || status === "IN_REVIEW" ? (
-              <StatusPanel
-                icon="calendar"
-                title={status === "IN_REVIEW" ? "Review in progress" : "Submitted for review"}
-                description="Manual review usually takes 1-2 business days. You will receive a notification when a decision is ready."
-                tone="info"
-              />
-            ) : status === "APPROVED" ? (
-              <StatusPanel
-                icon="check-circle"
-                title="Identity verified"
-                description="Your identity verification is approved. You can now continue using verified marketplace features."
-                tone="success"
-                action={
-                  <Button
-                    label="Back to profile"
-                    onPress={() => router.replace("/(tabs)/profile")}
-                    fullWidth
-                  />
-                }
-              />
+                {/* Title + subtitle */}
+                <View style={styles.heroTextBlock}>
+                  <Text style={styles.heroTitle}>{introCopy.title}</Text>
+                  <Text style={styles.heroSubtitle}>{introCopy.description}</Text>
+                </View>
+
+                {/* Privacy info */}
+                <InfoCard
+                  icon="shield"
+                  title="Private and securely stored"
+                  body="Your documents are never public. Only an assigned verification reviewer can access them through an audited, short-lived link."
+                  tone="info"
+                />
+
+                {/* Verified status info */}
+                <InfoCard
+                  icon="check-circle"
+                  title="Identity verified"
+                  body="Your identity verification is approved. You can now continue using verified marketplace features."
+                  tone="success"
+                />
+
+                <Button
+                  label="Back to profile"
+                  onPress={() => router.replace("/(tabs)/profile")}
+                  fullWidth
+                />
+              </View>
             ) : (
               <>
-                {status === "RESUBMISSION_REQUIRED" ? (
-                  <StatusPanel
-                    icon="alert-circle"
-                    title="New documents required"
-                    description={
-                      verificationCase.decisionReason ??
-                      "The reviewer requested clearer or updated documents."
-                    }
-                    tone="error"
-                  />
-                ) : null}
-
-                <View style={styles.progressCard}>
-                  <View style={styles.progressHeader}>
-                    <View>
-                      <Text style={styles.progressTitle}>Required documents</Text>
-                      <Text style={styles.progressCaption}>
-                        {completedCount} of 2 securely attached
-                      </Text>
-                    </View>
-                    <Text style={styles.progressValue}>
-                      {Math.round((completedCount / 2) * 100)}%
-                    </Text>
-                  </View>
-                  <View style={styles.progressTrack}>
-                    <View
-                      style={[
-                        styles.progressFill,
-                        { width: `${Math.round((completedCount / 2) * 100)}%` },
-                      ]}
-                    />
-                  </View>
+                {/* Non-approved: standard page header */}
+                <View style={styles.intro}>
+                  <Text
+                    style={styles.pageTitle}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.8}
+                    accessibilityRole="header"
+                  >
+                    {introCopy.title}
+                  </Text>
+                  <Text style={styles.pageSubtitle}>{introCopy.description}</Text>
                 </View>
 
-                {error ? (
-                  <View
-                    style={styles.errorCard}
-                    accessibilityRole="alert"
-                    accessibilityLiveRegion="polite"
-                  >
-                    <Icon name="alert-circle" size={20} color={theme.errorOnSoft} />
-                    <Text style={styles.errorText}>{error}</Text>
-                  </View>
-                ) : null}
+                {/* Privacy notice */}
+                <InfoCard
+                  icon="shield"
+                  title="Private and securely stored"
+                  body="Your documents are never public. Only an assigned verification reviewer can access them through an audited, short-lived link."
+                  tone="info"
+                />
 
-                {canAttach ? (
-                  <View style={[styles.documentGrid, isTablet ? styles.documentGridTablet : null]}>
-                    <VerificationDocumentPicker
-                      title="Government ID"
-                      hint="Show the full front of the card with all four corners visible."
-                      icon="note"
-                      userId={session.userId}
-                      caseId={verificationCase.id}
-                      document={idFront}
-                      onAttach={(object) => attach("government_id_front", object)}
-                      onRemove={removeDocument}
-                      disabled={submitting}
-                    />
-                    <VerificationDocumentPicker
-                      title="Selfie"
-                      hint="Face the camera in good lighting without a hat or sunglasses."
-                      icon="user"
-                      userId={session.userId}
-                      caseId={verificationCase.id}
-                      document={selfie}
-                      onAttach={(object) => attach("selfie", object)}
-                      onRemove={removeDocument}
-                      disabled={submitting}
-                    />
-                  </View>
-                ) : (
+                {status === "SUBMITTED" || status === "IN_REVIEW" ? (
                   <StatusPanel
-                    icon="lock"
-                    title="Documents locked"
-                    description="This verification case cannot accept new documents. Contact support if you need assistance."
-                    tone="neutral"
+                    icon="calendar"
+                    title={status === "IN_REVIEW" ? "Review in progress" : "Submitted for review"}
+                    description="Manual review usually takes 1-2 business days. You will receive a notification when a decision is ready."
+                    tone="info"
                   />
+                ) : (
+                  <>
+                    {status === "RESUBMISSION_REQUIRED" ? (
+                      <StatusPanel
+                        icon="alert-circle"
+                        title="New documents required"
+                        description={
+                          verificationCase.decisionReason ??
+                          "The reviewer requested clearer or updated documents."
+                        }
+                        tone="error"
+                      />
+                    ) : null}
+
+                    <View style={styles.progressCard}>
+                      <View style={styles.progressHeader}>
+                        <View style={styles.progressHeaderInfo}>
+                          <Text style={styles.progressTitle}>Required documents</Text>
+                          <Text style={styles.progressCaption}>
+                            {completedCount} of 2 securely attached
+                          </Text>
+                        </View>
+                        <Text style={styles.progressValue}>
+                          {Math.round((completedCount / 2) * 100)}%
+                        </Text>
+                      </View>
+                      <View style={styles.progressTrack}>
+                        <View
+                          style={[
+                            styles.progressFill,
+                            { width: `${Math.round((completedCount / 2) * 100)}%` },
+                          ]}
+                        />
+                      </View>
+                    </View>
+
+                    {error ? (
+                      <View
+                        style={styles.errorCard}
+                        accessibilityRole="alert"
+                        accessibilityLiveRegion="polite"
+                      >
+                        <Icon name="alert-circle" size={18} color={theme.errorOnSoft} />
+                        <Text style={styles.errorText}>{error}</Text>
+                      </View>
+                    ) : null}
+
+                    {canAttach ? (
+                      <View style={[styles.documentGrid, isTablet ? styles.documentGridTablet : null]}>
+                        <VerificationDocumentPicker
+                          title="Government ID"
+                          hint="Show the full front of the card with all four corners visible."
+                          icon="note"
+                          userId={session.userId}
+                          caseId={verificationCase.id}
+                          document={idFront}
+                          onAttach={(object) => attach("government_id_front", object)}
+                          onRemove={removeDocument}
+                          disabled={submitting}
+                        />
+                        <VerificationDocumentPicker
+                          title="Selfie"
+                          hint="Face the camera in good lighting without a hat or sunglasses."
+                          icon="user"
+                          userId={session.userId}
+                          caseId={verificationCase.id}
+                          document={selfie}
+                          onAttach={(object) => attach("selfie", object)}
+                          onRemove={removeDocument}
+                          disabled={submitting}
+                        />
+                      </View>
+                    ) : (
+                      <StatusPanel
+                        icon="lock"
+                        title="Documents locked"
+                        description="This verification case cannot accept new documents. Contact support if you need assistance."
+                        tone="neutral"
+                      />
+                    )}
+                  </>
                 )}
               </>
             )}
           </View>
-        </ScrollView>
+        </ScreenScrollProvider>
+      </ScrollView>
 
         {canAttach ? (
-          <View
-            style={[styles.actionFooter, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}
+          <Animated.View
+            pointerEvents={keyboardVisible ? "none" : "auto"}
+            style={[
+              styles.stickyOverlayFooter,
+              {
+                paddingVertical: spacing.md,
+                opacity: footerOpacity,
+                transform: [{ translateY: footerTranslateY }],
+              },
+            ]}
           >
             <View style={[styles.actionFooterInner, { paddingHorizontal: gutter }]}>
               <Button
@@ -318,10 +420,49 @@ export default function VerificationScreen() {
                 fullWidth
               />
             </View>
-          </View>
+          </Animated.View>
         ) : null}
       </View>
     </Screen>
+  );
+}
+
+/**
+ * Minimal inline info card with plain icon beside bold title and body text below.
+ * No icon container background — just icon + title on one row, body below.
+ */
+function InfoCard({
+  icon,
+  title,
+  body,
+  tone,
+}: {
+  readonly icon: "shield" | "check-circle";
+  readonly title: string;
+  readonly body: string;
+  readonly tone: "info" | "success";
+}) {
+  const colors = {
+    info: {
+      background: theme.infoSoft,
+      iconColor: theme.infoOnSoft,
+      textColor: theme.infoOnSoft,
+    },
+    success: {
+      background: theme.successSoft,
+      iconColor: theme.successSolid,
+      textColor: theme.successOnSoft,
+    },
+  }[tone];
+
+  return (
+    <View style={[styles.infoCard, { backgroundColor: colors.background }]}>
+      <View style={styles.infoCardHeader}>
+        <Icon name={icon} size={18} color={colors.iconColor} />
+        <Text style={[styles.infoCardTitle, { color: colors.textColor }]}>{title}</Text>
+      </View>
+      <Text style={[styles.infoCardBody, { color: colors.textColor }]}>{body}</Text>
+    </View>
   );
 }
 
@@ -348,9 +489,7 @@ function StatusPanel({
   return (
     <View style={[styles.statusPanel, { backgroundColor: colors.background }]}>
       <View style={styles.statusHeader}>
-        <View style={styles.cardHeaderIcon}>
-          <Icon name={icon} size={22} color={colors.text} />
-        </View>
+        <Icon name={icon} size={18} color={colors.text} />
         <Text style={[styles.statusTitle, { color: colors.text }]}>{title}</Text>
       </View>
       <Text style={[styles.statusDescription, { color: colors.text }]}>{description}</Text>
@@ -407,6 +546,42 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     gap: spacing.lg,
   },
+
+  // Approved Hero
+  approvedHero: {
+    gap: spacing.lg,
+    paddingTop: spacing.xl,
+    alignItems: "stretch",
+  },
+  heroIconRing: {
+    alignSelf: "center",
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: theme.successSoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroTextBlock: {
+    alignItems: "center",
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  heroTitle: {
+    fontSize: fontSize.xl,
+    fontWeight: "800",
+    color: theme.textPrimary,
+    textAlign: "center",
+    lineHeight: lineHeight.xl,
+  },
+  heroSubtitle: {
+    fontSize: fontSize.sm,
+    lineHeight: lineHeight.sm,
+    color: theme.textSecondary,
+    textAlign: "center",
+  },
+
+  // Standard page intro
   intro: {
     gap: spacing.sm,
   },
@@ -421,31 +596,33 @@ const styles = StyleSheet.create({
     lineHeight: lineHeight.sm,
     color: theme.textSecondary,
   },
-  privacyNotice: {
-    alignItems: "flex-start",
-    gap: spacing.md,
+
+  // Info Card
+  infoCard: {
     padding: spacing.lg,
     borderRadius: radii.lg,
-    backgroundColor: theme.infoSoft,
-  },
-  noticeHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: "100%",
     gap: spacing.sm,
   },
-  noticeTitle: {
-    flex: 1,
-    fontSize: fontSize.md,
-    fontWeight: "800",
-    color: theme.infoOnSoft,
+  infoCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
   },
-  noticeBody: {
+  infoCardTitle: {
+    flex: 1,
+    fontSize: fontSize.sm,
+    fontWeight: "700",
+    lineHeight: lineHeight.sm,
+  },
+  infoCardBody: {
     fontSize: fontSize.sm,
     lineHeight: lineHeight.sm,
-    color: theme.infoOnSoft,
   },
+
+  // Progress Card
   progressCard: {
+    minWidth: 0,
+    width: "100%",
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: theme.borderSubtle,
@@ -454,10 +631,15 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   progressHeader: {
+    minWidth: 0,
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
     gap: spacing.sm,
+  },
+  progressHeaderInfo: {
+    flex: 1,
+    minWidth: 0,
   },
   progressTitle: {
     fontSize: fontSize.md,
@@ -470,6 +652,8 @@ const styles = StyleSheet.create({
     color: theme.textSecondary,
   },
   progressValue: {
+    flexShrink: 0,
+    textAlign: "right",
     fontSize: fontSize.md,
     fontWeight: "800",
     color: theme.primary,
@@ -507,47 +691,46 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: theme.errorOnSoft,
   },
+
+  // Status Panel
   statusPanel: {
-    alignItems: "flex-start",
-    gap: spacing.md,
+    gap: spacing.sm,
     padding: spacing.lg,
     borderRadius: radii.lg,
   },
   statusHeader: {
-    width: "100%",
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
   },
-  cardHeaderIcon: {
-    width: 24,
-    height: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
   statusTitle: {
     flex: 1,
-    fontSize: fontSize.md,
-    fontWeight: "800",
+    fontSize: fontSize.sm,
+    fontWeight: "700",
+    lineHeight: lineHeight.sm,
   },
   statusDescription: {
     fontSize: fontSize.sm,
     lineHeight: lineHeight.sm,
   },
   statusAction: {
-    marginTop: spacing.md,
+    marginTop: spacing.sm,
   },
-  actionFooter: {
+
+  // Footer
+  stickyOverlayFooter: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: theme.surface,
     borderTopWidth: 1,
     borderTopColor: theme.borderSubtle,
-    paddingTop: spacing.sm,
-    elevation: 8,
+    elevation: 12,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
+    shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowRadius: 10,
   },
   actionFooterInner: {
     width: "100%",

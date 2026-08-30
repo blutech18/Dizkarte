@@ -7,15 +7,15 @@ apps.
 
 > Status: **foundation + backend + full mobile and Admin frontend** implemented
 > and verified, through the Milestone 3 (Phase 3) scope, tagged `milestone-3`.
-> Non-database checks pass: format, lint, strict typecheck, 692 unit/integration
+> Non-database checks pass: format, strict typecheck, 788 unit/integration
 > and E2E tests (7 env-gated skips), shared/Admin builds, Expo config/export.
-> The Supabase backend (migrations `0001`–`0050`, RLS, storage, privileged RPCs,
+> The Supabase backend (migrations `0001`–`0051`, RLS, storage, privileged RPCs,
 > security hardening, notification producers) has been **executed against a real
-> PostgreSQL 17**: every migration applies from scratch and all eight SQL suites
+> PostgreSQL 17**: every migration applies from scratch and all nine SQL suites
 > pass (`ledger_and_constraints` 4/4, `rls_enabled` 3/3, `security_hardening`
 > 30/30, `milestone3_reviews_notifications` 14/14, `conversation_read_state` 8/8,
-> `task_feed_filters` 6/6, `report_submission` 10/10, `admin_case_subject` 15/15)
-> — reproduce with `npm run test:sql`; see
+> `task_feed_filters` 6/6, `report_submission` 10/10, `admin_case_subject` 15/15,
+> `read_path_aggregates` 8/8) — reproduce with `npm run test:sql`; see
 > `docs/acceptance/milestone-3-evidence.md` and
 > `docs/acceptance/production-readiness-review.md`.
 > Still not production-ready: live payments/maps/push credentials/store and legal

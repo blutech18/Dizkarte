@@ -1,5 +1,17 @@
-import { useCallback, useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Animated,
+  Dimensions,
+  Easing,
+  Keyboard,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type KeyboardEvent,
+} from "react-native";
 import { Redirect, Stack, router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Screen } from "../../src/components/ui/Screen";
@@ -14,6 +26,7 @@ import {
 } from "../../src/components/profile/ProfilePageSection";
 import { useSession } from "../../src/providers/SessionProvider";
 import { useMarketplace } from "../../src/providers/MarketplaceProvider";
+import { ScreenScrollProvider } from "../../src/providers/ScreenScrollContext";
 import type { MyProfileRecord, SpecialtyOption } from "../../src/services/marketplace";
 import { theme, spacing, fontSize, radii, useResponsiveLayout } from "../../src/theme";
 
@@ -22,6 +35,86 @@ export default function EditProfileScreen() {
   const { repository, notifyChanged } = useMarketplace();
   const insets = useSafeAreaInsets();
   const { gutter, isTablet } = useResponsiveLayout();
+
+  const scrollRef = useRef<ScrollView>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const keyboardHeightRef = useRef(0);
+  const footerOpacity = useRef(new Animated.Value(1)).current;
+  const footerTranslateY = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const onShow = (e: KeyboardEvent) => {
+      setKeyboardVisible(true);
+      keyboardHeightRef.current = e?.endCoordinates?.height ?? 300;
+      const duration = e?.duration && e.duration > 0 ? e.duration : 200;
+      Animated.parallel([
+        Animated.timing(footerOpacity, {
+          toValue: 0,
+          duration: Math.min(duration, 160),
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(footerTranslateY, {
+          toValue: 16,
+          duration: Math.min(duration, 160),
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    };
+
+    const onHide = (e: KeyboardEvent) => {
+      setKeyboardVisible(false);
+      keyboardHeightRef.current = 0;
+      const duration = e?.duration && e.duration > 0 ? e.duration : 220;
+      Animated.parallel([
+        Animated.timing(footerOpacity, {
+          toValue: 1,
+          duration,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(footerTranslateY, {
+          toValue: 0,
+          duration,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start();
+    };
+
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [footerOpacity, footerTranslateY]);
+
+  const displayNameRef = useRef<View>(null);
+  const mobileRef = useRef<View>(null);
+  const bioRef = useRef<View>(null);
+  const localityRef = useRef<View>(null);
+  const publicBioRef = useRef<View>(null);
+  const publicExperienceRef = useRef<View>(null);
+
+  const scrollToRef = useCallback((ref: React.RefObject<View | null>) => {
+    if (!ref.current || !scrollRef.current) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ref.current.measureLayout(
+      scrollRef.current as unknown as any,
+      (x, y, w, h) => {
+        const { height: screenHeight } = Dimensions.get("window");
+        const visibleHeight = screenHeight - keyboardHeightRef.current;
+        const targetY = y - Math.max(16, (visibleHeight - h) / 4);
+        scrollRef.current?.scrollTo({ y: Math.max(0, targetY), animated: true });
+      },
+      () => {},
+    );
+  }, []);
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -36,26 +129,20 @@ export default function EditProfileScreen() {
   const [publicExperience, setPublicExperience] = useState("");
   const [selectedSpecialties, setSelectedSpecialties] = useState<ReadonlyArray<string>>([]);
   const [saving, setSaving] = useState(false);
-  const [formError, setFormError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
-
-  const userId = session?.userId ?? null;
+  const [formError, setFormError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (!userId) return;
+    if (!session) return;
     setLoading(true);
     setLoadError(null);
     try {
-      const [record, options] = await Promise.all([
-        repository.getMyProfile(userId),
+      const [record, specialtyList] = await Promise.all([
+        repository.getMyProfile(session.userId),
         repository.listSpecialtyOptions(),
       ]);
-      if (!record) {
-        setLoadError("Your profile could not be loaded.");
-        return;
-      }
       setProfile(record);
-      setSpecialties(options);
+      setSpecialties(specialtyList);
       setDisplayName(record.displayName);
       setMobile(record.mobile ?? "");
       setCityCode(record.cityCode ?? "");
@@ -69,40 +156,40 @@ export default function EditProfileScreen() {
     } finally {
       setLoading(false);
     }
-  }, [repository, userId]);
+  }, [repository, session]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  function markChanged() {
+  const markChanged = () => {
     setSaved(false);
     setFormError(null);
-  }
+  };
 
-  function toggleSpecialty(id: string) {
+  const toggleSpecialty = (id: string) => {
     markChanged();
     setSelectedSpecialties((current) =>
-      current.includes(id) ? current.filter((value) => value !== id) : [...current, id],
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
     );
-  }
+  };
 
   async function handleSave() {
-    if (!userId || !profile || saving) return;
+    if (!session || !displayName.trim()) return;
+    setSaving(true);
     setFormError(null);
     setSaved(false);
-    setSaving(true);
     try {
-      const result = await repository.updateMyProfile(userId, {
-        displayName,
-        mobile,
-        cityCode,
-        barangayCode,
-        bio,
-        ...(profile.tasker
+      const result = await repository.updateMyProfile(session.userId, {
+        displayName: displayName.trim(),
+        mobile: mobile.trim() || undefined,
+        cityCode: cityCode || undefined,
+        barangayCode: barangayCode || undefined,
+        bio: bio.trim(),
+        ...(profile?.tasker
           ? {
-              publicBio,
-              publicExperience,
+              publicBio: publicBio.trim(),
+              publicExperience: publicExperience.trim(),
               specialtyIds: selectedSpecialties,
               serviceCityCodes: cityCode.trim().length > 0 ? [cityCode.trim()] : [],
             }
@@ -145,16 +232,19 @@ export default function EditProfileScreen() {
       ) : (
         <View style={styles.page}>
           <ScrollView
+            ref={scrollRef}
             style={styles.scroll}
             contentContainerStyle={[
               styles.scrollContent,
-              { paddingHorizontal: gutter, paddingBottom: spacing.xl },
+              { paddingHorizontal: gutter, paddingBottom: keyboardVisible ? 380 : 120 },
             ]}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
+            automaticallyAdjustKeyboardInsets={true}
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.contentFrame}>
+            <ScreenScrollProvider scrollViewRef={scrollRef}>
+              <View style={styles.contentFrame}>
               <ProfilePageIntro
                 title="Update your profile"
                 description="Keep your private account details accurate and your public Tasker information clear."
@@ -180,42 +270,54 @@ export default function EditProfileScreen() {
                     title="Personal details"
                     description="Private contact and account information."
                   >
-                    <TextField
-                      label="Full name"
-                      required
-                      value={displayName}
-                      onChangeText={(text) => {
-                        markChanged();
-                        setDisplayName(text);
-                      }}
-                      textContentType="name"
-                    />
-                    <TextField
-                      label="Mobile number"
-                      description="Philippine mobile number. Never shown publicly."
-                      value={mobile}
-                      onChangeText={(text) => {
-                        markChanged();
-                        setMobile(text);
-                      }}
-                      keyboardType="phone-pad"
-                      placeholder="0917 123 4567"
-                    />
-                    <TextField
-                      label="About you"
-                      description="A short private account note."
-                      value={bio}
-                      onChangeText={(text) => {
-                        markChanged();
-                        setBio(text);
-                      }}
-                      multiline
-                      numberOfLines={3}
-                    />
+                    <View ref={displayNameRef}>
+                      <TextField
+                        label="Full name"
+                        required
+                        value={displayName}
+                        onChangeText={(text) => {
+                          markChanged();
+                          setDisplayName(text);
+                        }}
+                        onFocus={() => scrollToRef(displayNameRef)}
+                        textContentType="name"
+                      />
+                    </View>
+                    <View ref={mobileRef}>
+                      <TextField
+                        label="Mobile number"
+                        description="Philippine mobile number. Never shown publicly."
+                        value={mobile}
+                        onChangeText={(text) => {
+                          markChanged();
+                          setMobile(text);
+                        }}
+                        onFocus={() => scrollToRef(mobileRef)}
+                        keyboardType="phone-pad"
+                        placeholder="0917 123 4567"
+                      />
+                    </View>
+                    <View ref={bioRef}>
+                      <TextField
+                        label="About you"
+                        description="A short private account note."
+                        value={bio}
+                        onChangeText={(text) => {
+                          markChanged();
+                          setBio(text);
+                        }}
+                        onFocus={() => scrollToRef(bioRef)}
+                        multiline
+                        numberOfLines={3}
+                      />
+                    </View>
                   </ProfilePageSection>
                 </View>
 
-                <View style={[styles.gridItem, isTablet ? styles.gridItemTablet : null]}>
+                <View
+                  ref={localityRef}
+                  style={[styles.gridItem, isTablet ? styles.gridItemTablet : null]}
+                >
                   <ProfilePageSection
                     icon="map-pin"
                     title="Usual area"
@@ -231,6 +333,8 @@ export default function EditProfileScreen() {
                         setCityCode(next.cityCode ?? "");
                         setBarangayCode(next.barangayCode ?? "");
                       }}
+                      onOpen={() => scrollToRef(localityRef)}
+                      onClose={() => scrollToRef(localityRef)}
                       cityLabel="City / Municipality"
                     />
                   </ProfilePageSection>
@@ -243,26 +347,32 @@ export default function EditProfileScreen() {
                   title="Public Tasker profile"
                   description="Clients see this information on your offers. Ratings, completed jobs, and verification are managed by Dizkarte."
                 >
-                  <TextField
-                    label="Public bio"
-                    value={publicBio}
-                    onChangeText={(text) => {
-                      markChanged();
-                      setPublicBio(text);
-                    }}
-                    multiline
-                    numberOfLines={4}
-                  />
-                  <TextField
-                    label="Experience"
-                    value={publicExperience}
-                    onChangeText={(text) => {
-                      markChanged();
-                      setPublicExperience(text);
-                    }}
-                    multiline
-                    numberOfLines={4}
-                  />
+                  <View ref={publicBioRef}>
+                    <TextField
+                      label="Public bio"
+                      value={publicBio}
+                      onChangeText={(text) => {
+                        markChanged();
+                        setPublicBio(text);
+                      }}
+                      onFocus={() => scrollToRef(publicBioRef)}
+                      multiline
+                      numberOfLines={4}
+                    />
+                  </View>
+                  <View ref={publicExperienceRef}>
+                    <TextField
+                      label="Experience"
+                      value={publicExperience}
+                      onChangeText={(text) => {
+                        markChanged();
+                        setPublicExperience(text);
+                      }}
+                      onFocus={() => scrollToRef(publicExperienceRef)}
+                      multiline
+                      numberOfLines={4}
+                    />
+                  </View>
 
                   <Text style={styles.fieldLabel}>Specialties</Text>
                   <Text style={styles.fieldHint}>
@@ -299,12 +409,21 @@ export default function EditProfileScreen() {
                 </ProfilePageSection>
               ) : null}
             </View>
+          </ScreenScrollProvider>
           </ScrollView>
 
-          <View
-            style={[styles.actionFooter, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}
+          <Animated.View
+            pointerEvents={keyboardVisible ? "none" : "auto"}
+            style={[
+              styles.stickyOverlayFooter,
+              {
+                paddingVertical: spacing.md,
+                opacity: footerOpacity,
+                transform: [{ translateY: footerTranslateY }],
+              },
+            ]}
           >
-            <View style={[styles.actionFooterInner, { paddingHorizontal: gutter }]}>
+            <View style={[styles.stickyFooterInner, { paddingHorizontal: gutter }]}>
               <View style={styles.cancelAction}>
                 <Button
                   label="Cancel"
@@ -325,7 +444,7 @@ export default function EditProfileScreen() {
                 />
               </View>
             </View>
-          </View>
+          </Animated.View>
         </View>
       )}
     </Screen>
@@ -423,27 +542,29 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: theme.textPrimary,
   },
-  chipTextSelected: {
-    color: theme.onPrimary,
-  },
-  actionFooter: {
+  stickyOverlayFooter: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: theme.surface,
     borderTopWidth: 1,
     borderTopColor: theme.borderSubtle,
-    paddingTop: spacing.sm,
-    elevation: 8,
+    paddingTop: spacing.md,
+    elevation: 12,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
+    shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowRadius: 10,
   },
-  actionFooterInner: {
+  stickyFooterInner: {
     width: "100%",
     maxWidth: 720,
     alignSelf: "center",
     flexDirection: "row",
-    gap: spacing.sm,
+    alignItems: "center",
+    gap: spacing.md,
   },
-  cancelAction: { flex: 0.72 },
-  saveAction: { flex: 1.28 },
+  cancelAction: { flex: 0.85 },
+  saveAction: { flex: 1.15 },
 });

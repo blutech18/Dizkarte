@@ -12,6 +12,9 @@ export function reviewStatusTone(status: string): BadgeTone {
   }
 }
 
+/** Every review moderation state. HIDDEN is the normal pre-reveal state. */
+export const REVIEW_STATUS_OPTIONS = ["HIDDEN", "REVEALED", "MODERATED"] as const;
+
 export function reviewStatusLabel(status: string): string {
   switch (status) {
     case "REVEALED":

@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import type { AdminCapability } from "@dizkarte/domain";
 import { BOTTOM_NAV_ITEMS, isNavItemVisible } from "@/lib/nav";
+import { AppLink } from "@/components/ui/AppLink";
 
 /**
  * Mobile-only always-visible quick-nav bar, mirroring Airtasker's app bottom
@@ -25,14 +26,14 @@ export function BottomNav({
           const Icon = item.icon;
           return (
             <li key={item.href}>
-              <a
+              <AppLink
                 href={item.href}
                 className="dk-bottom-nav-item"
                 aria-current={active ? "page" : undefined}
               >
                 {Icon ? <Icon width={20} height={20} aria-hidden="true" /> : null}
                 <span>{item.label}</span>
-              </a>
+              </AppLink>
             </li>
           );
         })}

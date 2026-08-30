@@ -1,75 +1,60 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { AppLink } from "@/components/ui/AppLink";
 import { requirePageCapability } from "@/lib/guard";
 import { getAdminRepository } from "@/lib/repository";
+import { formatDateTime, formatElapsed } from "@/lib/datetime";
 import { Breadcrumbs } from "@/components/ui/Field";
 import { PageSection, Pagination } from "@/components/ui/Pagination";
-import { EmptyState } from "@/components/ui/AsyncState";
+import { EmptyState, TableRegionSkeleton } from "@/components/ui/AsyncState";
+import { QueueFilters } from "@/components/ui/QueueFilters";
 import { RecordList, type ColumnDef } from "@/components/ui/RecordList";
-import { StatusBadge, type BadgeTone } from "@/components/ui/StatusBadge";
+import { StatusBadge } from "@/components/ui/StatusBadge";
+import { NotApplicable } from "@/components/ui/NotApplicable";
 import type { TaskerApplicationRow } from "@/lib/repository/types";
+import {
+  TASKER_STATUS_OPTIONS,
+  isAwaitingAdminDecision,
+  taskerApplicationStatusLabel,
+  taskerApplicationStatusTone,
+} from "./status";
 
 export const metadata: Metadata = { title: "Tasker applications" };
 
 const PAGE_SIZE = 20;
 
-function tone(status: string): BadgeTone {
-  switch (status) {
-    case "APPROVED":
-      return "success";
-    case "REJECTED":
-    case "SUSPENDED":
-      return "error";
-    case "RESUBMISSION_REQUIRED":
-      return "warning";
-    case "IN_REVIEW":
-      return "info";
-    default:
-      return "neutral";
-  }
-}
+type TaskerApplicationsQuery = {
+  readonly page: number;
+  readonly active: string | undefined;
+  readonly search: string;
+};
 
+/**
+ * Tasker applications queue.
+ *
+ * The shell — breadcrumbs, heading, filter row — depends on no query, so it is
+ * returned immediately and the results table streams in behind its own Suspense
+ * boundary. Awaiting the query here instead would hold back the whole page,
+ * including controls the operator can already read and use.
+ *
+ * The boundary is keyed by the applied filters so changing a filter shows the
+ * skeleton again rather than leaving the previous result set on screen looking
+ * like the answer to the new query.
+ */
 export default async function TaskerApplicationsPage({
   searchParams,
 }: {
-  readonly searchParams: Promise<{ status?: string; page?: string }>;
+  readonly searchParams: Promise<{ status?: string; page?: string; q?: string }>;
 }) {
   await requirePageCapability(["ADMIN_SUPPORT"]);
-  const { status, page: pageParam } = await searchParams;
+  const { status, page: pageParam, q } = await searchParams;
   const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
-  const repository = getAdminRepository();
-  const result = await repository.listTaskerApplications({
-    page,
-    pageSize: PAGE_SIZE,
-    ...(status ? { status } : {}),
-  });
-
-  const columns: ReadonlyArray<ColumnDef<TaskerApplicationRow>> = [
-    {
-      key: "user",
-      header: "Applicant",
-      render: (row) => <a href={`/taskers/${row.id}`}>{row.userDisplayName}</a>,
-    },
-    { key: "specialties", header: "Specialties", render: (row) => row.specialties.join(", ") },
-    {
-      key: "status",
-      header: "Status",
-      render: (row) => (
-        <StatusBadge tone={tone(row.status)} label={row.status.replace(/_/g, " ")} />
-      ),
-    },
-    {
-      key: "submittedAt",
-      header: "Submitted",
-      render: (row) => new Date(row.submittedAt).toLocaleString("en-PH"),
-    },
-  ];
-
-  function hrefFor(nextPage: number): string {
-    const params = new URLSearchParams();
-    if (status) params.set("status", status);
-    params.set("page", String(nextPage));
-    return `/taskers?${params.toString()}`;
-  }
+  const search = q?.trim() ?? "";
+  // An unrecognised value must not be passed to the query as a filter nobody
+  // can clear; it falls back to every application.
+  const active = (TASKER_STATUS_OPTIONS as ReadonlyArray<string>).includes(status ?? "")
+    ? status
+    : undefined;
 
   return (
     <>
@@ -78,32 +63,129 @@ export default async function TaskerApplicationsPage({
       />
       <PageSection
         title="Tasker applications"
-        subtitle="Application approval is separate from identity verification and is revocable/suspendable at any time."
+        subtitle="Application approval is separate from identity verification and is revocable or suspendable at any time."
       >
-        {result.items.length === 0 ? (
-          <EmptyState
-            title="No applications"
-            description="There are no applications matching this filter."
-          />
-        ) : (
-          <>
-            <RecordList
-              rows={result.items}
-              columns={columns}
-              getRowKey={(row) => row.id}
-              caption="Tasker applications"
-              cardTitle={(row) => row.userDisplayName}
-            />
-            <Pagination
-              page={result.page}
-              pageSize={result.pageSize}
-              total={result.total}
-              hasMore={result.hasMore}
-              makeHref={hrefFor}
-            />
-          </>
-        )}
+        <QueueFilters
+          basePath="/taskers"
+          search={{
+            label: "Search applications by applicant name",
+            placeholder: "Search by applicant name",
+            value: search,
+          }}
+          selects={[
+            {
+              name: "status",
+              label: "Filter by application status",
+              allLabel: "All applications",
+              value: active,
+              options: TASKER_STATUS_OPTIONS.map((option) => ({
+                value: option,
+                label: taskerApplicationStatusLabel(option),
+              })),
+            },
+          ]}
+        />
+
+        <Suspense
+          key={`${search}|${active ?? ""}|${page}`}
+          fallback={<TableRegionSkeleton columns={5} />}
+        >
+          <TaskerApplicationsTable page={page} active={active} search={search} />
+        </Suspense>
       </PageSection>
+    </>
+  );
+}
+
+async function TaskerApplicationsTable({ page, active, search }: TaskerApplicationsQuery) {
+  const repository = getAdminRepository();
+  const result = await repository.listTaskerApplications({
+    page,
+    pageSize: PAGE_SIZE,
+    ...(active ? { status: active } : {}),
+    ...(search ? { query: search } : {}),
+  });
+
+  const columns: ReadonlyArray<ColumnDef<TaskerApplicationRow>> = [
+    {
+      key: "user",
+      header: "Applicant",
+      showInCard: false,
+      render: (row) => <AppLink href={`/taskers/${row.id}`}>{row.userDisplayName}</AppLink>,
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (row) => (
+        <StatusBadge
+          tone={taskerApplicationStatusTone(row.status)}
+          label={taskerApplicationStatusLabel(row.status)}
+        />
+      ),
+    },
+    {
+      key: "specialties",
+      header: "Specialties",
+      render: (row) =>
+        row.specialties.length === 0 ? (
+          <span className="dk-muted">None listed</span>
+        ) : (
+          row.specialties.join(", ")
+        ),
+    },
+    {
+      key: "submittedAt",
+      header: "Submitted",
+      render: (row) => <time dateTime={row.submittedAt}>{formatDateTime(row.submittedAt)}</time>,
+    },
+    {
+      key: "waiting",
+      header: "Waiting",
+      // Only meaningful while the applicant is waiting on this team.
+      render: (row) =>
+        isAwaitingAdminDecision(row.status) ? formatElapsed(row.submittedAt) : <NotApplicable />,
+    },
+  ];
+
+  function hrefFor(nextPage: number): string {
+    const params = new URLSearchParams();
+    params.set("status", active ?? "all");
+    if (search) params.set("q", search);
+    params.set("page", String(nextPage));
+    return `/taskers?${params.toString()}`;
+  }
+
+  if (result.items.length === 0) {
+    return (
+      <EmptyState
+        title={search ? `No applications match “${search}”` : "No applications"}
+        description={
+          search
+            ? "No applicant matches that name. Check the spelling, or search a different person."
+            : active
+              ? `No application is currently ${taskerApplicationStatusLabel(active).toLowerCase()}.`
+              : "There are no applications to review right now."
+        }
+      />
+    );
+  }
+
+  return (
+    <>
+      <RecordList
+        rows={result.items}
+        columns={columns}
+        getRowKey={(row) => row.id}
+        caption="Tasker applications"
+        cardTitle={(row) => <AppLink href={`/taskers/${row.id}`}>{row.userDisplayName}</AppLink>}
+      />
+      <Pagination
+        page={result.page}
+        pageSize={result.pageSize}
+        total={result.total}
+        hasMore={result.hasMore}
+        makeHref={hrefFor}
+      />
     </>
   );
 }

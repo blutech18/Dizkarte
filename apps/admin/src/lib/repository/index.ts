@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { loadServerConfig, isDevAdapterActive } from "../config";
 import { getSyntheticAdminRepository } from "./synthetic-admin-repository";
 import { createSupabaseAdminRepository } from "./supabase-admin-repository";
@@ -31,8 +32,12 @@ function syntheticOptIn(): boolean {
  * The synthetic adapter is only returned when `ADMIN_DATA_ADAPTER=synthetic` is
  * set AND the environment is development/test — so staging/production can never
  * be served fabricated data even by misconfiguration.
+ *
+ * Wrapped in React `cache()` so the protected layout and the page it renders
+ * share one instance, and therefore one cookie-backed Supabase client, instead
+ * of constructing a second one per navigation.
  */
-export function getAdminRepository(): AdminRepository {
+export const getAdminRepository = cache((): AdminRepository => {
   const config = loadServerConfig();
   if (syntheticOptIn()) {
     if (!isDevAdapterActive(config)) {
@@ -43,4 +48,4 @@ export function getAdminRepository(): AdminRepository {
     return getSyntheticAdminRepository();
   }
   return createSupabaseAdminRepository();
-}
+});

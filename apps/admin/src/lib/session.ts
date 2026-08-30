@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import type { AdminCapability, UserCapability } from "@dizkarte/domain";
 import { ADMIN_CAPABILITIES } from "@dizkarte/domain";
 import { loadUserContext } from "@dizkarte/adapter-supabase";
@@ -120,8 +121,16 @@ export async function updateAdminPassword(newPassword: string): Promise<LoginRes
 /**
  * Read the current Admin session without throwing. Returns null when signed
  * out or when the authenticated user holds no Admin capability.
+ *
+ * Wrapped in React `cache()` so it runs at most once per request. Without it a
+ * single navigation paid for the same work twice — the protected layout calls
+ * `requireAdminSession`, then the page calls it again through
+ * `requirePageCapability` — and each call is a network round-trip to Supabase
+ * Auth (`auth.getUser`) plus a capability query. The cache is request-scoped, so
+ * two different requests never share a session, and revoking a capability still
+ * takes effect on the very next navigation.
  */
-export async function readSession(): Promise<AdminSession | null> {
+export const readSession = cache(async (): Promise<AdminSession | null> => {
   const client = await createSupabaseServerClient();
   const { data, error } = await client.auth.getUser();
   if (error || !data.user) return null;
@@ -139,7 +148,7 @@ export async function readSession(): Promise<AdminSession | null> {
     capabilities: adminCaps,
     synthetic: false,
   };
-}
+});
 
 export class AdminAuthorizationError extends Error {
   constructor(message: string) {

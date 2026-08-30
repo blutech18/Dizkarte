@@ -7,8 +7,14 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useMarketplace } from "./MarketplaceProvider";
 import { useSession } from "./SessionProvider";
+import {
+  CATEGORY_CACHE_KEY,
+  parseCachedCategories,
+  serializeCategories,
+} from "../services/marketplace/category-cache";
 import type { MarketplaceCategory } from "../services/marketplace/types";
 
 type CategoriesContextValue = {
@@ -33,6 +39,12 @@ const CategoriesContext = createContext<CategoriesContextValue | null>(null);
  * locally hardcoded list would fail the foreign key on task creation and make
  * real tasks render as uncategorized, which is why this is fetched rather than
  * bundled.
+ *
+ * Reads are stale-while-revalidate: the last known catalog is restored from
+ * local storage first so the screens that name a category can render on the
+ * first frame, then the network result replaces it. The cache only ever
+ * accelerates the first paint — it is never treated as authoritative, and a
+ * successful fetch always wins.
  */
 export function CategoriesProvider({ children }: { readonly children: ReactNode }) {
   const { repository } = useMarketplace();
@@ -53,15 +65,44 @@ export function CategoriesProvider({ children }: { readonly children: ReactNode 
 
     let active = true;
     setLoading(true);
+
+    // Hydrate from the cache and revalidate concurrently: the fetch is not
+    // waiting on local storage, and a cached catalog that loses the race to the
+    // network is discarded rather than overwriting fresher data.
+    let revalidated = false;
+
+    AsyncStorage.getItem(CATEGORY_CACHE_KEY)
+      .then((raw) => {
+        if (!active || revalidated) return;
+        const cached = parseCachedCategories(raw);
+        if (cached) {
+          setCategories(cached);
+          // Screens can render real names now; the refresh continues silently.
+          setLoading(false);
+        }
+      })
+      .catch(() => {
+        // An unreadable cache is not a failure — the fetch is the real source.
+      });
+
     repository
       .listCategories()
       .then((result) => {
-        if (active) setCategories(result);
+        revalidated = true;
+        if (!active) return;
+        setCategories(result);
+        if (result.length > 0) {
+          void AsyncStorage.setItem(CATEGORY_CACHE_KEY, serializeCategories(result)).catch(
+            () => undefined,
+          );
+        }
       })
       .catch(() => {
-        // A catalog failure must not break the screen; pickers render their own
-        // empty state and the browse filter simply offers no category option.
-        if (active) setCategories([]);
+        revalidated = true;
+        // A catalog failure must not break the screen. Anything already restored
+        // from the cache is deliberately kept — dropping it would replace usable
+        // names with an empty picker over a transient network error, and a first
+        // run with no cache still shows the same empty state as before.
       })
       .finally(() => {
         if (active) setLoading(false);
