@@ -14,7 +14,6 @@ import {
   type KeyboardEvent,
 } from "react-native";
 import { Redirect, Stack, router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Screen } from "../src/components/ui/Screen";
 import { TextField } from "../src/components/ui/TextField";
 import { Button } from "../src/components/ui/Button";
@@ -43,7 +42,6 @@ const REVIEW_STATUSES = new Set<TaskerApplicationRecord["status"]>(["SUBMITTED",
 export default function TaskerApplicationScreen() {
   const { session, status: sessionStatus } = useSession();
   const { repository, notifyChanged } = useMarketplace();
-  const insets = useSafeAreaInsets();
   const { gutter, isTablet } = useResponsiveLayout();
   const userId = session?.userId ?? null;
   const scrollRef = useRef<ScrollView>(null);
@@ -104,22 +102,21 @@ export default function TaskerApplicationScreen() {
     };
   }, [footerOpacity, footerTranslateY]);
 
-  const scrollContentRef = useRef<View>(null);
   const bioFieldRef = useRef<View>(null);
   const experienceFieldRef = useRef<View>(null);
   const serviceAreaRef = useRef<View>(null);
 
   const scrollToRef = useCallback((ref: React.RefObject<View | null>) => {
     if (!ref.current || !scrollRef.current) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ref.current.measureLayout(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       scrollRef.current as unknown as any,
-      (x, y, w, h) => {
+      (_x, y, _w, h) => {
         // Visible screen above the keyboard
         const { height: screenHeight } = Dimensions.get("window");
         const visibleHeight = screenHeight - keyboardHeightRef.current;
-        // Place the field near the top of the visible area with a small gap
-        const targetY = y - Math.max(16, (visibleHeight - h) / 4);
+        const targetTopInViewport = Math.max(24, (visibleHeight - h) / 2);
+        const targetY = y - targetTopInViewport;
         scrollRef.current?.scrollTo({ y: Math.max(0, targetY), animated: true });
       },
       () => {},
@@ -977,3 +974,7 @@ const styles = StyleSheet.create({
     flex: 1.15,
   },
 });
+
+
+
+

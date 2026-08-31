@@ -1,4 +1,9 @@
-import roster from "./dev-accounts.json";
+// The import attribute is required, not decorative: Node's ESM loader refuses a
+// JSON import without it (`ERR_IMPORT_ATTRIBUTE_MISSING`), so omitting it made
+// this package — and `@dizkarte/domain`, which re-exports through it —
+// unimportable from a plain `node script.mjs`. Bundlers resolve JSON themselves,
+// which is why the apps never noticed.
+import roster from "./dev-accounts.json" with { type: "json" };
 
 /**
  * Development account roster, read from the single shared JSON file that also

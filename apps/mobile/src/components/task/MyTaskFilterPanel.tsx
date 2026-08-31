@@ -455,16 +455,17 @@ export function MyTaskFilterPanel({
             />
           </View>
         </View>
-      </BottomSheetModal>
 
-      <CalendarPickerModal
-        visible={visible && activeDateField !== null}
-        selectedDate={calendarDate}
-        title={activeDateField === "from" ? "Select start date" : "Select end date"}
-        confirmLabel={activeDateField === "from" ? "Use as start date" : "Use as end date"}
-        onConfirm={handleDateConfirm}
-        onClose={() => setActiveDateField(null)}
-      />
+        <CalendarPickerModal
+          visible={activeDateField !== null}
+          useModal={false}
+          selectedDate={calendarDate}
+          title={activeDateField === "from" ? "Select start date" : "Select end date"}
+          confirmLabel={activeDateField === "from" ? "Use as start date" : "Use as end date"}
+          onConfirm={handleDateConfirm}
+          onClose={() => setActiveDateField(null)}
+        />
+      </BottomSheetModal>
     </>
   );
 }

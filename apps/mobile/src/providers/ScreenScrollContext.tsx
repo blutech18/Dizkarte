@@ -1,6 +1,13 @@
 import type { ReactNode, RefObject } from "react";
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { Dimensions, Keyboard, Platform, ScrollView, View, type KeyboardEvent } from "react-native";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import {
+  Dimensions,
+  Keyboard,
+  Platform,
+  type KeyboardEvent,
+  type ScrollView,
+  type View,
+} from "react-native";
 
 export type ScreenScrollContextValue = {
   readonly scrollViewRef: RefObject<ScrollView | null>;
@@ -32,15 +39,16 @@ export function ScreenScrollProvider({ scrollViewRef, children }: ScreenScrollPr
 
       const runMeasure = () => {
         try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           node.measureLayout(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             scrollViewRef.current as unknown as any,
             (_x, y, _width, height) => {
               const { height: screenHeight } = Dimensions.get("window");
               const currentKbHeight =
                 keyboardHeightRef.current > 0 ? keyboardHeightRef.current : 300;
               const visibleHeight = screenHeight - currentKbHeight;
-              const targetY = y - Math.max(16, (visibleHeight - height) / 4);
+              const targetTopInViewport = Math.max(24, (visibleHeight - height) / 2);
+              const targetY = y - targetTopInViewport;
               scrollViewRef.current?.scrollTo({ y: Math.max(0, targetY), animated: true });
             },
             () => {},
@@ -107,3 +115,4 @@ export function ScreenScrollProvider({ scrollViewRef, children }: ScreenScrollPr
     </ScreenScrollContext.Provider>
   );
 }
+

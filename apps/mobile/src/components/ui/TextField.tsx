@@ -43,6 +43,7 @@ export function TextField({
   const screenScroll = useScreenScroll();
   const internalContainerRef = useRef<View>(null);
   const isPasswordField = secureTextEntry !== undefined;
+  const isEditable = inputProps.editable !== false;
   const [isSecure, setIsSecure] = useState(Boolean(secureTextEntry));
   const [isFocused, setIsFocused] = useState(false);
 
@@ -65,6 +66,7 @@ export function TextField({
       <View
         style={[
           styles.inputWrapper,
+          !isEditable ? styles.inputWrapperDisabled : null,
           multiline ? styles.inputWrapperMultiline : null,
           isFocused ? styles.inputWrapperFocused : null,
           error ? styles.inputError : null,
@@ -73,7 +75,9 @@ export function TextField({
         <TextInput
           spellCheck={false}
           {...inputProps}
+          editable={isEditable}
           onFocus={(e) => {
+            if (!isEditable) return;
             setIsFocused(true);
             screenScroll?.scrollToRef(internalContainerRef);
             inputProps.onFocus?.(e);
@@ -88,7 +92,12 @@ export function TextField({
           accessibilityLabel={label}
           accessibilityLabelledBy={`${fieldId}-label`}
           accessibilityHint={description}
-          style={[styles.input, multiline ? styles.inputMultiline : null, noWebOutline]}
+          style={[
+            styles.input,
+            !isEditable ? styles.inputDisabled : null,
+            multiline ? styles.inputMultiline : null,
+            noWebOutline,
+          ]}
           placeholderTextColor={theme.textSecondary}
         />
         {isPasswordField ? (
@@ -142,6 +151,10 @@ const styles = StyleSheet.create({
     backgroundColor: theme.surface,
     paddingRight: spacing.xs,
   },
+  inputWrapperDisabled: {
+    backgroundColor: theme.surfaceSubtle,
+    borderColor: theme.borderSubtle,
+  },
   inputWrapperFocused: {
     borderColor: theme.primary,
   },
@@ -161,6 +174,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     color: theme.textPrimary,
     fontSize: fontSize.md,
+  },
+  inputDisabled: {
+    color: theme.textSecondary,
   },
   inputMultiline: {
     minHeight: 116,

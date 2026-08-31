@@ -34,6 +34,25 @@ export const passwordResetConfirmSchema = z.object({
 });
 export type PasswordResetConfirmInput = z.infer<typeof passwordResetConfirmSchema>;
 
+/**
+ * Setting a new password on a screen that asks for it twice.
+ *
+ * `confirm` is compared rather than validated: applying the password rules to
+ * both fields would report the same length complaint twice for one mistake. The
+ * mismatch is reported on `confirm`, which is the field the user should retype,
+ * not on the password they have already committed to.
+ */
+export const passwordUpdateSchema = z
+  .object({
+    password: passwordSchema,
+    confirm: z.string().max(128),
+  })
+  .refine((value) => value.password === value.confirm, {
+    path: ["confirm"],
+    message: "Passwords do not match.",
+  });
+export type PasswordUpdateInput = z.infer<typeof passwordUpdateSchema>;
+
 /** Common profile update (safe fields only; account status is server-controlled). */
 export const profileUpdateSchema = z.object({
   displayName: z.string().trim().min(2).max(80).optional(),

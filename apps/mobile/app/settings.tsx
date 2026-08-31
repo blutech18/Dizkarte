@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import { router, Stack } from "expo-router";
 import Constants from "expo-constants";
 import { profileUpdateSchema, passwordSchema } from "@dizkarte/domain";
@@ -82,6 +82,88 @@ export default function SettingsScreen() {
   const [passwordMessage, setPasswordMessage] = useState<{ ok: boolean; text: string } | null>(
     null,
   );
+
+  const isProfileDirty = useMemo(() => {
+    if (!profile) return false;
+    const currentName = displayName.trim();
+    const origName = profile.displayName.trim();
+    const currentMobile = mobile.trim();
+    const origMobile = (profile.mobile ?? "").trim();
+    return currentName !== origName || currentMobile !== origMobile;
+  }, [profile, displayName, mobile]);
+
+  const isPasswordDirty = useMemo(() => {
+    return newPassword.length > 0 || confirmPassword.length > 0;
+  }, [newPassword, confirmPassword]);
+
+  // Smooth animation for Profile Details action buttons
+  const profileActionAnim = useRef(new Animated.Value(0)).current;
+  const [profileActionMounted, setProfileActionMounted] = useState(false);
+
+  useEffect(() => {
+    const isDirty = isProfileDirty || saving;
+    if (isDirty) {
+      setProfileActionMounted(true);
+      Animated.timing(profileActionAnim, {
+        toValue: 1,
+        duration: 260,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }).start();
+    } else {
+      Animated.timing(profileActionAnim, {
+        toValue: 0,
+        duration: 220,
+        easing: Easing.inOut(Easing.cubic),
+        useNativeDriver: false,
+      }).start(({ finished }) => {
+        if (finished) {
+          setProfileActionMounted(false);
+        }
+      });
+    }
+  }, [isProfileDirty, saving, profileActionAnim]);
+
+  const handleCancelProfile = useCallback(() => {
+    if (!profile) return;
+    setDisplayName(profile.displayName);
+    setMobile(profile.mobile ?? "");
+    setError(undefined);
+  }, [profile]);
+
+  // Smooth animation for Password action buttons
+  const passwordActionAnim = useRef(new Animated.Value(0)).current;
+  const [passwordActionMounted, setPasswordActionMounted] = useState(false);
+
+  useEffect(() => {
+    const isDirty = isPasswordDirty || passwordSaving;
+    if (isDirty) {
+      setPasswordActionMounted(true);
+      Animated.timing(passwordActionAnim, {
+        toValue: 1,
+        duration: 260,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }).start();
+    } else {
+      Animated.timing(passwordActionAnim, {
+        toValue: 0,
+        duration: 220,
+        easing: Easing.inOut(Easing.cubic),
+        useNativeDriver: false,
+      }).start(({ finished }) => {
+        if (finished) {
+          setPasswordActionMounted(false);
+        }
+      });
+    }
+  }, [isPasswordDirty, passwordSaving, passwordActionAnim]);
+
+  const handleCancelPassword = useCallback(() => {
+    setNewPassword("");
+    setConfirmPassword("");
+    setPasswordMessage(null);
+  }, []);
 
   const userId = session?.userId ?? null;
 
@@ -251,25 +333,27 @@ export default function SettingsScreen() {
               description="Complete your account to build trust and unlock the best marketplace experience."
               trailing={<Text style={styles.completePct}>{completeness.pct}%</Text>}
             >
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFill, { width: `${completeness.pct}%` }]} />
+              <View style={styles.completenessContent}>
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFill, { width: `${completeness.pct}%` }]} />
+                </View>
+                {completeness.missing.length > 0 ? (
+                  <View style={styles.completenessActionGroup}>
+                    <Text style={styles.sectionHint}>
+                      Add your {completeness.missing.join(", ")} to complete your profile.
+                    </Text>
+                    <Button
+                      label="Complete your profile"
+                      variant="secondary"
+                      icon="user"
+                      onPress={() => router.push("/profile/edit")}
+                      fullWidth
+                    />
+                  </View>
+                ) : (
+                  <Text style={styles.sectionHint}>Your profile is complete — nice work!</Text>
+                )}
               </View>
-              {completeness.missing.length > 0 ? (
-                <>
-                  <Text style={styles.sectionHint}>
-                    Add your {completeness.missing.join(", ")} to complete your profile.
-                  </Text>
-                  <Button
-                    label="Complete your profile"
-                    variant="secondary"
-                    icon="user"
-                    onPress={() => router.push("/profile/edit")}
-                    fullWidth
-                  />
-                </>
-              ) : (
-                <Text style={styles.sectionHint}>Your profile is complete — nice work!</Text>
-              )}
             </ProfilePageSection>
           ) : null}
 
@@ -281,12 +365,12 @@ export default function SettingsScreen() {
                 title="Profile details"
                 description="Your private account name, email, and mobile number."
               >
-                <View style={styles.readonlyRow}>
-                  <Text style={styles.readonlyLabel}>Email</Text>
-                  <Text style={styles.readonlyValue} numberOfLines={1}>
-                    {session?.email ?? "—"}
-                  </Text>
-                </View>
+                <TextField
+                  label="Email"
+                  value={session?.email ?? ""}
+                  editable={false}
+                  textContentType="emailAddress"
+                />
                 <TextField
                   label="Full name"
                   value={displayName}
@@ -305,13 +389,54 @@ export default function SettingsScreen() {
                   }}
                   keyboardType="phone-pad"
                   description="Philippine mobile number, e.g. 0917 123 4567"
+                  containerStyle={styles.lastFieldNoMargin}
                 />
-                <Button
-                  label={saving ? "Saving…" : "Save changes"}
-                  onPress={() => void handleSave()}
-                  loading={saving}
-                  fullWidth
-                />
+                {profileActionMounted ? (
+                  <Animated.View
+                    style={[
+                      styles.animatedButtonGroup,
+                      {
+                        opacity: profileActionAnim,
+                        maxHeight: profileActionAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, 60],
+                        }),
+                        marginTop: profileActionAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, spacing.md],
+                        }),
+                        transform: [
+                          {
+                            translateY: profileActionAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [8, 0],
+                            }),
+                          },
+                        ],
+                      },
+                    ]}
+                  >
+                    <View style={styles.buttonRow}>
+                      <View style={styles.buttonCol}>
+                        <Button
+                          label="Cancel"
+                          variant="secondary"
+                          onPress={handleCancelProfile}
+                          disabled={saving}
+                          fullWidth
+                        />
+                      </View>
+                      <View style={styles.buttonCol}>
+                        <Button
+                          label={saving ? "Saving…" : "Save changes"}
+                          onPress={() => void handleSave()}
+                          loading={saving}
+                          fullWidth
+                        />
+                      </View>
+                    </View>
+                  </Animated.View>
+                ) : null}
               </ProfilePageSection>
             </View>
 
@@ -377,21 +502,21 @@ export default function SettingsScreen() {
                 title="App information"
                 description="Build and account identifiers used for support."
               >
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Version</Text>
-                  <Text style={styles.infoValue}>{APP_VERSION}</Text>
-                </View>
-                <View style={styles.divider} />
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Environment</Text>
-                  <StatusBadge tone="neutral" label={environmentLabel()} />
-                </View>
-                <View style={styles.divider} />
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Account ID</Text>
-                  <Text style={styles.infoValueMono} numberOfLines={1}>
-                    {session?.userId ? `${session.userId.slice(0, 8)}…` : "—"}
-                  </Text>
+                <View style={styles.infoGroup}>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Version</Text>
+                    <Text style={styles.infoValue}>{APP_VERSION}</Text>
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Environment</Text>
+                    <StatusBadge tone="neutral" label={environmentLabel()} />
+                  </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Account ID</Text>
+                    <Text style={styles.infoValueMono} numberOfLines={1}>
+                      {session?.userId ? `${session.userId.slice(0, 8)}…` : "—"}
+                    </Text>
+                  </View>
                 </View>
               </ProfilePageSection>
             </View>
@@ -429,13 +554,54 @@ export default function SettingsScreen() {
                   onChangeText={setConfirmPassword}
                   secureTextEntry
                   textContentType="newPassword"
+                  containerStyle={styles.lastFieldNoMargin}
                 />
-                <Button
-                  label={passwordSaving ? "Updating…" : "Update password"}
-                  onPress={() => void handleChangePassword()}
-                  loading={passwordSaving}
-                  fullWidth
-                />
+                {passwordActionMounted ? (
+                  <Animated.View
+                    style={[
+                      styles.animatedButtonGroup,
+                      {
+                        opacity: passwordActionAnim,
+                        maxHeight: passwordActionAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, 60],
+                        }),
+                        marginTop: passwordActionAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, spacing.md],
+                        }),
+                        transform: [
+                          {
+                            translateY: passwordActionAnim.interpolate({
+                              inputRange: [0, 1],
+                              outputRange: [8, 0],
+                            }),
+                          },
+                        ],
+                      },
+                    ]}
+                  >
+                    <View style={styles.buttonRow}>
+                      <View style={styles.buttonCol}>
+                        <Button
+                          label="Cancel"
+                          variant="secondary"
+                          onPress={handleCancelPassword}
+                          disabled={passwordSaving}
+                          fullWidth
+                        />
+                      </View>
+                      <View style={styles.buttonCol}>
+                        <Button
+                          label={passwordSaving ? "Updating…" : "Update password"}
+                          onPress={() => void handleChangePassword()}
+                          loading={passwordSaving}
+                          fullWidth
+                        />
+                      </View>
+                    </View>
+                  </Animated.View>
+                ) : null}
               </ProfilePageSection>
             </View>
           </View>
@@ -508,11 +674,16 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     flex: 1,
   },
+  completenessContent: {
+    gap: spacing.md,
+  },
+  completenessActionGroup: {
+    gap: spacing.md,
+  },
   sectionHint: {
     fontSize: fontSize.sm,
     color: theme.textSecondary,
     lineHeight: lineHeight.sm,
-    marginBottom: spacing.xs,
   },
   completePct: {
     fontSize: fontSize.md,
@@ -524,33 +695,11 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     backgroundColor: theme.surfaceSubtle,
     overflow: "hidden",
-    marginVertical: spacing.sm,
   },
   progressFill: {
     height: 8,
     borderRadius: radii.pill,
     backgroundColor: theme.primary,
-  },
-  readonlyRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.borderSubtle,
-    marginBottom: spacing.xs,
-    gap: spacing.md,
-  },
-  readonlyLabel: {
-    fontSize: fontSize.sm,
-    color: theme.textSecondary,
-    fontWeight: "500",
-  },
-  readonlyValue: {
-    fontSize: fontSize.sm,
-    color: theme.textPrimary,
-    fontWeight: "600",
-    flexShrink: 1,
   },
   languageRow: {
     flexDirection: "row",
@@ -591,11 +740,13 @@ const styles = StyleSheet.create({
     color: theme.onPrimary,
     opacity: 0.8,
   },
+  infoGroup: {
+    gap: spacing.md,
+  },
   infoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: spacing.xs,
   },
   infoLabel: {
     fontSize: fontSize.sm,
@@ -614,8 +765,18 @@ const styles = StyleSheet.create({
     fontFamily: "monospace",
     maxWidth: "50%" as unknown as number,
   },
-  divider: {
-    height: 1,
-    backgroundColor: theme.borderSubtle,
+  lastFieldNoMargin: {
+    marginBottom: 0,
+  },
+  animatedButtonGroup: {
+    overflow: "hidden",
+  },
+  buttonRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+  },
+  buttonCol: {
+    flex: 1,
   },
 });

@@ -1,9 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Animated,
   Easing,
   Image,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,7 +13,13 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
+import Svg, {
+  Defs,
+  LinearGradient,
+  RadialGradient,
+  Rect,
+  Stop,
+} from "react-native-svg";
 import { Button } from "../../src/components/ui/Button";
 import { Icon, type IconName } from "../../src/components/ui/Icon";
 import {
@@ -25,91 +32,158 @@ import {
 } from "../../src/theme";
 
 /* eslint-disable @typescript-eslint/no-require-imports -- static asset requires are standard RN */
-/**
- * A decorative sample of the category art. Deliberately static, not the live
- * catalog: the visitor is signed out and the categories table is
- * authenticated-only, so fetching it here would 401. These illustrate the kind
- * of work the marketplace covers; the real, current catalog appears once the
- * user is in.
- */
-const CATEGORY_STRIP: ReadonlyArray<{ readonly art: ImageSourcePropType; readonly label: string }> =
-  [
-    { art: require("../../assets/icons/cleaning.png"), label: "Cleaning" },
-    { art: require("../../assets/icons/repairs-installations.png"), label: "Repairs" },
-    { art: require("../../assets/icons/furniture-assembly.png"), label: "Assembly" },
-    { art: require("../../assets/icons/removals.png"), label: "Removals" },
-    { art: require("../../assets/icons/painting.png"), label: "Painting" },
-    { art: require("../../assets/icons/gardening.png"), label: "Gardening" },
-  ];
-/* eslint-enable @typescript-eslint/no-require-imports */
-
-const VALUE_PROPS: ReadonlyArray<{
-  readonly icon: IconName;
-  readonly title: string;
-  readonly body: string;
+const CATEGORIES: ReadonlyArray<{
+  readonly id: string;
+  readonly label: string;
+  readonly art: ImageSourcePropType;
 }> = [
   {
-    icon: "shield",
-    title: "Verified Taskers",
-    body: "Every Tasker passes manual identity review before they can offer on your task.",
+    id: "cleaning",
+    label: "Cleaning",
+    art: require("../../assets/icons/cleaning.png"),
   },
   {
-    icon: "wallet",
-    title: "Protected payments",
-    body: "Your payment is held securely and only released once you confirm the work is done.",
+    id: "repairs",
+    label: "Repairs",
+    art: require("../../assets/icons/repairs-installations.png"),
   },
   {
-    icon: "star",
-    title: "Rated by locals",
-    body: "Choose with confidence using honest reviews from other people in your area.",
+    id: "assembly",
+    label: "Assembly",
+    art: require("../../assets/icons/furniture-assembly.png"),
+  },
+  {
+    id: "removals",
+    label: "Removals",
+    art: require("../../assets/icons/removals.png"),
+  },
+  {
+    id: "painting",
+    label: "Painting",
+    art: require("../../assets/icons/painting.png"),
+  },
+  {
+    id: "gardening",
+    label: "Gardening",
+    art: require("../../assets/icons/gardening.png"),
   },
 ];
 
-/**
- * Airtasker-style landing.
- *
- * A tall, scrollable hero rather than a centred card: a bold headline and the
- * primary action up top, an at-a-glance strip of what the marketplace does, and
- * the reasons to trust it below. Roomy by design, matching the product direction.
- */
+const TRUST_BADGES: ReadonlyArray<{
+  readonly icon: IconName;
+  readonly label: string;
+}> = [
+  {
+    icon: "shield",
+    label: "Verified",
+  },
+  {
+    icon: "wallet",
+    label: "Protected",
+  },
+  {
+    icon: "star",
+    label: "Rated",
+  },
+];
+/* eslint-enable @typescript-eslint/no-require-imports */
+
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
   const { gutter, contentWidth, isTablet } = useResponsiveLayout();
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const translateYAnim = useRef(new Animated.Value(18)).current;
+
+  // Opening animation states
+  const [splashFinished, setSplashFinished] = useState(false);
+  const splashOpacity = useRef(new Animated.Value(1)).current;
+  const splashLogoScale = useRef(new Animated.Value(0.9)).current;
+  const splashLogoOpacity = useRef(new Animated.Value(0)).current;
+  const splashRingScale = useRef(new Animated.Value(0.9)).current;
+  const splashRingOpacity = useRef(new Animated.Value(0.6)).current;
+
+  // Content entrance
+  const contentFade = useRef(new Animated.Value(0)).current;
+  const contentTranslateY = useRef(new Animated.Value(16)).current;
 
   useEffect(() => {
+    // 1. Splash logo pop
     Animated.parallel([
-      Animated.timing(fadeAnim, {
+      Animated.timing(splashLogoOpacity, {
         toValue: 1,
-        duration: 550,
+        duration: 400,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: Platform.OS !== "web",
       }),
-      Animated.timing(translateYAnim, {
+      Animated.spring(splashLogoScale, {
+        toValue: 1,
+        friction: 6,
+        tension: 40,
+        useNativeDriver: Platform.OS !== "web",
+      }),
+      Animated.timing(splashRingScale, {
+        toValue: 1.35,
+        duration: 900,
+        easing: Easing.out(Easing.ease),
+        useNativeDriver: Platform.OS !== "web",
+      }),
+      Animated.timing(splashRingOpacity, {
         toValue: 0,
-        duration: 550,
-        easing: Easing.out(Easing.cubic),
+        duration: 900,
+        easing: Easing.out(Easing.ease),
         useNativeDriver: Platform.OS !== "web",
       }),
     ]).start();
-  }, [fadeAnim, translateYAnim]);
+
+    const timer = setTimeout(() => {
+      handleDismissSplash();
+    }, 850);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  function handleDismissSplash() {
+    Animated.parallel([
+      Animated.timing(splashOpacity, {
+        toValue: 0,
+        duration: 350,
+        easing: Easing.inOut(Easing.cubic),
+        useNativeDriver: Platform.OS !== "web",
+      }),
+      Animated.timing(contentFade, {
+        toValue: 1,
+        duration: 450,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: Platform.OS !== "web",
+      }),
+      Animated.timing(contentTranslateY, {
+        toValue: 0,
+        duration: 450,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: Platform.OS !== "web",
+      }),
+    ]).start(() => {
+      setSplashFinished(true);
+    });
+  }
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
+      {/* Minimalist Landing Page Content */}
       <Animated.View
-        style={{
-          flex: 1,
-          opacity: fadeAnim,
-          transform: [{ translateY: translateYAnim }],
-        }}
+        style={[
+          styles.contentWrapper,
+          {
+            opacity: contentFade,
+            transform: [{ translateY: contentTranslateY }],
+          },
+        ]}
       >
         <ScrollView
-          style={{ flex: 1 }}
+          style={styles.scrollView}
           contentContainerStyle={[styles.scrollContent, { paddingHorizontal: gutter }]}
           showsVerticalScrollIndicator={false}
         >
           <View style={[styles.mainContent, { maxWidth: Math.min(contentWidth, 600) }]}>
+            {/* HERO BRAND HEADER */}
             <View style={styles.hero}>
               <Image
                 // eslint-disable-next-line @typescript-eslint/no-require-imports -- static asset require is standard RN
@@ -119,58 +193,96 @@ export default function WelcomeScreen() {
                 accessibilityIgnoresInvertColors
                 accessibilityLabel="Dizkarte"
               />
+
               <Text style={[styles.heroTitle, isTablet ? styles.heroTitleTablet : null]}>
-                Get more done, {"\n"}the Dizkarte way
-              </Text>
-              <Text style={[styles.heroSubtitle, isTablet ? styles.heroSubtitleTablet : null]}>
-                Post a task, get offers from trusted local Taskers, and pay safely when the job is
-                done.
+                Get more done,{"\n"}the Dizkarte way
               </Text>
             </View>
 
-            <View style={[styles.categoryStrip, isTablet ? styles.categoryStripTablet : null]}>
-              {CATEGORY_STRIP.map((item) => (
-                <View
-                  key={item.label}
-                  style={[styles.categoryItem, isTablet ? styles.categoryItemTablet : null]}
-                >
-                  <View style={styles.categoryBubble}>
-                    <Image
-                      source={item.art}
-                      style={styles.categoryArt}
-                      resizeMode="contain"
-                      accessibilityIgnoresInvertColors
-                    />
-                  </View>
-                  <Text style={styles.categoryLabel}>{item.label}</Text>
-                </View>
-              ))}
+            {/* CATEGORY STRIP */}
+            <View style={styles.categorySection}>
+              <View style={styles.sectionHeading}>
+                <Text style={styles.sectionTitle} accessibilityRole="header">
+                  Popular services
+                </Text>
+              </View>
+
+              <View style={[styles.categoryStrip, isTablet ? styles.categoryStripTablet : null]}>
+                {CATEGORIES.map((item) => (
+                  <Pressable
+                    key={item.id}
+                    style={({ pressed }) => [
+                      styles.categoryItem,
+                      isTablet ? styles.categoryItemTablet : null,
+                      pressed ? styles.categoryItemPressed : null,
+                    ]}
+                    onPress={() => router.push("/(auth)/register")}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Explore ${item.label}`}
+                  >
+                    <View style={styles.categoryBubble}>
+                      <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                        <Svg height="100%" width="100%">
+                          <Defs>
+                            <LinearGradient
+                              id={`catGrad-${item.id}`}
+                              x1="0%"
+                              y1="0%"
+                              x2="100%"
+                              y2="100%"
+                            >
+                              <Stop offset="0%" stopColor="#DDD6FE" stopOpacity="1" />
+                              <Stop offset="50%" stopColor="#EDE9FE" stopOpacity="1" />
+                              <Stop offset="100%" stopColor="#FAF5FF" stopOpacity="1" />
+                            </LinearGradient>
+                          </Defs>
+                          <Rect
+                            x="0"
+                            y="0"
+                            width="100%"
+                            height="100%"
+                            rx={radii.lg}
+                            fill={`url(#catGrad-${item.id})`}
+                          />
+                        </Svg>
+                      </View>
+                      <Image
+                        source={item.art}
+                        style={styles.categoryArt}
+                        resizeMode="contain"
+                        accessibilityIgnoresInvertColors
+                      />
+                    </View>
+                    <Text style={styles.categoryLabel}>{item.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
 
-            <View style={[styles.valueSection, isTablet ? styles.valueSectionTablet : null]}>
-              {VALUE_PROPS.map((prop) => (
-                <View key={prop.title} style={[styles.valueRow, isTablet ? styles.valueRowTablet : null]}>
-                  <View style={styles.valueIconBubble}>
-                    <Icon name={prop.icon} size={22} color={theme.primary} />
-                  </View>
-                  <View style={[styles.valueText, isTablet ? styles.valueTextTablet : null]}>
-                    <Text style={[styles.valueTitle, isTablet ? styles.valueTitleTablet : null]}>{prop.title}</Text>
-                    <Text style={[styles.valueBody, isTablet ? styles.valueBodyTablet : null]}>{prop.body}</Text>
-                  </View>
+            {/* TRUST BADGES (MAXIMIZED ICONS, 1-WORD LABELS, NO CONTAINER) */}
+            <View style={styles.trustBadgesRow}>
+              {TRUST_BADGES.map((badge) => (
+                <View key={badge.label} style={styles.trustBadgeItem}>
+                  <Icon name={badge.icon} size={28} color={theme.primary} />
+                  <Text style={styles.trustBadgeLabel}>{badge.label}</Text>
                 </View>
               ))}
             </View>
           </View>
         </ScrollView>
 
-        {/* CTAs pinned below the scroll with seamless safe-area footer styling */}
+        {/* STICKY ACTION FOOTER */}
         <View
           style={[
             styles.actions,
             isTablet ? styles.actionsTablet : null,
             {
               paddingHorizontal: gutter,
-              paddingBottom: isTablet ? spacing.lg : (insets.bottom > 0 ? Math.min(insets.bottom, 14) : 12),
+              paddingBottom: isTablet
+                ? spacing.lg
+                : insets.bottom > 0
+                ? Math.min(insets.bottom, 16)
+                : 12,
             },
           ]}
         >
@@ -179,8 +291,8 @@ export default function WelcomeScreen() {
             <Svg height="100%" width="100%">
               <Defs>
                 <LinearGradient id="footerFadeGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                  <Stop offset="0%" stopColor={theme.surface} stopOpacity="0" />
-                  <Stop offset="100%" stopColor={theme.surface} stopOpacity="1" />
+                  <Stop offset="0%" stopColor={theme.background} stopOpacity="0" />
+                  <Stop offset="100%" stopColor={theme.background} stopOpacity="1" />
                 </LinearGradient>
               </Defs>
               <Rect x="0" y="0" width="100%" height="100%" fill="url(#footerFadeGradient)" />
@@ -199,6 +311,7 @@ export default function WelcomeScreen() {
                 <Button
                   label="Get started"
                   onPress={() => router.push("/(auth)/register")}
+                  icon="arrow-right"
                   fullWidth
                 />
               </View>
@@ -211,12 +324,79 @@ export default function WelcomeScreen() {
                 />
               </View>
             </View>
-            <Text style={[styles.termsCaption, isTablet ? styles.termsCaptionTablet : null]}>
-              By continuing, you agree to Dizkarte&apos;s terms &amp; privacy policies.
-            </Text>
+            <View style={styles.footerTrustRow}>
+              <Icon name="lock" size={13} color={theme.textSecondary} />
+              <Text style={styles.termsCaption}>
+                Secure escrow guarantee • Verified marketplace policies
+              </Text>
+            </View>
           </View>
         </View>
       </Animated.View>
+
+      {/* INTRO BRAND OPENING ANIMATION OVERLAY */}
+      {!splashFinished && (
+        <Animated.View
+          style={[
+            styles.splashOverlay,
+            {
+              opacity: splashOpacity,
+            },
+          ]}
+          onTouchStart={handleDismissSplash}
+        >
+          {/* Subtle Ambient Gradient Background */}
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <Svg height="100%" width="100%">
+              <Defs>
+                <LinearGradient id="splashGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <Stop offset="0%" stopColor="#7C3AED" />
+                  <Stop offset="50%" stopColor="#6E20DF" />
+                  <Stop offset="100%" stopColor="#300F6B" />
+                </LinearGradient>
+                <RadialGradient id="splashOrb" cx="50%" cy="40%" rx="50%" ry="50%">
+                  <Stop offset="0%" stopColor="#FDBE17" stopOpacity="0.28" />
+                  <Stop offset="100%" stopColor="#6E20DF" stopOpacity="0" />
+                </RadialGradient>
+              </Defs>
+              <Rect x="0" y="0" width="100%" height="100%" fill="url(#splashGradient)" />
+              <Rect x="0" y="0" width="100%" height="100%" fill="url(#splashOrb)" />
+            </Svg>
+          </View>
+
+          {/* Soft Concentric Aura Ring */}
+          <Animated.View
+            style={[
+              styles.splashRing,
+              {
+                opacity: splashRingOpacity,
+                transform: [{ scale: splashRingScale }],
+              },
+            ]}
+          />
+
+          {/* Logo Identity */}
+          <Animated.View
+            style={[
+              styles.splashContent,
+              {
+                opacity: splashLogoOpacity,
+                transform: [{ scale: splashLogoScale }],
+              },
+            ]}
+          >
+            <Image
+              // eslint-disable-next-line @typescript-eslint/no-require-imports -- static asset require is standard RN
+              source={require("../../assets/text-icon-white.png")}
+              style={styles.splashLogo}
+              resizeMode="contain"
+              accessibilityIgnoresInvertColors
+              accessibilityLabel="Dizkarte"
+            />
+            <Text style={styles.splashTagline}>Your local task community</Text>
+          </Animated.View>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -226,8 +406,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.background,
   },
+  contentWrapper: {
+    flex: 1,
+  },
+  scrollView: {
+    flex: 1,
+  },
   scrollContent: {
-    paddingTop: spacing.xl,
+    paddingTop: spacing.lg,
     paddingBottom: spacing.xl,
   },
   mainContent: {
@@ -238,39 +424,40 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   logo: {
-    width: 180,
-    height: 52,
-    marginBottom: spacing.xl,
+    width: 170,
+    height: 48,
+    marginBottom: spacing.lg,
   },
   heroTitle: {
-    fontSize: 34,
-    lineHeight: 40,
+    fontSize: 32,
+    lineHeight: 38,
     fontWeight: "800",
     color: theme.textPrimary,
     letterSpacing: -0.6,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
   },
   heroTitleTablet: {
     fontSize: 42,
     lineHeight: 48,
   },
-  heroSubtitle: {
+  sectionHeading: {
+    marginBottom: spacing.sm,
+  },
+  sectionTitle: {
     fontSize: fontSize.lg,
     lineHeight: lineHeight.lg,
-    color: theme.textSecondary,
-    maxWidth: 360,
+    fontWeight: "800",
+    color: theme.textPrimary,
+    letterSpacing: -0.2,
   },
-  heroSubtitleTablet: {
-    fontSize: fontSize.xl,
-    lineHeight: lineHeight.xl,
-    maxWidth: 480,
+  categorySection: {
+    marginBottom: spacing.xl,
   },
   categoryStrip: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    rowGap: spacing.lg,
-    marginBottom: spacing.xl,
+    rowGap: spacing.md,
   },
   categoryStripTablet: {
     justifyContent: "space-between",
@@ -278,20 +465,29 @@ const styles = StyleSheet.create({
   categoryItem: {
     width: "31%",
     alignItems: "center",
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
   categoryItemTablet: {
     width: "15%",
+  },
+  categoryItemPressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.96 }],
   },
   categoryBubble: {
     width: "100%",
     aspectRatio: 1,
     borderRadius: radii.lg,
-    backgroundColor: theme.surfaceSubtle,
+    overflow: "hidden",
     borderWidth: 1,
-    borderColor: theme.borderSubtle,
+    borderColor: "#C4B5FD",
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: "#6E20DF",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
   },
   categoryArt: {
     width: "56%",
@@ -303,61 +499,23 @@ const styles = StyleSheet.create({
     color: theme.textPrimary,
     textAlign: "center",
   },
-  valueSection: {
-    gap: spacing.md,
-  },
-  valueSectionTablet: {
+  trustBadgesRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    gap: spacing.xl,
-  },
-  valueRow: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.md,
-    padding: spacing.md,
-    borderRadius: radii.lg,
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.borderSubtle,
-  },
-  valueRowTablet: {
-    flex: 1,
-    flexDirection: "column",
     alignItems: "center",
-    padding: spacing.lg,
+    justifyContent: "space-around",
+    paddingVertical: spacing.sm,
+    marginTop: spacing.xs,
   },
-  valueIconBubble: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: theme.primarySoft,
+  trustBadgeItem: {
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    flexShrink: 0,
+    gap: 6,
   },
-  valueText: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  valueTextTablet: {
-    alignItems: "center",
-    marginTop: spacing.sm,
-  },
-  valueTitle: {
-    fontSize: fontSize.md,
+  trustBadgeLabel: {
+    fontSize: fontSize.xs,
     fontWeight: "700",
-    color: theme.textPrimary,
-  },
-  valueTitleTablet: {
-    textAlign: "center",
-  },
-  valueBody: {
-    fontSize: fontSize.sm,
-    lineHeight: lineHeight.sm,
     color: theme.textSecondary,
-  },
-  valueBodyTablet: {
     textAlign: "center",
   },
   fadeMask: {
@@ -369,7 +527,7 @@ const styles = StyleSheet.create({
   },
   actions: {
     paddingTop: spacing.md,
-    backgroundColor: theme.surface,
+    backgroundColor: theme.background,
     shadowColor: "#0F172A",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.05,
@@ -382,14 +540,14 @@ const styles = StyleSheet.create({
   actionsInner: {
     width: "100%",
     alignSelf: "center",
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   actionsInnerTablet: {
     gap: spacing.md,
   },
   actionButtons: {
     width: "100%",
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   actionButtonsTablet: {
     flexDirection: "row",
@@ -401,9 +559,52 @@ const styles = StyleSheet.create({
   fullWidth: {
     width: "100%",
   },
+  footerTrustRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    marginTop: 2,
+  },
   termsCaption: {
     fontSize: fontSize.xs,
     color: theme.textSecondary,
     textAlign: "center",
   },
+
+  /* SPLASH OVERLAY */
+  splashOverlay: {
+    ...StyleSheet.absoluteFill,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 999,
+  },
+  splashRing: {
+    position: "absolute",
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    borderWidth: 2,
+    borderColor: "rgba(253, 190, 23, 0.35)",
+    backgroundColor: "rgba(253, 190, 23, 0.05)",
+  },
+  splashContent: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.md,
+    paddingHorizontal: spacing.xl,
+  },
+  splashLogo: {
+    width: 200,
+    height: 56,
+  },
+  splashTagline: {
+    color: "rgba(255, 255, 255, 0.92)",
+    fontSize: fontSize.md,
+    fontWeight: "600",
+    letterSpacing: 0.2,
+    textAlign: "center",
+  },
 });
+
+

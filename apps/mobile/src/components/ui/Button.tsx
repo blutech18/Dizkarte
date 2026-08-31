@@ -5,7 +5,7 @@ import {
   Text,
   type GestureResponderEvent,
 } from "react-native";
-import { theme, radii, spacing, fontSize, MIN_TOUCH_TARGET } from "../../theme";
+import { theme, radii, spacing, fontSize } from "../../theme";
 import { Icon, type IconName } from "./Icon";
 
 export type ButtonVariant = "primary" | "primaryDark" | "secondary" | "destructive" | "text";
@@ -143,3 +143,4 @@ const variantStyles: Record<ButtonVariant, { container: object; label: object; p
       pressed: { backgroundColor: theme.surfaceSubtle, transform: [{ scale: 0.98 }] },
     },
   };
+

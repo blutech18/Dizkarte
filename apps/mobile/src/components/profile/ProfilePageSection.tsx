@@ -40,7 +40,7 @@ export function ProfilePageSection({
   trailing,
   children,
   tone = "default",
-  showDivider = true,
+  showDivider = false,
 }: {
   readonly icon: IconName;
   readonly title: string;

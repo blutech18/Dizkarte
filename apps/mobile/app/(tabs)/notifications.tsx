@@ -14,7 +14,7 @@ import {
 import { useSession } from "../../src/providers/SessionProvider";
 import { useMarketplace } from "../../src/providers/MarketplaceProvider";
 import type { NotificationRecord } from "../../src/services/marketplace/types";
-import { theme, spacing, fontSize, lineHeight, radii } from "../../src/theme";
+import { theme, spacing, fontSize, radii } from "../../src/theme";
 
 type LoadState = "loading" | "loaded" | "error";
 type FilterTab = "all" | "unread";
@@ -654,3 +654,4 @@ const styles = StyleSheet.create({
     color: theme.primary,
   },
 });
+

@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Button } from "../ui/Button";
 import { CenterDialogModal } from "../ui/CenterDialogModal";
 import { Icon } from "../ui/Icon";
-import { theme, spacing, fontSize, lineHeight, radii, MIN_TOUCH_TARGET } from "../../theme";
+import { theme, spacing, fontSize, lineHeight, radii } from "../../theme";
 
 type DateMode = "on_date" | "before_date" | "flexible";
 
@@ -131,6 +131,7 @@ export function CalendarPickerModal({
   title = "Select a date",
   description = "Choose a date from the calendar.",
   confirmLabel = "Select date",
+  useModal = true,
   onConfirm,
   onClose,
 }: {
@@ -139,6 +140,7 @@ export function CalendarPickerModal({
   readonly title?: string;
   readonly description?: string;
   readonly confirmLabel?: string;
+  readonly useModal?: boolean;
   readonly onConfirm: (date: Date) => void;
   readonly onClose: () => void;
 }) {
@@ -163,7 +165,7 @@ export function CalendarPickerModal({
   ];
 
   return (
-    <CenterDialogModal visible={visible} onClose={onClose}>
+    <CenterDialogModal visible={visible} useModal={useModal} onClose={onClose}>
       <ScrollView
         style={styles.modalFrame}
         contentContainerStyle={styles.modalContent}
@@ -179,16 +181,16 @@ export function CalendarPickerModal({
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel="Close calendar"
-              hitSlop={4}
+              hitSlop={8}
               style={({ pressed }) => [
                 styles.closeButton,
                 pressed ? styles.closeButtonPressed : null,
               ]}
             >
-              <Icon name="close" size={20} color={theme.textSecondary} />
+              <Icon name="close" size={16} color={theme.textSecondary} />
             </Pressable>
           </View>
-          <Text style={styles.modalDescription}>{description}</Text>
+          {description ? <Text style={styles.modalDescription}>{description}</Text> : null}
         </View>
 
         <View style={styles.calendarHeader}>
@@ -199,9 +201,10 @@ export function CalendarPickerModal({
               style={({ pressed }) => [styles.navButton, pressed ? styles.navButtonPressed : null]}
               accessibilityRole="button"
               accessibilityLabel="Previous month"
+              hitSlop={4}
             >
               <View style={{ transform: [{ scaleX: -1 }] }}>
-                <Icon name="arrow-right" size={16} color={theme.textPrimary} />
+                <Icon name="arrow-right" size={15} color={theme.textPrimary} />
               </View>
             </Pressable>
             <Pressable
@@ -209,8 +212,9 @@ export function CalendarPickerModal({
               style={({ pressed }) => [styles.navButton, pressed ? styles.navButtonPressed : null]}
               accessibilityRole="button"
               accessibilityLabel="Next month"
+              hitSlop={4}
             >
-              <Icon name="arrow-right" size={16} color={theme.textPrimary} />
+              <Icon name="arrow-right" size={15} color={theme.textPrimary} />
             </Pressable>
           </View>
         </View>
@@ -346,12 +350,12 @@ const styles = StyleSheet.create({
   },
   modalHeading: {
     minWidth: 0,
-    gap: spacing.xs,
+    gap: 4,
   },
   modalTitleRow: {
     minWidth: 0,
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.md,
   },
@@ -365,26 +369,28 @@ const styles = StyleSheet.create({
   },
   modalDescription: {
     color: theme.textSecondary,
-    fontSize: fontSize.sm,
-    lineHeight: lineHeight.sm,
+    fontSize: fontSize.xs,
+    lineHeight: lineHeight.xs + 2,
   },
   closeButton: {
-    width: MIN_TOUCH_TARGET,
-    height: MIN_TOUCH_TARGET,
+    width: 32,
+    height: 32,
     flexShrink: 0,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: radii.md,
+    borderRadius: radii.pill,
+    backgroundColor: theme.surfaceSubtle,
   },
   closeButtonPressed: {
-    backgroundColor: theme.surfaceSubtle,
+    opacity: 0.72,
+    transform: [{ scale: 0.95 }],
   },
   calendarHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.sm,
-    marginTop: spacing.lg,
+    marginTop: spacing.md + 2,
     marginBottom: spacing.sm,
   },
   monthTitle: {
@@ -392,32 +398,38 @@ const styles = StyleSheet.create({
     flex: 1,
     color: theme.textPrimary,
     fontSize: fontSize.md,
-    fontWeight: "700",
+    fontWeight: "800",
   },
   navButtons: {
     flexDirection: "row",
-    gap: spacing.xs,
+    gap: 6,
   },
   navButton: {
-    width: MIN_TOUCH_TARGET,
-    height: MIN_TOUCH_TARGET,
+    width: 32,
+    height: 32,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: radii.sm,
+    backgroundColor: theme.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
   },
   navButtonPressed: {
-    backgroundColor: theme.surfaceSubtle,
+    opacity: 0.75,
+    transform: [{ scale: 0.95 }],
   },
   weekHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: spacing.xs,
+    marginBottom: spacing.xs + 2,
+    paddingVertical: 2,
   },
   weekDay: {
     width: "14%",
     color: theme.textSecondary,
-    fontSize: fontSize.xs - 1,
-    fontWeight: "700",
+    fontSize: 11,
+    fontWeight: "800",
+    letterSpacing: 0.4,
     textAlign: "center",
   },
   daysGrid: {
@@ -451,3 +463,4 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
 });
+

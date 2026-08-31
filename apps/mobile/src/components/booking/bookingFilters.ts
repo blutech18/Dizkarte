@@ -22,8 +22,10 @@ export type BookingRoleFilter = "any" | "client" | "tasker";
 export type BookingSort = "recent" | "oldest" | "highest_amount";
 
 export type BookingFilterState = {
-  readonly stage: BookingFilterKey;
-  readonly role: BookingRoleFilter;
+  readonly stage?: BookingFilterKey;
+  readonly stages?: ReadonlyArray<BookingFilterKey>;
+  readonly role?: BookingRoleFilter;
+  readonly roles?: ReadonlyArray<BookingRoleFilter>;
   /** Inclusive ISO bounds on when the booking was created. */
   readonly bookedFrom?: string;
   readonly bookedTo?: string;
@@ -38,6 +40,44 @@ export const DEFAULT_BOOKING_FILTERS: BookingFilterState = {
   role: "any",
   sort: "recent",
 };
+
+const ALL_SPECIFIC_STAGE_KEYS: ReadonlyArray<BookingFilterKey> = [
+  "attention",
+  "payment",
+  "active",
+  "completed",
+  "issues",
+];
+
+const ALL_SPECIFIC_ROLE_KEYS: ReadonlyArray<BookingRoleFilter> = ["client", "tasker"];
+
+export function normalizeStages(filters: BookingFilterState): ReadonlyArray<BookingFilterKey> {
+  if (filters.stages && filters.stages.length > 0) {
+    const withoutAll = filters.stages.filter((s) => s !== "all");
+    if (withoutAll.length === 0 || withoutAll.length >= ALL_SPECIFIC_STAGE_KEYS.length) {
+      return ["all"];
+    }
+    return withoutAll;
+  }
+  if (filters.stage) {
+    return [filters.stage];
+  }
+  return ["all"];
+}
+
+export function normalizeRoles(filters: BookingFilterState): ReadonlyArray<BookingRoleFilter> {
+  if (filters.roles && filters.roles.length > 0) {
+    const withoutAny = filters.roles.filter((r) => r !== "any");
+    if (withoutAny.length === 0 || withoutAny.length >= ALL_SPECIFIC_ROLE_KEYS.length) {
+      return ["any"];
+    }
+    return withoutAny;
+  }
+  if (filters.role) {
+    return [filters.role];
+  }
+  return ["any"];
+}
 
 export const BOOKING_FILTERS: ReadonlyArray<{
   readonly key: BookingFilterKey;
@@ -149,9 +189,22 @@ export function matchesBookingFilters(
 ): boolean {
   const isClient = booking.clientId === context.viewerId;
 
-  if (filters.role === "client" && !isClient) return false;
-  if (filters.role === "tasker" && isClient) return false;
-  if (!matchesBookingStage(booking.status, filters.stage, isClient)) return false;
+  const activeRoles = normalizeRoles(filters);
+  const allowsAnyRole =
+    activeRoles.includes("any") ||
+    (activeRoles.includes("client") && activeRoles.includes("tasker"));
+  if (!allowsAnyRole) {
+    if (activeRoles.includes("client") && !isClient) return false;
+    if (activeRoles.includes("tasker") && isClient) return false;
+  }
+
+  const activeStages = normalizeStages(filters);
+  if (!activeStages.includes("all")) {
+    const matchesAnySelectedStage = activeStages.some((stageKey) =>
+      matchesBookingStage(booking.status, stageKey, isClient),
+    );
+    if (!matchesAnySelectedStage) return false;
+  }
 
   if (
     typeof filters.minAmountCentavos === "number" &&
@@ -217,7 +270,12 @@ export function countBookingsByStage(
   };
   for (const option of BOOKING_FILTERS) {
     counts[option.key] = bookings.filter((booking) =>
-      matchesBookingFilters(booking, { ...filters, stage: option.key }, context, keyword),
+      matchesBookingFilters(
+        booking,
+        { ...filters, stage: option.key, stages: [option.key] },
+        context,
+        keyword,
+      ),
     ).length;
   }
   return counts;
@@ -225,8 +283,10 @@ export function countBookingsByStage(
 
 export function activeBookingFilterCount(filters: BookingFilterState): number {
   let count = 0;
-  if (filters.stage !== "all") count += 1;
-  if (filters.role !== "any") count += 1;
+  const stages = normalizeStages(filters).filter((s) => s !== "all");
+  count += stages.length;
+  const roles = normalizeRoles(filters).filter((r) => r !== "any");
+  count += roles.length;
   if (filters.bookedFrom || filters.bookedTo) count += 1;
   if (typeof filters.minAmountCentavos === "number") count += 1;
   if (typeof filters.maxAmountCentavos === "number") count += 1;
@@ -237,15 +297,13 @@ export function activeBookingFilterCount(filters: BookingFilterState): number {
 
 export function describeBookingFilters(filters: BookingFilterState): ReadonlyArray<string> {
   const chips: string[] = [];
-  if (filters.stage !== "all") {
-    chips.push(
-      BOOKING_FILTERS.find((option) => option.key === filters.stage)?.label ?? filters.stage,
-    );
+  const stages = normalizeStages(filters).filter((s) => s !== "all");
+  for (const s of stages) {
+    chips.push(BOOKING_FILTERS.find((option) => option.key === s)?.label ?? s);
   }
-  if (filters.role !== "any") {
-    chips.push(
-      BOOKING_ROLE_OPTIONS.find((option) => option.key === filters.role)?.label ?? filters.role,
-    );
+  const roles = normalizeRoles(filters).filter((r) => r !== "any");
+  for (const r of roles) {
+    chips.push(BOOKING_ROLE_OPTIONS.find((option) => option.key === r)?.label ?? r);
   }
   if (filters.unreadOnly) chips.push("Unread messages");
   if (typeof filters.minAmountCentavos === "number") {

@@ -219,10 +219,13 @@ export function countMyTasksByCategory(
   filters: MyTaskFilterState,
   keyword = "",
 ): Readonly<Record<string, number>> & { readonly all: number } {
+  // The "all" badge counts with the category filter cleared. The key is dropped
+  // rather than set to `undefined`, which `exactOptionalPropertyTypes` rejects;
+  // `matchesMyTaskFilters` treats an absent and an undefined category the same.
+  // Rebuilt by rest-destructuring because `categoryId` is readonly.
+  const { categoryId: _clearedCategory, ...withoutCategory } = filters;
   const counts: Record<string, number> = {
-    all: tasks.filter((task) =>
-      matchesMyTaskFilters(task, { ...filters, categoryId: undefined }, keyword),
-    ).length,
+    all: tasks.filter((task) => matchesMyTaskFilters(task, withoutCategory, keyword)).length,
   };
   for (const category of categories) {
     counts[category.id] = tasks.filter((task) =>

@@ -7,7 +7,6 @@ import { Screen } from "../../src/components/ui/Screen";
 import { RebookSheet } from "../../src/components/task/RebookSheet";
 import { Button } from "../../src/components/ui/Button";
 import { Icon, type IconName } from "../../src/components/ui/Icon";
-import { StatusBadge } from "../../src/components/ui/StatusBadge";
 import { ErrorState, LoadingState } from "../../src/components/ui/AsyncState";
 import { useSession } from "../../src/providers/SessionProvider";
 import { useMarketplace } from "../../src/providers/MarketplaceProvider";
@@ -614,3 +613,4 @@ const styles = StyleSheet.create({
     color: theme.textSecondary,
   },
 });
+

@@ -74,6 +74,14 @@ export default function RegisterScreen() {
         <AuthBackButton fallback="/(auth)/welcome" />
         <View style={styles.centerContainer}>
           <View style={styles.formContent}>
+            <Image
+              // eslint-disable-next-line @typescript-eslint/no-require-imports -- static asset require is standard RN
+              source={require("../../assets/text-icon-logo.png")}
+              style={styles.brandWordmark}
+              resizeMode="contain"
+              accessibilityIgnoresInvertColors
+              accessibilityLabel="Dizkarte"
+            />
             <Text style={styles.title}>Confirm your email</Text>
             <Text style={styles.subtitle}>
               We sent a confirmation link to {email}. Tap it to activate your account, then sign in.

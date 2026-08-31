@@ -974,9 +974,14 @@ function EmptyState({
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  // Captured into locals because a `length` check does not narrow indexed
+  // access under `noUncheckedIndexedAccess`. `filter(Boolean)` has already
+  // removed empty segments, so the fallbacks below can never actually apply.
+  const first = parts[0];
+  if (!first) return "?";
+  if (parts.length === 1) return first.slice(0, 2).toUpperCase();
+  const last = parts[parts.length - 1] ?? first;
+  return ((first[0] ?? "") + (last[0] ?? "")).toUpperCase();
 }
 
 function OfferRow({

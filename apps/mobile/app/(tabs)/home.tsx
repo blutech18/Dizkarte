@@ -134,6 +134,25 @@ function ClientHome() {
   const searchFontSize =
     contentWidth >= 400 ? fontSize.md : contentWidth >= 344 ? fontSize.sm : fontSize.xs;
 
+  const CARD_WIDTH = 270;
+  const CARD_GAP = spacing.sm + 2;
+  const snapOffsets = useMemo(() => {
+    if (myTaskers.length <= 1) return [0];
+    const maxScroll = Math.max(
+      0,
+      gutter * 2 + myTaskers.length * CARD_WIDTH + (myTaskers.length - 1) * CARD_GAP - contentWidth,
+    );
+    return myTaskers.map((_, i) => {
+      if (i === 0) return 0;
+      if (i === myTaskers.length - 1) return maxScroll;
+      const cardLeft = gutter + i * (CARD_WIDTH + CARD_GAP);
+      const centerOffset = cardLeft - (contentWidth - CARD_WIDTH) / 2;
+      return Math.max(0, Math.min(maxScroll, Math.round(centerOffset)));
+    });
+  }, [myTaskers, contentWidth, gutter]);
+
+
+
   function goToPostFlow() {
     const title = searchDraft.trim();
     router.push(
@@ -231,10 +250,21 @@ function ClientHome() {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
+              decelerationRate="fast"
+              snapToOffsets={snapOffsets}
+              snapToStart={true}
+              snapToEnd={true}
+              disableIntervalMomentum={true}
+              directionalLockEnabled={true}
+              nestedScrollEnabled={true}
+              scrollEventThrottle={16}
               style={{ marginHorizontal: -gutter }}
               contentContainerStyle={[
                 clientStyles.myTaskersCarouselContent,
-                { paddingHorizontal: gutter },
+                {
+                  paddingHorizontal: gutter,
+                  gap: CARD_GAP,
+                },
               ]}
             >
               {myTaskers.map((booking) => (
@@ -519,9 +549,7 @@ const clientStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm + 2,
-    paddingBottom: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.borderSubtle,
+    paddingBottom: spacing.xs,
   },
   modalAvatar: {
     width: 40,
@@ -585,7 +613,7 @@ const clientStyles = StyleSheet.create({
     justifyContent: "center",
   },
   modalServicesList: {
-    maxHeight: 220,
+    maxHeight: 240,
   },
   modalServicesListContent: {
     gap: spacing.xs + 2,
@@ -594,31 +622,46 @@ const clientStyles = StyleSheet.create({
   modalServiceItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
+    gap: spacing.sm + 2,
     backgroundColor: theme.surfaceSubtle,
     borderWidth: 1,
     borderColor: theme.borderSubtle,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.sm + 2,
     paddingHorizontal: spacing.md,
     borderRadius: radii.md,
-  },
-  modalServiceIconCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: theme.primarySoft,
-    alignItems: "center",
-    justifyContent: "center",
   },
   modalServiceName: {
     fontSize: fontSize.sm,
     fontWeight: "600",
     color: theme.textPrimary,
+    flex: 1,
   },
   modalFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
     paddingTop: spacing.xs,
   },
+  modalViewProfileBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.borderControl,
+    borderRadius: radii.md,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.sm,
+  },
+  modalViewProfileBtnText: {
+    fontSize: fontSize.sm,
+    fontWeight: "700",
+    color: theme.primary,
+  },
   modalRebookBtn: {
+    flex: 1.1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -626,7 +669,7 @@ const clientStyles = StyleSheet.create({
     backgroundColor: theme.primary,
     borderRadius: radii.md,
     paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
   },
   modalRebookBtnText: {
     fontSize: fontSize.sm,
@@ -860,15 +903,29 @@ function MyTaskerCard({ booking }: MyTaskerCardProps) {
             >
               {services.map((service, idx) => (
                 <View key={idx} style={clientStyles.modalServiceItem}>
-                  <View style={clientStyles.modalServiceIconCircle}>
-                    <Icon name="check-circle" size={13} color={theme.primary} />
-                  </View>
+                  <Icon name="check-circle" size={18} color={theme.primary} />
                   <Text style={clientStyles.modalServiceName}>{formatSpecialty(service)}</Text>
                 </View>
               ))}
             </ScrollView>
 
             <View style={clientStyles.modalFooter}>
+              <Pressable
+                style={({ pressed }) => [
+                  clientStyles.modalViewProfileBtn,
+                  pressed ? { opacity: 0.85, transform: [{ scale: 0.985 }] } : null,
+                ]}
+                onPress={() => {
+                  setServicesModalVisible(false);
+                  openProfile();
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`View ${displayName}'s profile`}
+              >
+                <Icon name="user" size={15} color={theme.primary} />
+                <Text style={clientStyles.modalViewProfileBtnText}>View profile</Text>
+              </Pressable>
+
               <Pressable
                 style={({ pressed }) => [
                   clientStyles.modalRebookBtn,
@@ -884,7 +941,7 @@ function MyTaskerCard({ booking }: MyTaskerCardProps) {
                 accessibilityRole="button"
                 accessibilityLabel={`Rebook ${displayName}`}
               >
-                <Text style={clientStyles.modalRebookBtnText}>Rebook with {displayName}</Text>
+                <Text style={clientStyles.modalRebookBtnText}>Rebook</Text>
                 <Icon name="arrow-right" size={14} color={theme.onPrimary} />
               </Pressable>
             </View>
@@ -894,3 +951,4 @@ function MyTaskerCard({ booking }: MyTaskerCardProps) {
     </>
   );
 }
+

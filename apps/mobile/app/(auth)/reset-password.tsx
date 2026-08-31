@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { passwordResetRequestSchema } from "@dizkarte/domain";
 import { Screen } from "../../src/components/ui/Screen";
@@ -43,6 +43,14 @@ export default function ResetPasswordScreen() {
 
       <View style={styles.centerContainer}>
         <View style={styles.formContent}>
+          <Image
+            // eslint-disable-next-line @typescript-eslint/no-require-imports -- static asset require is standard RN
+            source={require("../../assets/text-icon-logo.png")}
+            style={styles.brandWordmark}
+            resizeMode="contain"
+            accessibilityIgnoresInvertColors
+            accessibilityLabel="Dizkarte"
+          />
           {sent ? (
             <>
               <Text style={styles.title}>Check your email</Text>
@@ -117,6 +125,13 @@ const styles = StyleSheet.create({
     width: "90%",
     maxWidth: 360,
     alignSelf: "center",
+  },
+  brandWordmark: {
+    width: "65%",
+    maxWidth: 240,
+    height: 72,
+    alignSelf: "center",
+    marginBottom: spacing.lg,
   },
   title: {
     fontSize: fontSize.xxl,

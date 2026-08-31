@@ -79,6 +79,40 @@ describe("matchesBookingFilters", () => {
     expect(matchesBookingFilters(asTasker, DEFAULT_BOOKING_FILTERS, context)).toBe(true);
   });
 
+  it("supports multi-select for stages and roles", () => {
+    const pendingClient = booking({ id: "b1", status: "PAYMENT_PENDING", clientId: VIEWER });
+    const confirmedTasker = booking({
+      id: "b2",
+      status: "CONFIRMED",
+      clientId: "usr-other",
+      taskerId: VIEWER,
+    });
+    const completedClient = booking({ id: "b3", status: "COMPLETED", clientId: VIEWER });
+
+    const multiStage = {
+      ...DEFAULT_BOOKING_FILTERS,
+      stages: ["payment", "completed"] as const,
+    };
+    expect(matchesBookingFilters(pendingClient, multiStage, context)).toBe(true);
+    expect(matchesBookingFilters(completedClient, multiStage, context)).toBe(true);
+    expect(matchesBookingFilters(confirmedTasker, multiStage, context)).toBe(false);
+
+    const multiRole = {
+      ...DEFAULT_BOOKING_FILTERS,
+      roles: ["client", "tasker"] as const,
+    };
+    expect(matchesBookingFilters(pendingClient, multiRole, context)).toBe(true);
+    expect(matchesBookingFilters(confirmedTasker, multiRole, context)).toBe(true);
+
+    const allStages = {
+      ...DEFAULT_BOOKING_FILTERS,
+      stages: ["attention", "payment", "active", "completed", "issues"] as const,
+    };
+    expect(matchesBookingFilters(confirmedTasker, allStages, context)).toBe(true);
+    expect(activeBookingFilterCount(allStages)).toBe(0);
+    expect(describeBookingFilters(allStages)).toEqual([]);
+  });
+
   it("filters by agreed amount inclusively", () => {
     const subject = booking({ id: "b1", agreedCentavos: 200_000 });
     expect(

@@ -137,14 +137,8 @@ export function Screen({
   const body = scroll ? (
     <ScrollView
       ref={effectiveScrollRef}
-      style={[
-        styles.scrollView,
-        overscrollColor ? { backgroundColor: overscrollColor } : null,
-      ]}
-      contentContainerStyle={[
-        styles.scrollContent,
-        overscrollColor ? { backgroundColor: theme.background } : null,
-      ]}
+      style={styles.scrollView}
+      contentContainerStyle={styles.scrollContent}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="interactive"
       automaticallyAdjustKeyboardInsets={!keyboardAvoiding}
@@ -163,6 +157,12 @@ export function Screen({
         ) : undefined
       }
     >
+      {overscrollColor ? (
+        <View
+          pointerEvents="none"
+          style={[styles.overscrollCover, { backgroundColor: overscrollColor }]}
+        />
+      ) : null}
       {content}
     </ScrollView>
   ) : (
@@ -237,6 +237,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     minHeight: 0,
+    backgroundColor: theme.background,
   },
   scrollContent: {
     flexGrow: 1,

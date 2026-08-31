@@ -1,5 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Animated,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { Redirect, Stack, router } from "expo-router";
 import { formatPhp } from "@dizkarte/domain";
 import { Screen } from "../src/components/ui/Screen";
@@ -41,6 +48,11 @@ export default function PaymentHistoryScreen() {
   const [bookings, setBookings] = useState<ReadonlyArray<BookingRecord>>([]);
   const [state, setState] = useState<LoadState>("loading");
   const [direction, setDirection] = useState<PaymentDirection>("outgoing");
+  const [tabBarWidth, setTabBarWidth] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  // Tab indicator & synchronized content sliding animation (0 = earned, 1 = outgoing)
+  const slideAnim = useRef(new Animated.Value(direction === "earned" ? 0 : 1)).current;
 
   const viewerId = session?.userId ?? null;
 
@@ -60,25 +72,42 @@ export default function PaymentHistoryScreen() {
     load();
   }, [load, revision]);
 
-  const earnedCount = useMemo(
-    () => (viewerId ? bookingsForDirection(bookings, viewerId, "earned").length : 0),
+  function handleTabChange(next: PaymentDirection) {
+    if (next === direction) return;
+    setDirection(next);
+    const toVal = next === "earned" ? 0 : 1;
+
+    Animated.spring(slideAnim, {
+      toValue: toVal,
+      damping: 22,
+      stiffness: 240,
+      mass: 0.8,
+      useNativeDriver: Platform.OS !== "web",
+    }).start();
+  }
+
+  const earnedRows = useMemo(
+    () => (viewerId ? bookingsForDirection(bookings, viewerId, "earned") : []),
     [bookings, viewerId],
   );
-  const outgoingCount = useMemo(
-    () => (viewerId ? bookingsForDirection(bookings, viewerId, "outgoing").length : 0),
+  const outgoingRows = useMemo(
+    () => (viewerId ? bookingsForDirection(bookings, viewerId, "outgoing") : []),
     [bookings, viewerId],
   );
 
-  const rows = useMemo(
-    () => (viewerId ? bookingsForDirection(bookings, viewerId, direction) : []),
-    [bookings, viewerId, direction],
-  );
-  const totals = useMemo(
+  const earnedTotals = useMemo(
     () =>
       viewerId
-        ? totalsFor(bookings, viewerId, direction)
+        ? totalsFor(bookings, viewerId, "earned")
         : { releasedCentavos: 0, protectedCentavos: 0 },
-    [bookings, viewerId, direction],
+    [bookings, viewerId],
+  );
+  const outgoingTotals = useMemo(
+    () =>
+      viewerId
+        ? totalsFor(bookings, viewerId, "outgoing")
+        : { releasedCentavos: 0, protectedCentavos: 0 },
+    [bookings, viewerId],
   );
 
   if (status === "loading") {
@@ -90,6 +119,8 @@ export default function PaymentHistoryScreen() {
   }
   if (!session) return <Redirect href="/(auth)/welcome" />;
 
+  const tabWidth = tabBarWidth > 0 ? (tabBarWidth - 8) / 2 : 0;
+
   return (
     <Screen subPageTitle="Payment history">
       <Stack.Screen options={{ headerShown: false }} />
@@ -99,59 +130,150 @@ export default function PaymentHistoryScreen() {
 
       {state === "loaded" ? (
         <View style={styles.content}>
-          <View style={styles.tabBar} accessibilityRole="tablist">
+          <View
+            style={styles.tabBar}
+            accessibilityRole="tablist"
+            onLayout={(e) => setTabBarWidth(e.nativeEvent.layout.width)}
+          >
+            {/* Sliding Pill Indicator */}
+            {tabWidth > 0 && (
+              <Animated.View
+                style={[
+                  styles.tabIndicator,
+                  {
+                    width: tabWidth,
+                    transform: [
+                      {
+                        translateX: slideAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, tabWidth],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+                pointerEvents="none"
+              />
+            )}
+
             <DirectionTab
               label="Earned"
-              count={earnedCount}
+              count={earnedRows.length}
               active={direction === "earned"}
-              onPress={() => setDirection("earned")}
+              onPress={() => handleTabChange("earned")}
             />
             <DirectionTab
               label="Outgoing"
-              count={outgoingCount}
+              count={outgoingRows.length}
               active={direction === "outgoing"}
-              onPress={() => setDirection("outgoing")}
+              onPress={() => handleTabChange("outgoing")}
             />
           </View>
 
-          {/* Totals, counting only payments that actually cleared. */}
-          <View style={styles.totalsCard}>
-            <Text style={styles.totalsEyebrow}>
-              {direction === "earned" ? "RELEASED TO YOU" : "PAID OUT"}
-            </Text>
-            <Text style={styles.totalsValue}>{formatPhp(totals.releasedCentavos)}</Text>
-            <View style={styles.totalsDivider} />
-            <View style={styles.totalsRow}>
-              <Text style={styles.totalsRowLabel}>
-                {direction === "earned" ? "Protected until completion" : "Still held by platform"}
-              </Text>
-              <Text style={styles.totalsRowValue}>{formatPhp(totals.protectedCentavos)}</Text>
-            </View>
-            <Text style={styles.totalsCaption}>
-              Amounts are the agreed booking price. A fee and tax breakdown will appear here once
-              the platform&apos;s charging model is approved and configured.
-            </Text>
+          {/* Synchronized Pager Viewport */}
+          <View
+            style={styles.slidingContainer}
+            onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+          >
+            {containerWidth > 0 ? (
+              <Animated.View
+                style={[
+                  styles.slidingTrack,
+                  {
+                    width: containerWidth * 2,
+                    transform: [
+                      {
+                        translateX: slideAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, -containerWidth],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              >
+                <View
+                  style={[styles.paneWrapper, { width: containerWidth }]}
+                  pointerEvents={direction === "earned" ? "auto" : "none"}
+                >
+                  <PaymentDirectionPane
+                    direction="earned"
+                    totals={earnedTotals}
+                    rows={earnedRows}
+                  />
+                </View>
+                <View
+                  style={[styles.paneWrapper, { width: containerWidth }]}
+                  pointerEvents={direction === "outgoing" ? "auto" : "none"}
+                >
+                  <PaymentDirectionPane
+                    direction="outgoing"
+                    totals={outgoingTotals}
+                    rows={outgoingRows}
+                  />
+                </View>
+              </Animated.View>
+            ) : (
+              <PaymentDirectionPane
+                direction={direction}
+                totals={direction === "earned" ? earnedTotals : outgoingTotals}
+                rows={direction === "earned" ? earnedRows : outgoingRows}
+              />
+            )}
           </View>
-
-          {rows.length === 0 ? (
-            <EmptyState
-              title={direction === "earned" ? "No earnings yet" : "No payments yet"}
-              description={
-                direction === "earned"
-                  ? "Bookings you complete as a Tasker will appear here."
-                  : "Bookings you pay for as a Client will appear here."
-              }
-            />
-          ) : (
-            <View style={styles.list}>
-              {rows.map((booking) => (
-                <PaymentRow key={booking.id} booking={booking} direction={direction} />
-              ))}
-            </View>
-          )}
         </View>
       ) : null}
     </Screen>
+  );
+}
+
+function PaymentDirectionPane({
+  direction,
+  totals,
+  rows,
+}: {
+  readonly direction: PaymentDirection;
+  readonly totals: { readonly releasedCentavos: number; readonly protectedCentavos: number };
+  readonly rows: ReadonlyArray<BookingRecord>;
+}) {
+  return (
+    <View style={styles.pane}>
+      {/* Totals, counting only payments that actually cleared. */}
+      <View style={styles.totalsCard}>
+        <Text style={styles.totalsEyebrow}>
+          {direction === "earned" ? "RELEASED TO YOU" : "PAID OUT"}
+        </Text>
+        <Text style={styles.totalsValue}>{formatPhp(totals.releasedCentavos)}</Text>
+        <View style={styles.totalsDivider} />
+        <View style={styles.totalsRow}>
+          <Text style={styles.totalsRowLabel}>
+            {direction === "earned" ? "Protected until completion" : "Still held by platform"}
+          </Text>
+          <Text style={styles.totalsRowValue}>{formatPhp(totals.protectedCentavos)}</Text>
+        </View>
+        <Text style={styles.totalsCaption}>
+          Amounts are the agreed booking price. A fee and tax breakdown will appear here once the
+          platform&apos;s charging model is approved and configured.
+        </Text>
+      </View>
+
+      {rows.length === 0 ? (
+        <EmptyState
+          title={direction === "earned" ? "No earnings yet" : "No payments yet"}
+          description={
+            direction === "earned"
+              ? "Bookings you complete as a Tasker will appear here."
+              : "Bookings you pay for as a Client will appear here."
+          }
+        />
+      ) : (
+        <View style={styles.list}>
+          {rows.map((booking) => (
+            <PaymentRow key={booking.id} booking={booking} direction={direction} />
+          ))}
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -174,7 +296,6 @@ function DirectionTab({
       accessibilityLabel={`${label}, ${count} ${count === 1 ? "booking" : "bookings"}`}
       style={({ pressed }) => [
         styles.tab,
-        active ? styles.tabActive : null,
         pressed ? { opacity: 0.85 } : null,
       ]}
     >
@@ -209,22 +330,29 @@ function PaymentRow({
       accessibilityHint="Opens the receipt for this booking"
       style={({ pressed }) => [styles.row, pressed ? styles.rowPressed : null]}
     >
-      <View style={styles.rowMain}>
-        <Text style={styles.rowTitle} numberOfLines={1}>
+      <View style={styles.cardBody}>
+        <Text style={styles.rowTitle}>
           {booking.taskTitle}
         </Text>
-        <Text style={styles.rowMeta} numberOfLines={1}>
-          {direction === "earned" ? "From" : "To"} {counterpart || "—"} ·{" "}
-          {shortDate(booking.createdAt)}
-        </Text>
+        <View style={styles.rowMetaRow}>
+          <Text style={styles.rowMetaLeft} numberOfLines={1}>
+            {direction === "earned" ? "From" : "To"} {counterpart || "—"}
+          </Text>
+          <Text style={styles.rowMetaDate}>
+            {shortDate(booking.createdAt)}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.cardFooter}>
         <StatusBadge
           tone={settlementTone(settlement)}
           label={settlementLabel(settlement, direction)}
         />
-      </View>
-      <View style={styles.rowTrailing}>
-        <Text style={styles.rowAmount}>{formatPhp(booking.agreedCentavos)}</Text>
-        <Icon name="arrow-right" size={14} color={theme.textSecondary} />
+        <View style={styles.amountContainer}>
+          <Text style={styles.rowAmount}>{formatPhp(booking.agreedCentavos)}</Text>
+          <Icon name="arrow-right" size={14} color={theme.textSecondary} />
+        </View>
       </View>
     </Pressable>
   );
@@ -240,13 +368,43 @@ const styles = StyleSheet.create({
   content: {
     gap: spacing.md,
   },
+  slidingContainer: {
+    width: "100%",
+    overflow: "hidden",
+  },
+  slidingTrack: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  paneWrapper: {
+    flexShrink: 0,
+  },
+  pane: {
+    width: "100%",
+    gap: spacing.md,
+  },
   tabBar: {
+    position: "relative",
     minWidth: 0,
     flexDirection: "row",
     gap: spacing.sm,
     backgroundColor: theme.surfaceSubtle,
     borderRadius: radii.md,
     padding: 4,
+  },
+  tabIndicator: {
+    position: "absolute",
+    top: 4,
+    left: 4,
+    bottom: 4,
+    backgroundColor: theme.surface,
+    borderRadius: radii.sm,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
+    elevation: 2,
+    zIndex: 0,
   },
   tab: {
     flex: 1,
@@ -257,14 +415,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: spacing.xs,
     borderRadius: radii.sm,
-  },
-  tabActive: {
-    backgroundColor: theme.surface,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 2,
+    zIndex: 1,
   },
   tabLabel: {
     fontSize: fontSize.sm,
@@ -340,40 +491,62 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   list: {
-    gap: spacing.sm,
+    gap: spacing.md,
   },
   row: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.md,
     backgroundColor: theme.surface,
     borderWidth: 1,
     borderColor: theme.borderSubtle,
-    borderRadius: radii.md,
+    borderRadius: radii.lg,
     padding: spacing.md,
+    gap: spacing.md,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
   },
   rowPressed: {
     backgroundColor: theme.surfaceSubtle,
+    borderColor: theme.borderControl,
     transform: [{ scale: 0.995 }],
   },
-  rowMain: {
-    flex: 1,
-    minWidth: 0,
-    gap: spacing.xs,
+  cardBody: {
+    gap: 6,
   },
   rowTitle: {
     fontSize: fontSize.md,
+    lineHeight: lineHeight.md,
     fontWeight: "700",
     color: theme.textPrimary,
   },
-  rowMeta: {
+  rowMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  rowMetaLeft: {
+    flex: 1,
     fontSize: fontSize.xs,
     color: theme.textSecondary,
   },
-  rowTrailing: {
+  rowMetaDate: {
+    fontSize: fontSize.xs,
+    color: theme.textSecondary,
+    textAlign: "right",
+    flexShrink: 0,
+  },
+  cardFooter: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.xs,
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  amountContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
     flexShrink: 0,
   },
   rowAmount: {
@@ -382,3 +555,5 @@ const styles = StyleSheet.create({
     color: theme.textPrimary,
   },
 });
+
+

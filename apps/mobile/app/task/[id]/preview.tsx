@@ -6,7 +6,6 @@ import {
   View,
 } from "react-native";
 import { Redirect, Stack, router, useLocalSearchParams } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { TaskId } from "@dizkarte/domain";
 import { formatPhp } from "@dizkarte/domain";
 import { Screen } from "../../../src/components/ui/Screen";
@@ -65,7 +64,6 @@ export default function PreviewTaskScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session, status } = useSession();
   const { repository, notifyChanged } = useMarketplace();
-  const insets = useSafeAreaInsets();
   const { gutter, isTablet } = useResponsiveLayout();
   const [task, setTask] = useState<OwnedTaskRecord | null>(null);
   const [state, setState] = useState<LoadState>("loading");
@@ -1109,3 +1107,5 @@ const styles = StyleSheet.create({
     width: 220,
   },
 });
+
+

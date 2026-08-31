@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { BottomSheetModal } from "../ui/BottomSheetModal";
 import { Button } from "../ui/Button";
@@ -17,11 +17,14 @@ import {
 } from "../ui/FilterSheetParts";
 import { CalendarPickerModal } from "../task/TaskSchedulePicker";
 import { dateOnlyToIso, isoToDateOnly, validateTaskFilterDraft } from "../task/taskFilterQuery";
+import { spacing } from "../../theme";
 import {
   BOOKING_FILTERS,
   BOOKING_ROLE_OPTIONS,
   BOOKING_SORT_OPTIONS,
   DEFAULT_BOOKING_FILTERS,
+  normalizeRoles,
+  normalizeStages,
   type BookingFilterKey,
   type BookingFilterState,
   type BookingRoleFilter,
@@ -56,8 +59,9 @@ export function BookingFilterPanel({
   onDraftChange,
   onClose,
 }: BookingFilterPanelProps) {
-  const [stage, setStage] = useState<BookingFilterKey>(filters.stage);
-  const [role, setRole] = useState<BookingRoleFilter>(filters.role);
+  const scrollRef = useRef<ScrollView>(null);
+  const [stages, setStages] = useState<ReadonlyArray<BookingFilterKey>>(normalizeStages(filters));
+  const [roles, setRoles] = useState<ReadonlyArray<BookingRoleFilter>>(normalizeRoles(filters));
   const [minAmount, setMinAmount] = useState(
     typeof filters.minAmountCentavos === "number" ? String(filters.minAmountCentavos / 100) : "",
   );
@@ -74,8 +78,8 @@ export function BookingFilterPanel({
 
   useEffect(() => {
     if (!visible) return;
-    setStage(filters.stage);
-    setRole(filters.role);
+    setStages(normalizeStages(filters));
+    setRoles(normalizeRoles(filters));
     setMinAmount(
       typeof filters.minAmountCentavos === "number" ? String(filters.minAmountCentavos / 100) : "",
     );
@@ -91,14 +95,67 @@ export function BookingFilterPanel({
     setErrors({});
   }, [filters, visible]);
 
+  const ALL_SPECIFIC_STAGES: ReadonlyArray<BookingFilterKey> = useMemo(
+    () => BOOKING_FILTERS.filter((item) => item.key !== "all").map((item) => item.key),
+    [],
+  );
+  const ALL_SPECIFIC_ROLES: ReadonlyArray<BookingRoleFilter> = useMemo(
+    () => BOOKING_ROLE_OPTIONS.filter((item) => item.key !== "any").map((item) => item.key),
+    [],
+  );
+
+  function handleToggleStage(key: BookingFilterKey) {
+    if (key === "all") {
+      setStages(["all"]);
+      return;
+    }
+    setStages((current) => {
+      const withoutAll = current.filter((k) => k !== "all");
+      let next: BookingFilterKey[];
+      if (withoutAll.includes(key)) {
+        next = withoutAll.filter((k) => k !== key);
+      } else {
+        next = [...withoutAll, key];
+      }
+      if (next.length === 0 || next.length >= ALL_SPECIFIC_STAGES.length) {
+        return ["all"];
+      }
+      return next;
+    });
+  }
+
+  function handleToggleRole(key: BookingRoleFilter) {
+    if (key === "any") {
+      setRoles(["any"]);
+      return;
+    }
+    setRoles((current) => {
+      const withoutAny = current.filter((k) => k !== "any");
+      let next: BookingRoleFilter[];
+      if (withoutAny.includes(key)) {
+        next = withoutAny.filter((k) => k !== key);
+      } else {
+        next = [...withoutAny, key];
+      }
+      if (next.length === 0 || next.length >= ALL_SPECIFIC_ROLES.length) {
+        return ["any"];
+      }
+      return next;
+    });
+  }
+
   const draft = useMemo<BookingFilterState>(() => {
     const minCentavos = minAmount.trim() ? Math.round(Number(minAmount) * 100) : undefined;
     const maxCentavos = maxAmount.trim() ? Math.round(Number(maxAmount) * 100) : undefined;
     const fromIso = dateOnlyToIso(bookedFrom, false);
     const toIso = dateOnlyToIso(bookedTo, true);
     return {
-      stage,
-      role,
+      // Each branch only runs when the array holds exactly one entry, but a
+      // `length` check does not narrow indexed access, so the default is restated.
+      stage: stages.length === 1 ? (stages[0] ?? "all") : "all",
+      stages,
+      role: roles.length === 1 ? (roles[0] ?? "any") : "any",
+      roles,
       sort,
       ...(Number.isFinite(minCentavos) ? { minAmountCentavos: minCentavos as number } : {}),
       ...(Number.isFinite(maxCentavos) ? { maxAmountCentavos: maxCentavos as number } : {}),
@@ -106,7 +163,7 @@ export function BookingFilterPanel({
       ...(toIso ? { bookedTo: toIso } : {}),
       ...(unreadOnly ? { unreadOnly: true } : {}),
     };
-  }, [stage, role, minAmount, maxAmount, bookedFrom, bookedTo, unreadOnly, sort]);
+  }, [stages, roles, minAmount, maxAmount, bookedFrom, bookedTo, unreadOnly, sort]);
 
   useEffect(() => {
     if (!visible) return;
@@ -165,8 +222,8 @@ export function BookingFilterPanel({
   }
 
   function handleClear() {
-    setStage("all");
-    setRole("any");
+    setStages(["all"]);
+    setRoles(["any"]);
     setMinAmount("");
     setMaxAmount("");
     setBookedFrom("");
@@ -196,6 +253,7 @@ export function BookingFilterPanel({
         />
 
         <ScrollView
+          ref={scrollRef}
           style={sheet.scroll}
           contentContainerStyle={sheet.body}
           keyboardShouldPersistTaps="handled"
@@ -206,16 +264,16 @@ export function BookingFilterPanel({
               title="Stage"
               description="Choose which booking stage you want to see."
             />
-            <View style={sheet.choiceGrid} accessibilityRole="radiogroup">
+            <View style={sheet.choiceGrid} role="group">
               {BOOKING_FILTERS.map((item) => (
                 <FilterCountChoice
                   key={item.key}
                   label={item.label}
-                  count={counts[item.key]}
+                  count={counts[item.key] ?? 0}
                   unit="booking"
                   icon={item.icon}
-                  selected={stage === item.key}
-                  onPress={() => setStage(item.key)}
+                  selected={stages.includes(item.key)}
+                  onPress={() => handleToggleStage(item.key)}
                 />
               ))}
             </View>
@@ -226,13 +284,13 @@ export function BookingFilterPanel({
               title="Your role"
               description="Separate the work you hired for from the work you did."
             />
-            <View style={sheet.choiceGrid} accessibilityRole="radiogroup">
+            <View style={sheet.choiceGrid} role="group">
               {BOOKING_ROLE_OPTIONS.map((option) => (
                 <FilterChoice
                   key={option.key}
                   label={option.label}
-                  selected={role === option.key}
-                  onPress={() => setRole(option.key)}
+                  selected={roles.includes(option.key)}
+                  onPress={() => handleToggleRole(option.key)}
                 />
               ))}
             </View>
@@ -295,7 +353,7 @@ export function BookingFilterPanel({
               title="Amount"
               description="Set an optional agreed-price range in Philippine pesos."
             />
-            <View style={sheet.fieldGrid}>
+            <View style={[sheet.fieldGrid, { paddingBottom: spacing.lg }]}>
               <View style={sheet.fieldColumn}>
                 <TextField
                   label="Minimum"
@@ -303,6 +361,11 @@ export function BookingFilterPanel({
                   onChangeText={(value) => {
                     setMinAmount(value);
                     clearError("minAmount");
+                  }}
+                  onFocus={() => {
+                    setTimeout(() => {
+                      scrollRef.current?.scrollTo({ y: 560, animated: true });
+                    }, 100);
                   }}
                   placeholder="No minimum"
                   keyboardType="numeric"
@@ -318,6 +381,11 @@ export function BookingFilterPanel({
                   onChangeText={(value) => {
                     setMaxAmount(value);
                     clearError("maxAmount");
+                  }}
+                  onFocus={() => {
+                    setTimeout(() => {
+                      scrollRef.current?.scrollTo({ y: 640, animated: true });
+                    }, 100);
                   }}
                   placeholder="No maximum"
                   keyboardType="numeric"
@@ -359,16 +427,17 @@ export function BookingFilterPanel({
             />
           </View>
         </View>
-      </BottomSheetModal>
 
-      <CalendarPickerModal
-        visible={visible && activeDateField !== null}
-        selectedDate={calendarDate}
-        title={activeDateField === "from" ? "Select start date" : "Select end date"}
-        confirmLabel={activeDateField === "from" ? "Use as start date" : "Use as end date"}
-        onConfirm={handleDateConfirm}
-        onClose={() => setActiveDateField(null)}
-      />
+        <CalendarPickerModal
+          visible={activeDateField !== null}
+          useModal={false}
+          selectedDate={calendarDate}
+          title={activeDateField === "from" ? "Select start date" : "Select end date"}
+          confirmLabel={activeDateField === "from" ? "Use as start date" : "Use as end date"}
+          onConfirm={handleDateConfirm}
+          onClose={() => setActiveDateField(null)}
+        />
+      </BottomSheetModal>
     </>
   );
 }

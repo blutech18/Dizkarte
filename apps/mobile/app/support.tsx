@@ -5,7 +5,7 @@ import { Screen } from "../src/components/ui/Screen";
 import { Button } from "../src/components/ui/Button";
 import { TextField } from "../src/components/ui/TextField";
 import { StatusBadge } from "../src/components/ui/StatusBadge";
-import { Icon } from "../src/components/ui/Icon";
+import { Icon, type IconName } from "../src/components/ui/Icon";
 import { LoadingState, EmptyState, ErrorState } from "../src/components/ui/AsyncState";
 import { MediaPicker } from "../src/components/media/MediaPicker";
 import { ProfilePageIntro, ProfilePageSection } from "../src/components/profile/ProfilePageSection";

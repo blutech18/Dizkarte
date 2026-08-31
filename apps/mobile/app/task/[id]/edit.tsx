@@ -11,7 +11,6 @@ import {
   type KeyboardEvent,
 } from "react-native";
 import { Redirect, Stack, router, useLocalSearchParams } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { TaskId } from "@dizkarte/domain";
 import { Screen } from "../../../src/components/ui/Screen";
 import { Button } from "../../../src/components/ui/Button";
@@ -52,7 +51,6 @@ export default function EditTaskScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session, status } = useSession();
   const { repository, notifyChanged } = useMarketplace();
-  const insets = useSafeAreaInsets();
   const { gutter, isTablet } = useResponsiveLayout();
   const [state, setState] = useState<LoadState>("loading");
   const [form, setForm] = useState<TaskDraftFormValue | null>(null);
@@ -529,3 +527,5 @@ const styles = StyleSheet.create({
     flex: 1.15,
   },
 });
+
+

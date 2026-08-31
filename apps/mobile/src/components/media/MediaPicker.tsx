@@ -6,7 +6,7 @@ import { Icon } from "../ui/Icon";
 import { MAX_TASK_MEDIA_COUNT } from "../../services/storage/object-paths";
 import { removeObject, uploadFile, type UploadedObject } from "../../services/storage/upload";
 import type { StorageBucket, UploadKind } from "../../services/storage/object-paths";
-import { theme, spacing, fontSize, radii, MIN_TOUCH_TARGET } from "../../theme";
+import { theme, spacing, fontSize, radii } from "../../theme";
 
 export type MediaPickerProps = {
   readonly bucket: StorageBucket;
@@ -271,3 +271,4 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
 });
+

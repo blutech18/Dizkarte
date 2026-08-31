@@ -11,7 +11,6 @@ import {
   type KeyboardEvent,
 } from "react-native";
 import { Redirect, Stack, router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Screen } from "../src/components/ui/Screen";
 import { Button } from "../src/components/ui/Button";
 import { Icon } from "../src/components/ui/Icon";
@@ -41,7 +40,6 @@ type LoadState = "loading" | "ready" | "error";
 export default function VerificationScreen() {
   const { session, status: sessionStatus } = useSession();
   const { repository } = useMarketplace();
-  const insets = useSafeAreaInsets();
   const { gutter, isTablet } = useResponsiveLayout();
 
   const [state, setState] = useState<LoadState>("loading");
@@ -738,3 +736,5 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
 });
+
+

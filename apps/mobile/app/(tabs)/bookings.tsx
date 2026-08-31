@@ -465,10 +465,19 @@ export default function BookingsScreen() {
 
               {activeStatusFilterCount > 0 || searchQuery.trim() ? (
                 <View style={styles.activeFiltersBlock}>
-                  <Text style={styles.activeFiltersText} numberOfLines={2}>
-                    {filterChips.length > 0 ? filterChips.join(" · ") : "All bookings"}
-                    {searchQuery.trim() ? ` · “${searchQuery.trim()}”` : ""}
-                  </Text>
+                  <View style={styles.activeChipsRow}>
+                    {filterChips.map((chip) => (
+                      <View key={chip} style={styles.filterChip}>
+                        <Text style={styles.filterChipText}>{chip}</Text>
+                      </View>
+                    ))}
+                    {searchQuery.trim() ? (
+                      <View style={styles.filterChip}>
+                        <Icon name="search" size={11} color={theme.primary} />
+                        <Text style={styles.filterChipText}>“{searchQuery.trim()}”</Text>
+                      </View>
+                    ) : null}
+                  </View>
                   <Pressable
                     onPress={clearSearchAndFilters}
                     hitSlop={8}
@@ -833,28 +842,43 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: theme.borderSubtle,
+    paddingTop: 2,
   },
-  activeFiltersText: {
+  activeChipsRow: {
     flex: 1,
     minWidth: 0,
-    color: theme.textSecondary,
-    fontSize: fontSize.xs,
-    lineHeight: lineHeight.xs,
-    fontWeight: "600",
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: 6,
+  },
+  filterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    minHeight: 28,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radii.pill,
+    backgroundColor: theme.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+  },
+  filterChipText: {
+    color: theme.textPrimary,
+    fontSize: 11,
+    fontWeight: "700",
   },
   clearFiltersButton: {
-    minHeight: 32,
+    minHeight: 28,
     justifyContent: "center",
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: 12,
     borderRadius: radii.pill,
     backgroundColor: theme.primarySoft,
   },
   clearFiltersText: {
     color: theme.primary,
-    fontSize: fontSize.xs,
+    fontSize: 11,
     fontWeight: "800",
   },
   compactPressed: {

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Platform, Pressable, StyleSheet, Switch, Text, View } from "react-native";
-import { theme, spacing, fontSize, lineHeight, radii, MIN_TOUCH_TARGET } from "../../theme";
+import { theme, spacing, fontSize, lineHeight, radii } from "../../theme";
 import { AnimatedFilterPressable, AnimatedFilterText } from "./AnimatedFilterPressable";
 import { Icon } from "./Icon";
 
@@ -270,7 +270,12 @@ export function DateFilterField({
       >
         <View style={styles.dateButtonContent}>
           <Icon name="calendar" size={18} color={value ? theme.primary : theme.textSecondary} />
-          <Text style={[styles.dateButtonText, value ? styles.dateButtonTextSelected : null]}>
+          <Text
+            style={[styles.dateButtonText, value ? styles.dateButtonTextSelected : null]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+          >
             {displayValue}
           </Text>
         </View>
@@ -318,9 +323,9 @@ export function formatDateOnly(date: Date): string {
 export function formatFriendlyDate(value: string): string {
   const parsed = parseDateOnly(value);
   if (!parsed) return "Choose a date";
-  return parsed.toLocaleDateString("en-PH", {
-    weekday: "short",
-    month: "short",
+  return parsed.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
     day: "numeric",
     year: "numeric",
   });
@@ -328,7 +333,7 @@ export function formatFriendlyDate(value: string): string {
 
 export const filterSheetStyles = StyleSheet.create({
   scroll: { flexShrink: 1 },
-  body: { padding: spacing.lg, paddingBottom: spacing.xl, gap: spacing.xl },
+  body: { padding: spacing.lg, paddingBottom: spacing.xxl, gap: spacing.xl },
   section: {
     gap: spacing.md,
     paddingBottom: spacing.xl,
@@ -487,14 +492,13 @@ const styles = StyleSheet.create({
   countText: { fontSize: 10, fontWeight: "800", color: theme.textSecondary },
   countTextSelected: { color: theme.primary },
   switchField: {
-    height: MIN_TOUCH_TARGET,
-    minHeight: MIN_TOUCH_TARGET,
+    height: 48,
+    minHeight: 48,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    gap: spacing.xs,
-    paddingLeft: spacing.md,
-    paddingRight: spacing.sm,
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
     borderWidth: 1,
     borderColor: theme.borderControl,
     borderRadius: radii.md,
@@ -569,3 +573,4 @@ const styles = StyleSheet.create({
     color: theme.infoOnSoft,
   },
 });
+

@@ -10,6 +10,8 @@ export type CenterDialogModalProps = {
   readonly children: ReactNode;
   /** Disable backdrop-tap-to-dismiss, e.g. while a submission is in flight. Defaults to dismissible. */
   readonly dismissible?: boolean;
+  /** Whether to wrap in a native Modal. Set false when rendering inside an existing Modal or BottomSheet. */
+  readonly useModal?: boolean;
 };
 
 /**
@@ -34,6 +36,7 @@ export function CenterDialogModal({
   onClose,
   children,
   dismissible = true,
+  useModal = true,
 }: CenterDialogModalProps) {
   const insets = useSafeAreaInsets();
   const [rendered, setRendered] = useState(visible);
@@ -81,6 +84,47 @@ export function CenterDialogModal({
 
   if (!rendered) return null;
 
+  const content = (
+    <View
+      style={[
+        useModal ? null : StyleSheet.absoluteFill,
+        styles.overlay,
+        {
+          zIndex: useModal ? undefined : 9999,
+          elevation: useModal ? undefined : 20,
+          paddingTop: Math.max(spacing.lg, insets.top),
+          paddingRight: Math.max(spacing.lg, insets.right),
+          paddingBottom: Math.max(spacing.lg, insets.bottom),
+          paddingLeft: Math.max(spacing.lg, insets.left),
+        },
+      ]}
+    >
+      <Animated.View style={[styles.backdrop, { opacity: fade }]}>
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={dismissible ? onClose : undefined}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          accessibilityState={{ disabled: !dismissible }}
+        />
+      </Animated.View>
+
+      <Animated.View
+        accessibilityViewIsModal
+        style={[
+          styles.cardWrapper,
+          { opacity: fade, transform: [{ scale }], pointerEvents: "box-none" },
+        ]}
+      >
+        {children}
+      </Animated.View>
+    </View>
+  );
+
+  if (!useModal) {
+    return content;
+  }
+
   return (
     <Modal
       visible
@@ -90,37 +134,7 @@ export function CenterDialogModal({
       navigationBarTranslucent
       onRequestClose={dismissible ? onClose : undefined}
     >
-      <View
-        style={[
-          styles.overlay,
-          {
-            paddingTop: Math.max(spacing.lg, insets.top),
-            paddingRight: Math.max(spacing.lg, insets.right),
-            paddingBottom: Math.max(spacing.lg, insets.bottom),
-            paddingLeft: Math.max(spacing.lg, insets.left),
-          },
-        ]}
-      >
-        <Animated.View style={[styles.backdrop, { opacity: fade }]}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={dismissible ? onClose : undefined}
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-            accessibilityState={{ disabled: !dismissible }}
-          />
-        </Animated.View>
-
-        <Animated.View
-          accessibilityViewIsModal
-          style={[
-            styles.cardWrapper,
-            { opacity: fade, transform: [{ scale }], pointerEvents: "box-none" },
-          ]}
-        >
-          {children}
-        </Animated.View>
-      </View>
+      {content}
     </Modal>
   );
 }

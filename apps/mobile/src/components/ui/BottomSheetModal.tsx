@@ -2,8 +2,10 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Animated,
   Easing,
+  Keyboard,
   Modal,
   PanResponder,
+  Platform,
   Pressable,
   StyleSheet,
   View,
@@ -11,7 +13,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MOTION_DURATION, MOTION_EASING } from "../../theme/motion";
-import { MAX_CONTENT_WIDTH, theme, radii, spacing } from "../../theme";
+import { MAX_CONTENT_WIDTH, theme, radii } from "../../theme";
 
 export type BottomSheetModalProps = {
   readonly visible: boolean;
@@ -49,6 +51,44 @@ export function BottomSheetModal({ visible, onClose, children }: BottomSheetModa
   const [rendered, setRendered] = useState(visible);
   const fade = useRef(new Animated.Value(0)).current;
   const slide = useRef(new Animated.Value(sheetOffset)).current;
+  const keyboardOffset = useRef(new Animated.Value(0)).current;
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const onShow = (e: { endCoordinates?: { height: number }; duration?: number }) => {
+      const height = e?.endCoordinates?.height ?? 0;
+      const duration = e?.duration && e.duration > 0 ? e.duration : 250;
+      setIsKeyboardVisible(true);
+      Animated.timing(keyboardOffset, {
+        toValue: height,
+        duration,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }).start();
+    };
+
+    const onHide = (e: { duration?: number }) => {
+      const duration = e?.duration && e.duration > 0 ? e.duration : 200;
+      setIsKeyboardVisible(false);
+      Animated.timing(keyboardOffset, {
+        toValue: 0,
+        duration,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      }).start();
+    };
+
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [keyboardOffset]);
 
   const panResponder = useRef(
     PanResponder.create({
@@ -209,6 +249,10 @@ export function BottomSheetModal({ visible, onClose, children }: BottomSheetModa
             {
               paddingBottom: insets.bottom > 0 ? Math.min(insets.bottom, 8) : 0,
               transform: [{ translateY: slide }],
+              marginBottom: keyboardOffset,
+              maxHeight: isKeyboardVisible
+                ? Math.max(300, (windowHeight || 800) - 180)
+                : "85%",
             },
           ]}
         >

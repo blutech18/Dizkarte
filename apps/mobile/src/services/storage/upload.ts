@@ -69,11 +69,25 @@ async function readLocalBytes(
     const bytes = new Uint8Array(await blob.arrayBuffer());
     return { bytes, sizeBytes: blob.size > 0 ? blob.size : fallbackSizeBytes };
   }
-  const handle = new File(uri);
-  // Trust the filesystem over the picker's optional metadata.
-  const sizeBytes = handle.size > 0 ? handle.size : fallbackSizeBytes;
-  const bytes = await handle.bytes();
-  return { bytes, sizeBytes };
+  // On native, try the expo-file-system File API first (SDK 54+).
+  // For some Android-cropped/edited images the File object may report size 0
+  // or return an empty buffer; fall back to fetch() which handles these URIs
+  // reliably via the native networking layer.
+  try {
+    const handle = new File(uri);
+    const bytes = await handle.bytes();
+    if (bytes.byteLength > 0) {
+      const sizeBytes = handle.size > 0 ? handle.size : bytes.byteLength;
+      return { bytes, sizeBytes };
+    }
+  } catch {
+    // Fall through to fetch fallback below.
+  }
+  // Fetch fallback: works for file://, content://, and cropped/temp URIs.
+  const response = await fetch(uri);
+  const blob = await response.blob();
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  return { bytes, sizeBytes: blob.size > 0 ? blob.size : fallbackSizeBytes };
 }
 
 /**
@@ -95,7 +109,11 @@ export async function uploadFile(input: {
   try {
     const read = await readLocalBytes(input.file.uri, input.file.sizeBytes);
     bytes = read.bytes;
-    sizeBytes = read.sizeBytes;
+    // Use the real byte length as the authoritative size. On Android, the
+    // picker (especially for cropped/edited images) sometimes reports fileSize
+    // as 0 or undefined; trusting the actual buffer avoids a false
+    // "file appears to be empty" rejection.
+    sizeBytes = bytes.byteLength > 0 ? bytes.byteLength : read.sizeBytes;
   } catch {
     return { ok: false, message: "Could not read that file. Try choosing it again." };
   }

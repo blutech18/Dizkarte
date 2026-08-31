@@ -148,13 +148,9 @@ export function BookingStatusWorkspace({
         <StatusHero presentation={presentation} toneStyle={toneStyle} />
 
         {presentation.progressIndex !== null ? (
-          <>
-            <View style={styles.statusSectionDivider} />
-            <LifecycleRail currentIndex={presentation.progressIndex} />
-          </>
+          <LifecycleRail currentIndex={presentation.progressIndex} />
         ) : null}
 
-        <View style={styles.statusSectionDivider} />
         <StatusPrimaryPanel
           presentation={presentation}
           booking={booking}
@@ -218,20 +214,17 @@ function BookingIdentityDocument({
   return (
     <View style={styles.bookingDocument}>
       <View style={styles.taskSummary}>
-        <View style={styles.summaryTopRow}>
-          <View style={styles.detailLabelRow}>
-            <Icon name="briefcase" size={15} color={theme.primary} />
-            <Text style={styles.summaryLabel}>BOOKED TASK</Text>
-          </View>
+        <Text style={styles.taskTitle} accessibilityRole="header">
+          {taskTitle || "Untitled task"}
+        </Text>
+        <View style={styles.taskFooterRow}>
+          <Text style={styles.taskFooterLabel}>Status</Text>
           <StatusBadge
             tone={statusTone}
             label={statusLabel}
             accessibilityLabel={`Booking status: ${statusLabel}`}
           />
         </View>
-        <Text style={styles.taskTitle} accessibilityRole="header">
-          {taskTitle || "Untitled task"}
-        </Text>
       </View>
 
       <View style={styles.overviewCard}>
@@ -246,8 +239,6 @@ function BookingIdentityDocument({
             <Text style={styles.identityEyebrow}>{counterpartRoleLabel}</Text>
           </View>
         </View>
-
-        <View style={styles.overviewDivider} />
 
         <View style={styles.financialRow}>
           <View style={styles.amountBlock}>
@@ -509,98 +500,103 @@ function BookingAccessPanel({
 
   return (
     <View style={styles.accessCard}>
-      <View style={styles.accessHeader}>
-        <View style={styles.accessHeading}>
-          <Text style={styles.accessEyebrow}>PRIVATE BOOKING DETAILS</Text>
+      <View style={styles.accessHeadingBlock}>
+        <View style={styles.accessHeader}>
           <Text style={styles.accessTitle}>Location & contact</Text>
+          <View
+            style={styles.accessState}
+            accessible
+            accessibilityRole="text"
+            accessibilityLabel={`Booking details: ${unlocked ? "Open" : coordinationClosed ? "Closed" : "Locked"}`}
+          >
+            <Icon
+              name={unlocked ? "check-circle" : coordinationClosed ? "alert-circle" : "lock"}
+              size={15}
+              color={unlocked ? theme.successSolid : theme.textSecondary}
+            />
+            <Text style={[styles.accessStateText, unlocked ? styles.accessStateTextOpen : null]}>
+              {unlocked ? "Open" : coordinationClosed ? "Closed" : "Locked"}
+            </Text>
+          </View>
         </View>
-        <View
-          style={styles.accessState}
-          accessible
-          accessibilityRole="text"
-          accessibilityLabel={`Booking details: ${unlocked ? "Open" : "Locked"}`}
-        >
-          <Icon
-            name={unlocked ? "check-circle" : "lock"}
-            size={16}
-            color={unlocked ? theme.successSolid : theme.textSecondary}
-          />
-          <Text style={[styles.accessStateText, unlocked ? styles.accessStateTextOpen : null]}>
-            {unlocked ? "Open" : "Locked"}
-          </Text>
-        </View>
+
+        <Text style={styles.accessIntroduction}>
+          {unlocked
+            ? "Payment is confirmed. Use these details only to coordinate this booking."
+            : coordinationClosed
+              ? "This booking is closed. Private location, contact, and chat are no longer available."
+              : "Private coordination details open only after the payment provider confirms the booking."}
+        </Text>
       </View>
 
-      <Text style={styles.accessIntroduction}>
-        {unlocked
-          ? "Payment is confirmed. Use these details only to coordinate this booking."
-          : coordinationClosed
-            ? "This booking is closed. Private location, contact, and chat are no longer available."
-            : "Private coordination details open only after the payment provider confirms the booking."}
-      </Text>
-
-      <View style={styles.accessTable}>
-        {unlocked ? (
-          <>
+      {unlocked ? (
+        <>
+          <View style={styles.accessTable}>
             <View style={styles.accessDetailBlock}>
               <View style={styles.detailLabelRow}>
-                <Icon name="map-pin" size={18} color={theme.primary} />
+                <Icon name="map-pin" size={16} color={theme.primary} />
                 <Text style={styles.accessRowLabel}>TASK LOCATION</Text>
               </View>
               <Text style={styles.accessRowValue}>{exactAddress || "Address unavailable"}</Text>
             </View>
-            <View style={styles.accessRowDivider} />
             <View style={styles.accessDetailBlock}>
               <View style={styles.detailLabelRow}>
-                <Icon name="phone" size={18} color={theme.primary} />
+                <Icon name="phone" size={16} color={theme.primary} />
                 <Text style={styles.accessRowLabel}>CONTACT</Text>
               </View>
               <Text style={styles.accessRowValue}>{contact}</Text>
             </View>
-          </>
-        ) : coordinationClosed ? (
-          <>
-            <View style={styles.accessMatrixRow}>
-              <Text style={styles.accessRowLabel}>BOOKING RECORD</Text>
-              <Text style={styles.accessRowValue}>Task, amount, receipt, and final status</Text>
-            </View>
-            <View style={styles.accessRowDivider} />
-            <View style={styles.accessMatrixRow}>
-              <Text style={styles.accessRowLabel}>COORDINATION</Text>
-              <Text style={styles.accessRowValue}>Closed</Text>
-            </View>
-          </>
-        ) : (
-          <>
-            <View style={styles.accessMatrixRow}>
-              <Text style={styles.accessRowLabel}>AVAILABLE NOW</Text>
-              <Text style={styles.accessRowValue}>Task and payment status</Text>
-            </View>
-            <View style={styles.accessRowDivider} />
-            <View style={styles.accessMatrixRow}>
-              <Text style={styles.accessRowLabel}>AFTER CONFIRMATION</Text>
-              <Text style={styles.accessRowValue}>
-                Exact location · Direct contact · Booking chat
-              </Text>
-            </View>
-          </>
-        )}
-      </View>
-
-      {unlocked ? (
-        <Button label="Open chat" icon="chat" onPress={onOpenChat} variant="secondary" fullWidth />
-      ) : (
-        <View style={styles.accessPolicy}>
-          <View style={styles.detailLabelRow}>
-            <Icon name="shield" size={16} color={theme.textSecondary} />
-            <Text style={styles.accessPolicyLabel}>PRIVACY NOTE</Text>
           </View>
-          <Text style={styles.accessPolicyText}>
-            {coordinationClosed
-              ? "Private coordination stays unavailable because this booking is closed."
-              : "Access is controlled by provider-confirmed payment—not by opening this screen."}
-          </Text>
+          <Button label="Open chat" icon="chat" onPress={onOpenChat} variant="secondary" fullWidth />
+        </>
+      ) : coordinationClosed ? (
+        <View style={styles.accessMatrixGrid}>
+          <View style={styles.accessMatrixTile}>
+            <View style={styles.detailLabelRow}>
+              <Icon name="note" size={14} color={theme.textSecondary} />
+              <Text style={styles.accessRowLabel}>BOOKING RECORD</Text>
+            </View>
+            <Text style={styles.accessTileValue}>Task, amount, receipt & status</Text>
+          </View>
+          <View style={styles.accessMatrixTile}>
+            <View style={styles.detailLabelRow}>
+              <Icon name="alert-circle" size={14} color={theme.textSecondary} />
+              <Text style={styles.accessRowLabel}>COORDINATION</Text>
+            </View>
+            <Text style={styles.accessTileValue}>Closed</Text>
+          </View>
         </View>
+      ) : (
+        <>
+          <View style={styles.accessMatrixGrid}>
+            <View style={styles.accessMatrixTile}>
+              <View style={styles.detailLabelRow}>
+                <Icon name="check-circle" size={14} color={theme.successSolid} />
+                <Text style={styles.accessRowLabel}>AVAILABLE NOW</Text>
+              </View>
+              <Text style={styles.accessTileValue}>Task and payment status</Text>
+            </View>
+            <View style={styles.accessMatrixTile}>
+              <View style={styles.detailLabelRow}>
+                <Icon name="lock" size={14} color={theme.primary} />
+                <Text style={styles.accessRowLabel}>AFTER CONFIRMATION</Text>
+              </View>
+              <Text style={styles.accessTileValue}>Exact location, contact & chat</Text>
+            </View>
+          </View>
+
+          <View style={styles.accessPolicyBanner}>
+            <Icon name="shield" size={14} color={theme.textSecondary} />
+            <Text
+              style={styles.accessPolicyText}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.85}
+            >
+              Access is protected until payment is confirmed.
+            </Text>
+          </View>
+        </>
       )}
     </View>
   );
@@ -626,19 +622,15 @@ function SupportPanel({
           Get support or escalate an issue connected to this booking.
         </Text>
       </View>
-      <View style={styles.sectionDivider} />
       <View style={styles.helpGroup}>
         {canDispute ? (
-          <>
-            <HelpRow
-              icon="shield"
-              title="Open a dispute"
-              subtitle="Escalate a problem with this booking for review"
-              isDestructive
-              onPress={onOpenDispute}
-            />
-            <View style={styles.helpDivider} />
-          </>
+          <HelpRow
+            icon="shield"
+            title="Open a dispute"
+            subtitle="Escalate this booking for review"
+            isDestructive
+            onPress={onOpenDispute}
+          />
         ) : null}
         <HelpRow
           icon="note"
@@ -672,16 +664,14 @@ function HelpRow({
       accessibilityHint={subtitle}
       style={({ pressed }) => [styles.helpRow, pressed ? styles.helpRowPressed : null]}
     >
+      <View style={styles.helpLeadingIcon}>
+        <Icon name={icon} size={20} color={isDestructive ? theme.errorSolid : theme.primary} />
+      </View>
       <View style={styles.helpContent}>
-        <View style={styles.helpTitleRow}>
-          <View style={styles.helpLeadingIcon}>
-            <Icon name={icon} size={20} color={isDestructive ? theme.errorSolid : theme.primary} />
-          </View>
-          <Text style={[styles.helpTitle, isDestructive ? styles.helpTitleDestructive : null]}>
-            {title}
-          </Text>
-        </View>
-        <Text style={styles.helpSubtitle} numberOfLines={2}>
+        <Text style={[styles.helpTitle, isDestructive ? styles.helpTitleDestructive : null]}>
+          {title}
+        </Text>
+        <Text style={styles.helpSubtitle} numberOfLines={1}>
           {subtitle}
         </Text>
       </View>
@@ -709,42 +699,32 @@ const styles = StyleSheet.create({
   taskSummary: {
     minWidth: 0,
     backgroundColor: theme.surface,
-    borderRadius: radii.lg,
+    borderRadius: radii.md,
     borderWidth: 1,
     borderColor: theme.borderSubtle,
-    padding: spacing.lg,
+    padding: spacing.md,
     gap: spacing.sm,
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 1,
   },
-  summaryTopRow: {
+  taskTitle: {
+    minWidth: 0,
+    color: theme.textPrimary,
+    fontSize: fontSize.lg,
+    lineHeight: lineHeight.lg,
+    fontWeight: "800",
+    letterSpacing: -0.2,
+  },
+  taskFooterRow: {
     minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.sm,
+    paddingTop: 2,
   },
-  detailLabelRow: {
-    minWidth: 0,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  summaryLabel: {
+  taskFooterLabel: {
     color: theme.textSecondary,
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 0.8,
-  },
-  taskTitle: {
-    color: theme.textPrimary,
-    fontSize: fontSize.xl,
-    lineHeight: lineHeight.xl,
-    fontWeight: "800",
-    letterSpacing: -0.3,
+    fontSize: fontSize.xs,
+    fontWeight: "700",
   },
   overviewCard: {
     minWidth: 0,
@@ -1110,26 +1090,20 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     backgroundColor: theme.surface,
   },
+  accessHeadingBlock: {
+    minWidth: 0,
+    gap: spacing.xs,
+  },
   accessHeader: {
     minWidth: 0,
     flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.sm,
   },
-  accessHeading: {
-    minWidth: 160,
-    flex: 1,
-    gap: spacing.xs,
-  },
-  accessEyebrow: {
-    color: theme.textSecondary,
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 1,
-  },
   accessTitle: {
+    minWidth: 0,
+    flex: 1,
     color: theme.textPrimary,
     fontSize: fontSize.lg,
     lineHeight: lineHeight.lg,
@@ -1150,23 +1124,21 @@ const styles = StyleSheet.create({
   },
   accessIntroduction: {
     color: theme.textSecondary,
-    fontSize: fontSize.sm,
-    lineHeight: lineHeight.sm,
+    fontSize: fontSize.xs,
+    lineHeight: lineHeight.xs + 2,
   },
   accessTable: {
-    overflow: "hidden",
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: theme.borderSubtle,
-  },
-  accessMatrixRow: {
-    gap: spacing.xs,
-    paddingVertical: spacing.md,
+    gap: spacing.sm,
   },
   accessDetailBlock: {
     minWidth: 0,
     gap: spacing.xs,
-    paddingVertical: spacing.md,
+  },
+  detailLabelRow: {
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
   accessRowLabel: {
     color: theme.textSecondary,
@@ -1180,27 +1152,36 @@ const styles = StyleSheet.create({
     lineHeight: lineHeight.sm,
     fontWeight: "600",
   },
-  accessRowDivider: {
-    height: 1,
-    backgroundColor: theme.borderSubtle,
-  },
-  accessPolicy: {
+  accessMatrixGrid: {
     minWidth: 0,
-    gap: spacing.xs,
-    paddingTop: spacing.xs,
+    gap: spacing.sm,
   },
-  accessPolicyLabel: {
-    color: theme.textSecondary,
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
+  accessMatrixTile: {
+    minWidth: 0,
+    gap: 4,
+    padding: spacing.md,
+    borderRadius: radii.md,
+    backgroundColor: theme.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+  },
+  accessTileValue: {
+    color: theme.textPrimary,
+    fontSize: fontSize.sm,
+    lineHeight: lineHeight.sm,
+    fontWeight: "700",
+  },
+  accessPolicyBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs + 2,
+    paddingTop: 2,
   },
   accessPolicyText: {
-    minWidth: 0,
+    flex: 1,
     color: theme.textSecondary,
     fontSize: fontSize.xs,
-    lineHeight: lineHeight.xs + 3,
+    lineHeight: lineHeight.xs + 2,
   },
 
   // Support
@@ -1215,6 +1196,7 @@ const styles = StyleSheet.create({
   },
   sectionHeadingBlock: {
     minWidth: 0,
+    gap: spacing.xs,
   },
   sectionHeading: {
     minHeight: 24,
@@ -1230,53 +1212,43 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   sectionHeaderDescription: {
-    marginTop: spacing.sm,
     color: theme.textSecondary,
     fontSize: fontSize.xs,
-    lineHeight: lineHeight.xs,
-  },
-  sectionDivider: {
-    height: 1,
-    backgroundColor: theme.borderSubtle,
+    lineHeight: lineHeight.xs + 2,
   },
   helpGroup: {
     overflow: "hidden",
     borderRadius: radii.sm,
+    gap: spacing.md,
+    marginTop: spacing.xs,
   },
   helpRow: {
-    minHeight: 60,
+    minHeight: 48,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
   },
   helpRowPressed: {
-    opacity: 0.85,
-  },
-  helpContent: {
-    minWidth: 0,
-    flex: 1,
-    gap: 2,
-  },
-  helpTitleRow: {
-    minWidth: 0,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.md,
+    opacity: 0.8,
   },
   helpLeadingIcon: {
-    width: 20,
-    height: 20,
+    width: 22,
+    height: 22,
     flexShrink: 0,
     alignItems: "center",
     justifyContent: "center",
   },
-  helpTitle: {
+  helpContent: {
     minWidth: 0,
     flex: 1,
+    gap: 1,
+  },
+  helpTitle: {
+    minWidth: 0,
     color: theme.textPrimary,
     fontSize: fontSize.sm,
-    lineHeight: lineHeight.sm,
+    lineHeight: 18,
     fontWeight: "700",
   },
   helpTitleDestructive: {
@@ -1285,7 +1257,7 @@ const styles = StyleSheet.create({
   helpSubtitle: {
     color: theme.textSecondary,
     fontSize: fontSize.xs,
-    lineHeight: lineHeight.xs,
+    lineHeight: 16,
   },
   helpTrailingIcon: {
     width: 20,
@@ -1293,10 +1265,6 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     alignItems: "center",
     justifyContent: "center",
-  },
-  helpDivider: {
-    height: 1,
-    backgroundColor: theme.borderSubtle,
   },
 
   // Error

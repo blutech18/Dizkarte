@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Animated,
   Dimensions,
   Easing,
+  Image,
   Keyboard,
   Platform,
   Pressable,
@@ -13,13 +16,14 @@ import {
   type KeyboardEvent,
 } from "react-native";
 import { Redirect, Stack, router } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as ImagePicker from "expo-image-picker";
 import { Screen } from "../../src/components/ui/Screen";
 import { TextField } from "../../src/components/ui/TextField";
 import { LocalityPicker } from "../../src/components/task/LocalityPicker";
 import { Button } from "../../src/components/ui/Button";
 import { LoadingState, ErrorState } from "../../src/components/ui/AsyncState";
 import { Icon } from "../../src/components/ui/Icon";
+import { CenterDialogModal } from "../../src/components/ui/CenterDialogModal";
 import {
   ProfilePageIntro,
   ProfilePageSection,
@@ -27,13 +31,20 @@ import {
 import { useSession } from "../../src/providers/SessionProvider";
 import { useMarketplace } from "../../src/providers/MarketplaceProvider";
 import { ScreenScrollProvider } from "../../src/providers/ScreenScrollContext";
+import { uploadFile, createSignedUrl } from "../../src/services/storage/upload";
 import type { MyProfileRecord, SpecialtyOption } from "../../src/services/marketplace";
 import { theme, spacing, fontSize, radii, useResponsiveLayout } from "../../src/theme";
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase() || "U";
+}
+
+const ALLOWED_MIME_TYPES = ["image/png", "image/jpeg", "image/jpg"];
 
 export default function EditProfileScreen() {
   const { session, status } = useSession();
   const { repository, notifyChanged } = useMarketplace();
-  const insets = useSafeAreaInsets();
   const { gutter, isTablet } = useResponsiveLayout();
 
   const scrollRef = useRef<ScrollView>(null);
@@ -103,13 +114,14 @@ export default function EditProfileScreen() {
 
   const scrollToRef = useCallback((ref: React.RefObject<View | null>) => {
     if (!ref.current || !scrollRef.current) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ref.current.measureLayout(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       scrollRef.current as unknown as any,
-      (x, y, w, h) => {
+      (_x, y, _w, h) => {
         const { height: screenHeight } = Dimensions.get("window");
         const visibleHeight = screenHeight - keyboardHeightRef.current;
-        const targetY = y - Math.max(16, (visibleHeight - h) / 4);
+        const targetTopInViewport = Math.max(24, (visibleHeight - h) / 2);
+        const targetY = y - targetTopInViewport;
         scrollRef.current?.scrollTo({ y: Math.max(0, targetY), animated: true });
       },
       () => {},
@@ -131,6 +143,9 @@ export default function EditProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
 
   const load = useCallback(async () => {
     if (!session) return;
@@ -141,6 +156,7 @@ export default function EditProfileScreen() {
         repository.getMyProfile(session.userId),
         repository.listSpecialtyOptions(),
       ]);
+      if (!record) throw new Error("The signed-in user has no profile record.");
       setProfile(record);
       setSpecialties(specialtyList);
       setDisplayName(record.displayName);
@@ -151,6 +167,13 @@ export default function EditProfileScreen() {
       setPublicBio(record.tasker?.publicBio ?? "");
       setPublicExperience(record.tasker?.publicExperience ?? "");
       setSelectedSpecialties(record.tasker?.specialtyIds ?? []);
+
+      if (record.avatarPath) {
+        const url = await createSignedUrl("avatars", record.avatarPath);
+        setAvatarUri(url);
+      } else {
+        setAvatarUri(null);
+      }
     } catch {
       setLoadError("Your profile could not be loaded. Check your connection and try again.");
     } finally {
@@ -161,6 +184,92 @@ export default function EditProfileScreen() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  async function pickProfilePhoto() {
+    if (!session || uploadingAvatar) return;
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert(
+        "Permission required",
+        "Allow photo access in your device settings to upload a profile picture.",
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.85,
+      allowsMultipleSelection: false,
+    });
+
+    if (result.canceled) return;
+
+    const asset = result.assets[0];
+    if (!asset) return;
+
+    const mime = asset.mimeType?.toLowerCase() ?? "";
+    if (!ALLOWED_MIME_TYPES.includes(mime)) {
+      Alert.alert("Unsupported format", "Please select a PNG or JPG image for your profile photo.");
+      return;
+    }
+
+    const previousUri = avatarUri;
+    setUploadingAvatar(true);
+    setAvatarUri(asset.uri);
+
+    const uploaded = await uploadFile({
+      bucket: "avatars",
+      userId: session.userId,
+      scopeId: "profile",
+      file: {
+        uri: asset.uri,
+        fileName: asset.fileName ?? "avatar.jpg",
+        mimeType: mime,
+        sizeBytes: asset.fileSize ?? 0,
+        kind: "image",
+      },
+    });
+
+    if (!uploaded.ok) {
+      setAvatarUri(previousUri);
+      setUploadingAvatar(false);
+      Alert.alert("Upload failed", uploaded.message);
+      return;
+    }
+
+    const saveResult = await repository.updateMyProfile(session.userId, {
+      avatarPath: uploaded.object.path,
+    });
+    setUploadingAvatar(false);
+    if (!saveResult.ok) {
+      setAvatarUri(previousUri);
+      Alert.alert("Could not save photo", saveResult.message);
+    } else {
+      setProfile(saveResult.profile);
+      notifyChanged();
+    }
+  }
+
+  async function removeProfilePhoto() {
+    if (!session || uploadingAvatar || !avatarUri) return;
+    setUploadingAvatar(true);
+    const previousUri = avatarUri;
+    setAvatarUri(null);
+
+    const saveResult = await repository.updateMyProfile(session.userId, {
+      avatarPath: null,
+    });
+    setUploadingAvatar(false);
+    if (!saveResult.ok) {
+      setAvatarUri(previousUri);
+      Alert.alert("Could not remove photo", saveResult.message);
+    } else {
+      setProfile(saveResult.profile);
+      notifyChanged();
+    }
+  }
 
   const markChanged = () => {
     setSaved(false);
@@ -182,9 +291,9 @@ export default function EditProfileScreen() {
     try {
       const result = await repository.updateMyProfile(session.userId, {
         displayName: displayName.trim(),
-        mobile: mobile.trim() || undefined,
-        cityCode: cityCode || undefined,
-        barangayCode: barangayCode || undefined,
+        ...(mobile.trim() ? { mobile: mobile.trim() } : {}),
+        ...(cityCode ? { cityCode } : {}),
+        ...(barangayCode ? { barangayCode } : {}),
         bio: bio.trim(),
         ...(profile?.tasker
           ? {
@@ -262,6 +371,113 @@ export default function EditProfileScreen() {
                   <Text style={styles.successText}>Your profile has been updated.</Text>
                 </View>
               ) : null}
+
+              {/* Formal Identity & Avatar Hero Card */}
+              <View style={styles.identityHeroCard}>
+                {/* Left Side: Avatar Circle */}
+                <View style={styles.avatarHeroWrapper}>
+                  <Pressable
+                    onPress={() => {
+                      if (avatarUri) {
+                        setShowPhotoModal(true);
+                      } else {
+                        void pickProfilePhoto();
+                      }
+                    }}
+                    disabled={uploadingAvatar}
+                    accessibilityRole="button"
+                    accessibilityLabel={avatarUri ? "View profile photo" : "Upload profile photo"}
+                    style={({ pressed }) => [
+                      styles.avatarRing,
+                      pressed && !uploadingAvatar
+                        ? { opacity: 0.85, transform: [{ scale: 0.97 }] }
+                        : null,
+                    ]}
+                  >
+                    {avatarUri ? (
+                      <Image
+                        source={{ uri: avatarUri }}
+                        style={styles.avatarHeroImage}
+                        accessibilityLabel="Profile photo"
+                      />
+                    ) : (
+                      <View style={styles.avatarHeroPlaceholder}>
+                        <Text style={styles.avatarHeroInitials}>
+                          {initials(displayName || session.displayName)}
+                        </Text>
+                      </View>
+                    )}
+                  </Pressable>
+
+                  {/* Badge Action: If photo exists, it acts as Delete/Remove button; if no photo, Camera badge */}
+                  {avatarUri ? (
+                    <Pressable
+                      onPress={() => void removeProfilePhoto()}
+                      disabled={uploadingAvatar}
+                      accessibilityRole="button"
+                      accessibilityLabel="Remove photo"
+                      style={({ pressed }) => [
+                        styles.cameraActionBadge,
+                        styles.deleteActionBadge,
+                        pressed && !uploadingAvatar
+                          ? { opacity: 0.8, transform: [{ scale: 0.9 }] }
+                          : null,
+                      ]}
+                    >
+                      <Icon name="trash" size={13} color={theme.errorSolid} />
+                    </Pressable>
+                  ) : (
+                    <Pressable
+                      onPress={() => void pickProfilePhoto()}
+                      disabled={uploadingAvatar}
+                      accessibilityRole="button"
+                      accessibilityLabel="Upload photo"
+                      style={({ pressed }) => [
+                        styles.cameraActionBadge,
+                        pressed && !uploadingAvatar
+                          ? { opacity: 0.8, transform: [{ scale: 0.9 }] }
+                          : null,
+                      ]}
+                    >
+                      {uploadingAvatar ? (
+                        <ActivityIndicator size="small" color={theme.primary} />
+                      ) : (
+                        <Icon name="camera" size={13} color={theme.primary} />
+                      )}
+                    </Pressable>
+                  )}
+                </View>
+
+                {/* Right Side: Name on top, Single Action Button below */}
+                <View style={styles.identityContentRight}>
+                  <Text style={styles.identityName} numberOfLines={1}>
+                    {displayName.trim() || session.displayName}
+                  </Text>
+
+                  {/* Actions Below Name */}
+                  {uploadingAvatar ? (
+                    <View style={styles.uploadingStatusRow}>
+                      <ActivityIndicator size="small" color={theme.onPrimary} />
+                      <Text style={styles.uploadingStatusText}>Uploading photo…</Text>
+                    </View>
+                  ) : (
+                    <Pressable
+                      onPress={() => void pickProfilePhoto()}
+                      accessibilityRole="button"
+                      accessibilityLabel={avatarUri ? "Change photo" : "Upload photo"}
+                      style={({ pressed }) => [
+                        styles.actionPill,
+                        pressed ? { opacity: 0.85, transform: [{ scale: 0.98 }] } : null,
+                      ]}
+                    >
+                      <Icon name="camera" size={13} color={theme.primary} />
+                      <Text style={styles.actionPillText}>
+                        {avatarUri ? "Change photo" : "Upload photo"}
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
+              </View>
 
               <View style={[styles.grid, isTablet ? styles.gridTablet : null]}>
                 <View style={[styles.gridItem, isTablet ? styles.gridItemTablet : null]}>
@@ -445,6 +661,72 @@ export default function EditProfileScreen() {
               </View>
             </View>
           </Animated.View>
+
+          {/* Full Profile Photo Viewer Modal */}
+          <CenterDialogModal
+            visible={showPhotoModal && Boolean(avatarUri)}
+            onClose={() => setShowPhotoModal(false)}
+          >
+            <View style={styles.photoModalCard}>
+              {/* Modal Header */}
+              <View style={styles.photoModalHeader}>
+                <Text style={styles.photoModalTitle}>Profile photo</Text>
+                <Pressable
+                  onPress={() => setShowPhotoModal(false)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close photo viewer"
+                  style={({ pressed }) => [
+                    styles.photoModalCloseBtn,
+                    pressed ? { opacity: 0.7 } : null,
+                  ]}
+                >
+                  <Icon name="close" size={18} color={theme.textPrimary} />
+                </Pressable>
+              </View>
+
+              {/* Large Clean Photo View */}
+              {avatarUri ? (
+                <View style={styles.photoModalImageWrapper}>
+                  <Image
+                    source={{ uri: avatarUri }}
+                    style={styles.photoModalImage}
+                    resizeMode="cover"
+                    accessibilityLabel="Full profile photo"
+                  />
+                </View>
+              ) : null}
+
+              {/* Modal Actions Footer */}
+              <View style={styles.photoModalFooter}>
+                <View style={styles.photoModalBtnCol}>
+                  <Button
+                    label="Change photo"
+                    variant="secondary"
+                    icon="camera"
+                    onPress={() => {
+                      setShowPhotoModal(false);
+                      void pickProfilePhoto();
+                    }}
+                    disabled={uploadingAvatar}
+                    fullWidth
+                  />
+                </View>
+                <View style={styles.photoModalBtnCol}>
+                  <Button
+                    label="Remove photo"
+                    variant="secondary"
+                    icon="trash"
+                    onPress={() => {
+                      setShowPhotoModal(false);
+                      void removeProfilePhoto();
+                    }}
+                    disabled={uploadingAvatar}
+                    fullWidth
+                  />
+                </View>
+              </View>
+            </View>
+          </CenterDialogModal>
         </View>
       )}
     </Screen>
@@ -542,6 +824,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: theme.textPrimary,
   },
+  chipTextSelected: {
+    color: theme.onPrimary,
+  },
   stickyOverlayFooter: {
     position: "absolute",
     bottom: 0,
@@ -567,4 +852,175 @@ const styles = StyleSheet.create({
   },
   cancelAction: { flex: 0.85 },
   saveAction: { flex: 1.15 },
+  identityHeroCard: {
+    backgroundColor: theme.primary,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.lg,
+    elevation: 4,
+    shadowColor: theme.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 10,
+  },
+  avatarHeroWrapper: {
+    position: "relative",
+  },
+  avatarRing: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 3,
+    borderColor: "rgba(255, 255, 255, 0.45)",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  avatarHeroImage: {
+    width: "100%",
+    height: "100%",
+  },
+  avatarHeroPlaceholder: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: theme.primaryPressed,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarHeroInitials: {
+    color: theme.onPrimary,
+    fontSize: fontSize.xl + 2,
+    fontWeight: "800",
+  },
+  cameraActionBadge: {
+    position: "absolute",
+    bottom: -2,
+    right: -2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: theme.surface,
+    borderWidth: 2,
+    borderColor: theme.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.25,
+    shadowRadius: 2,
+  },
+  deleteActionBadge: {
+    borderColor: "rgba(220, 38, 38, 0.35)",
+  },
+  identityContentRight: {
+    flex: 1,
+    minWidth: 0,
+    gap: spacing.md,
+  },
+  identityName: {
+    fontSize: fontSize.lg + 1,
+    fontWeight: "800",
+    color: theme.onPrimary,
+  },
+  uploadingStatusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingVertical: 4,
+  },
+  uploadingStatusText: {
+    fontSize: fontSize.sm,
+    fontWeight: "600",
+    color: theme.onPrimary,
+  },
+  actionPill: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 7,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: theme.surface,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+  },
+  actionPillText: {
+    fontSize: fontSize.xs + 1,
+    fontWeight: "700",
+    color: theme.primary,
+  },
+  photoModalCard: {
+    backgroundColor: theme.surface,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    width: "100%",
+    maxWidth: 380,
+    alignSelf: "center",
+    gap: spacing.md,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.16,
+    shadowRadius: 16,
+  },
+  photoModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  photoModalTitle: {
+    fontSize: fontSize.lg,
+    fontWeight: "700",
+    color: theme.textPrimary,
+  },
+  photoModalCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: theme.surfaceSubtle,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  photoModalImageWrapper: {
+    width: "100%",
+    aspectRatio: 1,
+    borderRadius: radii.md,
+    overflow: "hidden",
+    backgroundColor: theme.surfaceSubtle,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+  },
+  photoModalImage: {
+    width: "100%",
+    height: "100%",
+  },
+  photoModalFooter: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  photoModalBtnCol: {
+    flex: 1,
+  },
 });
+
+
+
+
+
+
+

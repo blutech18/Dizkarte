@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { passwordUpdateSchema } from "@dizkarte/domain";
 import { Screen } from "../../src/components/ui/Screen";
@@ -7,7 +7,7 @@ import { TextField } from "../../src/components/ui/TextField";
 import { Button } from "../../src/components/ui/Button";
 import { AuthBackButton } from "../../src/components/auth/AuthBackButton";
 import { AuthSuccessModal } from "../../src/components/auth/AuthSuccessModal";
-import { updatePassword, signOut } from "../../src/services/auth";
+import { updatePassword, signOutCurrent } from "../../src/services/auth";
 import { theme, spacing, fontSize } from "../../src/theme";
 
 export default function UpdatePasswordScreen() {
@@ -24,7 +24,7 @@ export default function UpdatePasswordScreen() {
   }
 
   async function handleCancel() {
-    await signOut();
+    await signOutCurrent();
     router.replace("/(auth)/sign-in");
   }
 
@@ -60,6 +60,14 @@ export default function UpdatePasswordScreen() {
       />
       <View style={styles.centerContainer}>
         <View style={styles.formContent}>
+          <Image
+            // eslint-disable-next-line @typescript-eslint/no-require-imports -- static asset require is standard RN
+            source={require("../../assets/text-icon-logo.png")}
+            style={styles.brandWordmark}
+            resizeMode="contain"
+            accessibilityIgnoresInvertColors
+            accessibilityLabel="Dizkarte"
+          />
           <Text style={styles.title}>Set a new password</Text>
           <Text style={styles.subtitle}>Choose a new password for your account.</Text>
 
@@ -121,6 +129,13 @@ const styles = StyleSheet.create({
     maxWidth: 360,
     alignSelf: "center",
   },
+  brandWordmark: {
+    width: "65%",
+    maxWidth: 240,
+    height: 72,
+    alignSelf: "center",
+    marginBottom: spacing.lg,
+  },
   title: {
     fontSize: fontSize.xxl,
     fontWeight: "700",
@@ -145,3 +160,5 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 });
+
+

@@ -418,16 +418,17 @@ export function TaskFilterPanel({ visible, filters, onApply, onClose }: TaskFilt
             <Button label="Apply filters" onPress={handleApply} fullWidth />
           </View>
         </View>
-      </BottomSheetModal>
 
-      <CalendarPickerModal
-        visible={visible && activeDateField !== null}
-        selectedDate={calendarDate}
-        title={activeDateField === "from" ? "Select start date" : "Select end date"}
-        confirmLabel={activeDateField === "from" ? "Use as start date" : "Use as end date"}
-        onConfirm={handleDateConfirm}
-        onClose={() => setActiveDateField(null)}
-      />
+        <CalendarPickerModal
+          visible={activeDateField !== null}
+          useModal={false}
+          selectedDate={calendarDate}
+          title={activeDateField === "from" ? "Select start date" : "Select end date"}
+          confirmLabel={activeDateField === "from" ? "Use as start date" : "Use as end date"}
+          onConfirm={handleDateConfirm}
+          onClose={() => setActiveDateField(null)}
+        />
+      </BottomSheetModal>
     </>
   );
 }
@@ -540,6 +541,10 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   fieldColumn: { flexGrow: 1, flexShrink: 1, flexBasis: 260, minWidth: 0 },
+  // Cancels TextField's own bottom margin: the grid gap and the section's
+  // padding already space these inputs, exactly as in the My Tasks and Bookings
+  // sheets, which zero it through the shared filter-sheet styles.
+  filterField: { marginBottom: 0 },
   switchRow: {
     minHeight: 44,
     flexDirection: "row",

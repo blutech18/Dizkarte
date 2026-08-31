@@ -121,19 +121,19 @@ export function TaskerApplicationPrompt({
           <View key={step.number} style={styles.stepCard}>
             <View style={styles.stepHeadingRow}>
               <View style={styles.stepTitleGroup}>
-                <View style={styles.supportingIconAnchor}>
-                  <Icon name={step.icon} size={supportingIconSize} color={theme.primary} />
+                <View
+                  style={styles.stepNumberBadge}
+                  accessible
+                  accessibilityLabel={`Step ${step.number}`}
+                >
+                  <Text style={styles.stepNumber}>{step.number}</Text>
                 </View>
                 <Text style={styles.stepTitle} accessibilityRole="header">
                   {step.title}
                 </Text>
               </View>
-              <View
-                style={styles.stepNumberBadge}
-                accessible
-                accessibilityLabel={`Step ${step.number}`}
-              >
-                <Text style={styles.stepNumber}>{step.number}</Text>
+              <View style={styles.supportingIconAnchor}>
+                <Icon name={step.icon} size={supportingIconSize} color={theme.primary} />
               </View>
             </View>
             <Text style={styles.stepDescription}>{step.description}</Text>
