@@ -191,6 +191,109 @@ describe("Admin marketplace oversight", () => {
     });
   });
 
+  describe("task media queue search", () => {
+    it("narrows the queue by task title, case-insensitively", async () => {
+      const all = await repo.listTaskMedia({ page: 1, pageSize: 50 });
+      const target = all.items[0]!;
+      const term = target.taskTitle.slice(0, 4).toLowerCase();
+
+      const result = await repo.listTaskMedia({ page: 1, pageSize: 50, query: term });
+
+      expect(result.items.length).toBeGreaterThan(0);
+      for (const item of result.items) {
+        expect(item.taskTitle.toLowerCase()).toContain(term);
+      }
+    });
+
+    it("returns an empty page rather than the whole queue when nothing matches", async () => {
+      const result = await repo.listTaskMedia({
+        page: 1,
+        pageSize: 50,
+        query: "zzz-no-such-task",
+      });
+
+      expect(result.items).toEqual([]);
+      expect(result.total).toBe(0);
+    });
+
+    it("applies the search and the status filter together", async () => {
+      const all = await repo.listTaskMedia({ page: 1, pageSize: 50 });
+      const target = all.items[0]!;
+
+      const result = await repo.listTaskMedia({
+        page: 1,
+        pageSize: 50,
+        query: target.taskTitle,
+        status: target.moderationStatus,
+      });
+
+      for (const item of result.items) {
+        expect(item.moderationStatus).toBe(target.moderationStatus);
+        expect(item.taskTitle).toBe(target.taskTitle);
+      }
+    });
+  });
+
+  describe("task detail", () => {
+    it("returns null for a task that does not exist", async () => {
+      expect(await repo.getTask("tsk-does-not-exist")).toBeNull();
+    });
+
+    it("carries the list fields plus the detail-only fields", async () => {
+      const list = await repo.listTasks({ page: 1, pageSize: 50 });
+      const row = list.items[0]!;
+
+      const task = await repo.getTask(row.id);
+
+      expect(task).not.toBeNull();
+      // The detail must agree with the row the queue showed.
+      expect(task!.id).toBe(row.id);
+      expect(task!.title).toBe(row.title);
+      expect(task!.status).toBe(row.status);
+      expect(task!.budgetCentavos).toBe(row.budgetCentavos);
+      expect(task!.flagged).toBe(row.flagged);
+      // Detail-only fields the list does not carry.
+      expect(task!.description.length).toBeGreaterThan(0);
+      expect(task!.currency).toBe("PHP");
+      expect(task!.clientDisplayName.length).toBeGreaterThan(0);
+    });
+
+    it("lists the task's own attachments and no others", async () => {
+      const media = await repo.listTaskMedia({ page: 1, pageSize: 50 });
+      const withMedia = media.items[0]!;
+
+      const task = await repo.getTask(withMedia.taskId);
+
+      expect(task).not.toBeNull();
+      const ids = task!.attachments.map((attachment) => attachment.id);
+      expect(ids).toContain(withMedia.id);
+      const expected = media.items
+        .filter((item) => item.taskId === withMedia.taskId)
+        .map((item) => item.id);
+      expect([...ids].sort()).toEqual([...expected].sort());
+    });
+
+    it("keeps every media row pointing at a task that can actually be opened", async () => {
+      // The media queue links each card to /tasks/<id>; an orphan row would 404.
+      const media = await repo.listTaskMedia({ page: 1, pageSize: 100 });
+      expect(media.items.length).toBeGreaterThan(0);
+
+      for (const item of media.items) {
+        const task = await repo.getTask(item.taskId);
+        expect(task, `media ${item.id} points at missing task ${item.taskId}`).not.toBeNull();
+      }
+    });
+
+    it("agrees with the media queue about the task title", async () => {
+      const media = await repo.listTaskMedia({ page: 1, pageSize: 100 });
+
+      for (const item of media.items) {
+        const task = await repo.getTask(item.taskId);
+        expect(task!.title).toBe(item.taskTitle);
+      }
+    });
+  });
+
   describe("dashboard", () => {
     it("includes a bookings-needing-attention count", async () => {
       const snapshot = await repo.getDashboardSnapshot();

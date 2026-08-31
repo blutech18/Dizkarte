@@ -3257,3 +3257,124 @@ textarea {
   font-weight: 800;
   letter-spacing: -0.02em;
 }
+
+/*
+ * Booking lifecycle progress.
+ *
+ * Stacks vertically by default and lays out as a horizontal track from the
+ * tablet breakpoint up, so a five- or six-step flow never overflows a narrow
+ * screen. Each step's state is also rendered as visually hidden text, so the
+ * marker colour is decoration and not the only carrier of meaning.
+ */
+.dk-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dk-flow-step {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding-left: 2px;
+}
+
+.dk-flow-marker {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--dk-borderControl);
+  border-radius: 50%;
+  background: var(--dk-surface);
+}
+
+.dk-flow-label {
+  overflow-wrap: anywhere;
+  color: var(--dk-textSecondary);
+  font-size: 13.5px;
+  line-height: 1.4;
+}
+
+.dk-flow-step-done .dk-flow-marker {
+  border-color: var(--dk-primary);
+  background: var(--dk-primary);
+}
+
+.dk-flow-step-done .dk-flow-label {
+  color: var(--dk-textPrimary);
+}
+
+.dk-flow-step-current .dk-flow-marker {
+  border-color: var(--dk-primary);
+  box-shadow: 0 0 0 3px var(--dk-primarySoft);
+}
+
+.dk-flow-step-current .dk-flow-label {
+  color: var(--dk-textPrimary);
+  font-weight: 700;
+}
+
+/* Vertical connector between stacked steps, centred on the marker. */
+.dk-flow-step + .dk-flow-step::before {
+  content: "";
+  position: absolute;
+  top: -14px;
+  left: 6.5px;
+  width: 2px;
+  height: 14px;
+  background: var(--dk-borderControl);
+}
+
+.dk-flow-step-done + .dk-flow-step-done::before,
+.dk-flow-step-done + .dk-flow-step-current::before {
+  background: var(--dk-primary);
+}
+
+@media (min-width: 769px) {
+  .dk-flow {
+    flex-direction: row;
+    gap: 0;
+  }
+
+  .dk-flow-step {
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding-left: 0;
+    padding-right: 12px;
+  }
+
+  /* The stacked connector is replaced by a horizontal track per step. */
+  .dk-flow-step + .dk-flow-step::before {
+    display: none;
+  }
+
+  .dk-flow-step::after {
+    content: "";
+    position: absolute;
+    top: 4.5px;
+    left: 17px;
+    right: 4px;
+    height: 2px;
+    background: var(--dk-borderControl);
+  }
+
+  .dk-flow-step-done::after {
+    background: var(--dk-primary);
+  }
+
+  .dk-flow-step:last-child {
+    flex: none;
+    padding-right: 0;
+  }
+
+  .dk-flow-step:last-child::after {
+    display: none;
+  }
+}

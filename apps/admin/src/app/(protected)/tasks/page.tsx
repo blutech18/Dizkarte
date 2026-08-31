@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { formatPhp } from "@dizkarte/domain";
+import { AppLink } from "@/components/ui/AppLink";
 import { requirePageCapability } from "@/lib/guard";
 import { getAdminRepository } from "@/lib/repository";
 import { Breadcrumbs } from "@/components/ui/Field";
@@ -158,7 +159,8 @@ async function TasksTable({
       header: "Title",
       render: (row) => (
         <>
-          {row.title} {row.flagged ? <StatusBadge tone="warning" label="Flagged" /> : null}
+          <AppLink href={`/tasks/${row.id}`}>{row.title}</AppLink>{" "}
+          {row.flagged ? <StatusBadge tone="warning" label="Flagged" /> : null}
         </>
       ),
     },
@@ -212,3 +214,4 @@ async function TasksTable({
     </>
   );
 }
+

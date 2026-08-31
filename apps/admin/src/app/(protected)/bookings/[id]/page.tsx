@@ -5,11 +5,17 @@ import { AppLink } from "@/components/ui/AppLink";
 import { formatPhp } from "@dizkarte/domain";
 import { requirePageCapability } from "@/lib/guard";
 import { getAdminRepository } from "@/lib/repository";
-import { formatDateTime } from "@/lib/datetime";
+import { formatDateTime, formatElapsed } from "@/lib/datetime";
 import { Breadcrumbs } from "@/components/ui/Field";
-import { DetailRegionSkeleton } from "@/components/ui/AsyncState";
+import { BookingRecordSkeleton } from "./BookingSkeleton";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { bookingStatusLabel, bookingStatusMeaning, bookingTone } from "../status";
+import {
+  bookingEventSourceLabel,
+  bookingStatusLabel,
+  bookingStatusMeaning,
+  bookingTone,
+} from "../status";
+import { bookingFlowSteps, flowStateDescription } from "../flow";
 import { paymentStatusLabel } from "../../payments/status";
 
 export const metadata: Metadata = { title: "Booking" };
@@ -54,7 +60,7 @@ export default async function BookingDetailPage({
         ]}
       />
 
-      <Suspense fallback={<DetailRegionSkeleton cards={4} lines={3} />}>
+      <Suspense fallback={<BookingRecordSkeleton />}>
         <BookingRecord bookingId={id} />
       </Suspense>
 
@@ -69,11 +75,18 @@ async function BookingRecord({ bookingId }: { readonly bookingId: string }) {
   const booking = await getAdminRepository().getBooking(bookingId);
   if (!booking) notFound();
 
+  const steps = bookingFlowSteps(booking.status, booking.timeline);
+  // Newest first for reading; the durations below need chronological order.
+  const history = [...booking.timeline].sort(
+    (a, b) => new Date(b.at).getTime() - new Date(a.at).getTime(),
+  );
+
   return (
     <>
       {/*
-        Status stated once, with the sentence saying where the money sits. The
-        previous header repeated the raw enum and the amount already shown below.
+        Status stated once, with the sentence saying where the money sits, then
+        the four facts an escalation actually opens with: the amount, both
+        participants, and how long it has been sitting in this state.
       */}
       <header className="dk-detail-header">
         <div className="dk-detail-header-main">
@@ -85,33 +98,53 @@ async function BookingRecord({ bookingId }: { readonly bookingId: string }) {
         </div>
         <p className="dk-detail-header-meaning">{bookingStatusMeaning(booking.status)}</p>
         <dl className="dk-detail-header-meta">
+          {/*
+            The peso sign already states the currency, so naming it again was
+            duplicate. It is kept only if a booking is ever not in pesos, where
+            the sign alone would be misleading.
+          */}
           <Fact label="Agreed amount">
-            {formatPhp(booking.agreedCentavos)} {booking.currency}
+            <span className="dk-fact-amount">{formatPhp(booking.agreedCentavos)}</span>
+            {booking.currency === "PHP" ? null : ` ${booking.currency}`}
           </Fact>
           <Fact label="Client">{booking.clientDisplayName}</Fact>
           <Fact label="Tasker">{booking.taskerDisplayName}</Fact>
+          <Fact label="In this state for">
+            <time dateTime={booking.updatedAt}>{formatElapsed(booking.updatedAt)}</time>
+          </Fact>
         </dl>
       </header>
 
-      <section className="dk-card" aria-labelledby="record-heading">
-        <h2 id="record-heading">Booking record</h2>
-        <dl className="dk-fact-grid">
-          <Fact label="Created">
-            <time dateTime={booking.createdAt}>{formatDateTime(booking.createdAt)}</time>
-          </Fact>
-          <Fact label="Last updated">
-            <time dateTime={booking.updatedAt}>{formatDateTime(booking.updatedAt)}</time>
-          </Fact>
-        </dl>
-        <p className="dk-card-note">
-          Workflow oversight only. Participant contact details, the exact address, and chat contents
-          are never shown here.
-        </p>
+      {/*
+        Progress is derived from the recorded events, so it answers "were funds
+        ever held?" without the agent reading the history first.
+      */}
+      <section className="dk-card" aria-labelledby="progress-heading">
+        <h2 id="progress-heading">Progress</h2>
+        <ol className="dk-flow">
+          {steps.map((step) => (
+            <li
+              key={step.status}
+              className={`dk-flow-step dk-flow-step-${step.state}`}
+              {...(step.state === "current" ? { "aria-current": "step" as const } : {})}
+            >
+              <span className="dk-flow-marker" aria-hidden="true" />
+              <span className="dk-flow-label">{bookingStatusLabel(step.status)}</span>
+              <span className="dk-visually-hidden">{flowStateDescription(step.state)}</span>
+            </li>
+          ))}
+        </ol>
       </section>
 
-      <section className="dk-card" aria-labelledby="related-heading">
-        <h2 id="related-heading">Related records</h2>
+      <section className="dk-card" aria-labelledby="record-heading">
+        <h2 id="record-heading">Record</h2>
         <dl className="dk-fact-grid">
+          <Fact label="Opened">
+            <time dateTime={booking.createdAt}>{formatDateTime(booking.createdAt)}</time>
+          </Fact>
+          <Fact label="Last change">
+            <time dateTime={booking.updatedAt}>{formatDateTime(booking.updatedAt)}</time>
+          </Fact>
           <Fact label="Payment">
             {booking.paymentIntentId ? (
               <AppLink href={`/payments/${booking.paymentIntentId}`}>
@@ -130,42 +163,48 @@ async function BookingRecord({ bookingId }: { readonly bookingId: string }) {
           </Fact>
         </dl>
         <p className="dk-card-note">
-          Offer contents are not shown: offer rows are readable only by the submitting Tasker, the
-          task owner, or an Admin assigned to a case on that task. The agreed amount is the
-          booking&apos;s own record of the accepted offer.
+          Contact details, the exact address, and chat contents are not shown here.
         </p>
       </section>
 
-      <section className="dk-card" aria-labelledby="lifecycle-heading">
-        <h2 id="lifecycle-heading">Lifecycle</h2>
-        {booking.timeline.length === 0 ? (
+      <section className="dk-card" aria-labelledby="history-heading">
+        <h2 id="history-heading">History</h2>
+        {history.length === 0 ? (
           <p className="dk-muted">
-            No lifecycle event recorded yet. Events are written by the privileged booking commands
-            as the work progresses.
+            No change recorded yet. Events are written as the work progresses.
           </p>
         ) : (
           <ol className="dk-history">
-            {booking.timeline.map((event) => (
-              <li key={event.id}>
-                <div className="dk-history-head">
-                  <strong>
-                    {event.fromStatus
-                      ? `${bookingStatusLabel(event.fromStatus)} → ${bookingStatusLabel(event.toStatus)}`
-                      : bookingStatusLabel(event.toStatus)}
-                  </strong>
-                  <time className="dk-history-time" dateTime={event.at}>
-                    {formatDateTime(event.at)}
-                  </time>
-                </div>
-                <p className="dk-history-meta">
-                  {event.actor} · {event.source}
-                </p>
-              </li>
-            ))}
+            {history.map((event, index) => {
+              // How long the booking then sat in the state this event moved it
+              // into: up to the next change, or up to now for the newest event.
+              const next = history[index - 1];
+              const held = formatElapsed(event.at, next ? new Date(next.at) : new Date());
+              return (
+                <li key={event.id}>
+                  <div className="dk-history-head">
+                    <strong>
+                      {event.fromStatus
+                        ? `${bookingStatusLabel(event.fromStatus)} → ${bookingStatusLabel(event.toStatus)}`
+                        : bookingStatusLabel(event.toStatus)}
+                    </strong>
+                    <time className="dk-history-time" dateTime={event.at}>
+                      {formatDateTime(event.at)}
+                    </time>
+                  </div>
+                  <p className="dk-history-meta">
+                    {event.actor} · {bookingEventSourceLabel(event.source)} ·{" "}
+                    {next ? "held" : "held since"} {held}
+                  </p>
+                </li>
+              );
+            })}
           </ol>
         )}
       </section>
     </>
   );
 }
+
+
 

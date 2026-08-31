@@ -53,6 +53,40 @@ export function taskStatusLabel(status: string): string {
   }
 }
 
+/**
+ * One sentence saying what the state means for the task's visibility and who is
+ * expected to act. The detail page states this under the status, where a label
+ * alone would leave an agent guessing whether the task is still public.
+ */
+export function taskStatusMeaning(status: string): string {
+  switch (status) {
+    case "DRAFT":
+      return "Not published. Only the Client who owns it can see it.";
+    case "OPEN":
+      return "Published and visible in public discovery. Taskers can send offers.";
+    case "BOOKING_PENDING":
+      return "An offer was accepted. Waiting on the Client to pay before work can start.";
+    case "ASSIGNED":
+      return "Paid and assigned to a Tasker. Waiting on the work to start.";
+    case "IN_PROGRESS":
+      return "Work is underway.";
+    case "COMPLETION_REQUESTED":
+      return "The Tasker submitted completion. Waiting on the Client to confirm.";
+    case "COMPLETED":
+      return "The work was confirmed as finished.";
+    case "EXPIRED":
+      return "Closed without being booked. No longer in public discovery.";
+    case "CANCELLED":
+      return "Closed before completion by a participant.";
+    case "DISPUTED":
+      return "Under support review. The related booking is on hold.";
+    case "REMOVED":
+      return "Excluded from public discovery by an Admin decision.";
+    default:
+      return "This task state is not recognised by the console.";
+  }
+}
+
 export function taskStatusTone(status: string): BadgeTone {
   switch (status) {
     case "COMPLETED":

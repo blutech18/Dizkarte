@@ -17,10 +17,12 @@ export default function Loading() {
       </div>
 
       <div className="dk-filter-bar" aria-hidden="true">
-        <SkeletonBone variant="btn" style={{ width: 200 }} />
+        <SkeletonBone variant="btn" style={{ width: 260 }} />
+        <SkeletonBone variant="btn" style={{ width: 190 }} />
       </div>
 
       <SkeletonMediaGrid />
     </div>
   );
 }
+

@@ -61,6 +61,7 @@ import {
   type ReviewModerationStatus,
   type ReviewRow,
   type TaskRow,
+  type TaskDetail,
   type TaskerApplicationDetail,
   type TaskerApplicationRow,
   type TicketDetail,
@@ -912,6 +913,129 @@ export class SupabaseAdminRepository implements AdminRepository {
     return new Set(rows.map((row) => row.resource_id));
   }
 
+  /**
+   * One task, for the task detail page.
+   *
+   * `tasks_select` grants Admins the row, so the record itself is a direct read.
+   * Attachments are not: `task_media_select` only admits an Admin who is
+   * assigned to a case on that task, so they are read through
+   * `admin_task_media_queue`, the capability-scoped view the media queue uses.
+   * Reading `task_media` directly here would silently return nothing for any
+   * task the Admin is not assigned to.
+   */
+  async getTask(taskId: string): Promise<TaskDetail | null> {
+    const db = await this.db();
+    const { data } = await db
+      .from("tasks")
+      .select(
+        "id,client_id,category_id,title,description,budget_centavos,currency,scheduled_for,same_day,status,published_at,created_at,updated_at",
+      )
+      .eq("id", taskId)
+      .maybeSingle();
+    const row = data as {
+      id: string;
+      client_id: string;
+      category_id: string;
+      title: string;
+      description: string;
+      budget_centavos: number;
+      currency: string;
+      scheduled_for: string | null;
+      same_day: boolean;
+      status: string;
+      published_at: string | null;
+      created_at: string;
+      updated_at: string;
+    } | null;
+    if (!row) return null;
+
+    const [flagged, categories, names, locationRes, mediaRes, bookingRes, actionsRes] =
+      await Promise.all([
+        this.flaggedTaskSet([taskId]),
+        this.categorySlugs([row.category_id]),
+        this.displayNames([row.client_id]),
+        db
+          .from("task_public_locations")
+          .select("city_code,barangay_code,landmark")
+          .eq("task_id", taskId)
+          .maybeSingle(),
+        db
+          .from("admin_task_media_queue")
+          .select("id,kind,moderation_status,created_at,sort_order")
+          .eq("task_id", taskId)
+          .order("sort_order", { ascending: true }),
+        db
+          .from("bookings")
+          .select("id")
+          .eq("task_id", taskId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        db
+          .from("moderation_actions")
+          .select("id,action,reason,admin_id,created_at")
+          .eq("resource_type", "task")
+          .eq("resource_id", taskId)
+          .order("created_at", { ascending: false }),
+      ]);
+
+    const location = locationRes.data as {
+      city_code: string;
+      barangay_code: string;
+      landmark: string;
+    } | null;
+
+    const mediaRows = (mediaRes.data ?? []) as ReadonlyArray<{
+      id: string;
+      kind: string;
+      moderation_status: string;
+      created_at: string;
+    }>;
+
+    const actionRows = (actionsRes.data ?? []) as ReadonlyArray<{
+      id: string;
+      action: string;
+      reason: string;
+      admin_id: string | null;
+      created_at: string;
+    }>;
+    const actorNames = await this.displayNames(actionRows.map((action) => action.admin_id));
+
+    return {
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      status: row.status,
+      budgetCentavos: Number(row.budget_centavos),
+      currency: row.currency,
+      clientDisplayName: displayNameFor(names, row.client_id),
+      cityCode: location?.city_code ?? "",
+      barangayCode: location?.barangay_code ?? "",
+      landmark: location?.landmark ?? "",
+      categorySlug: categories.get(row.category_id) ?? "",
+      scheduledFor: row.scheduled_for,
+      sameDay: row.same_day,
+      publishedAt: row.published_at,
+      flagged: flagged.has(taskId),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      bookingId: (bookingRes.data as { id: string } | null)?.id ?? null,
+      attachments: mediaRows.map((media) => ({
+        id: media.id,
+        kind: media.kind === "video" ? ("video" as const) : ("image" as const),
+        moderationStatus: media.moderation_status as MediaModerationStatus,
+        createdAt: media.created_at,
+      })),
+      moderationHistory: actionRows.map((action) => ({
+        id: action.id,
+        action: action.action,
+        reason: action.reason,
+        actor: action.admin_id ? displayNameFor(actorNames, action.admin_id) : "system",
+        at: action.created_at,
+      })),
+    };
+  }
+
   async moderateTask(input: {
     taskId: string;
     action: "remove" | "restore";
@@ -931,7 +1055,9 @@ export class SupabaseAdminRepository implements AdminRepository {
   // Media moderation
   // =========================================================================
 
-  async listTaskMedia(input: PageInput & { status?: string }): Promise<Paginated<TaskMediaRow>> {
+  async listTaskMedia(
+    input: PageInput & { status?: string; query?: string },
+  ): Promise<Paginated<TaskMediaRow>> {
     const db = await this.db();
     const { from, to } = pageRange(input.page, input.pageSize);
     let query = db
@@ -940,6 +1066,10 @@ export class SupabaseAdminRepository implements AdminRepository {
         count: "exact",
       });
     if (input.status) query = query.eq("moderation_status", input.status);
+    // The queue view already exposes the task title, so the search needs no
+    // second lookup the way the person-name queues do.
+    const search = input.query?.trim();
+    if (search) query = query.ilike("task_title", `%${search}%`);
     const { data, count, error } = await query
       .order("created_at", { ascending: false })
       .range(from, to);
@@ -2838,3 +2968,6 @@ function toCategoryHistoryType(action: string): CategoryHistoryEvent["type"] {
 export function createSupabaseAdminRepository(): SupabaseAdminRepository {
   return new SupabaseAdminRepository();
 }
+
+
+

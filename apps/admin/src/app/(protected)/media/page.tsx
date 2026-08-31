@@ -36,10 +36,11 @@ const PAGE_SIZE = 12;
 export default async function MediaPage({
   searchParams,
 }: {
-  readonly searchParams: Promise<{ status?: string; page?: string }>;
+  readonly searchParams: Promise<{ status?: string; page?: string; q?: string }>;
 }) {
   const session = await requirePageCapability(["ADMIN_SUPPORT", "ADMIN_SUPER"]);
-  const { status, page: pageParam } = await searchParams;
+  const { status, page: pageParam, q } = await searchParams;
+  const search = q?.trim() ?? "";
   const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
   // No `status` in the URL means the default queue, not "everything".
   const active =
@@ -58,6 +59,11 @@ export default async function MediaPage({
       >
         <QueueFilters
           basePath="/media"
+          search={{
+            label: "Search attachments by task title",
+            placeholder: "Search by task title",
+            value: search,
+          }}
           selects={[
             {
               name: "status",
@@ -74,8 +80,11 @@ export default async function MediaPage({
           ]}
         />
 
-        <Suspense key={`${active ?? ""}|${page}`} fallback={<GalleryRegionSkeleton />}>
-          <MediaGallery page={page} active={active} actor={session.email} />
+        <Suspense
+          key={`${active ?? ""}|${search}|${page}`}
+          fallback={<GalleryRegionSkeleton />}
+        >
+          <MediaGallery page={page} active={active} search={search} actor={session.email} />
         </Suspense>
       </PageSection>
     </>
@@ -85,10 +94,12 @@ export default async function MediaPage({
 async function MediaGallery({
   page,
   active,
+  search,
   actor,
 }: {
   readonly page: number;
   readonly active: string | undefined;
+  readonly search: string;
   readonly actor: string;
 }) {
   const repository = getAdminRepository();
@@ -96,6 +107,7 @@ async function MediaGallery({
     page,
     pageSize: PAGE_SIZE,
     ...(active ? { status: active } : {}),
+    ...(search ? { query: search } : {}),
   });
 
   const previews = await Promise.all(
@@ -107,6 +119,7 @@ async function MediaGallery({
   function hrefFor(nextPage: number): string {
     const params = new URLSearchParams();
     params.set("status", active ?? "all");
+    if (search) params.set("q", search);
     params.set("page", String(nextPage));
     return `/media?${params.toString()}`;
   }
@@ -114,11 +127,19 @@ async function MediaGallery({
   if (result.items.length === 0) {
     return (
       <EmptyState
-        title={active === "PENDING" ? "Nothing waiting for review" : "No attachments"}
+        title={
+          search
+            ? `No attachment matches “${search}”`
+            : active === "PENDING"
+              ? "Nothing waiting for review"
+              : "No attachments"
+        }
         description={
-          active === "PENDING"
-            ? "Every uploaded attachment has a decision. New uploads appear here automatically."
-            : "No attachment matches this filter."
+          search
+            ? "No task title matches that search. Try another title, or clear the search."
+            : active === "PENDING"
+              ? "Every uploaded attachment has a decision. New uploads appear here automatically."
+              : "No attachment matches this filter."
         }
       />
     );
@@ -168,7 +189,7 @@ async function MediaGallery({
                   label={mediaStatusLabel(item.moderationStatus)}
                 />
                 <p className="dk-media-title">
-                  <AppLink href={`/tasks?q=${encodeURIComponent(item.taskTitle)}`}>
+                  <AppLink href={`/tasks/${item.taskId}`}>
                     {item.taskTitle}
                   </AppLink>
                 </p>
@@ -198,4 +219,7 @@ async function MediaGallery({
     </>
   );
 }
+
+
+
 

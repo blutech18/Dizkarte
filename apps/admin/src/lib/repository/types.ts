@@ -88,6 +88,51 @@ export type TaskRow = {
 
 export type ReportStatus = "OPEN" | "TRIAGED" | "ACTIONED" | "DISMISSED";
 
+/** One attachment on a task, without the storage path or a preview URL. */
+export type TaskAttachment = {
+  readonly id: string;
+  readonly kind: "image" | "video";
+  readonly moderationStatus: MediaModerationStatus;
+  readonly createdAt: string;
+};
+
+/** A recorded Admin decision on a task, from `moderation_actions`. */
+export type TaskModerationEntry = {
+  readonly id: string;
+  readonly action: string;
+  readonly reason: string;
+  readonly actor: string;
+  readonly at: string;
+};
+
+/**
+ * Consolidated task record for the Admin task detail page.
+ *
+ * The locality fields come from `task_public_locations`, which is the
+ * deliberately approximate public location and a structurally separate table
+ * from the exact address — so there is no read path from here to where the
+ * Tasker is actually sent.
+ *
+ * Attachments carry no storage path: the task page states what is attached and
+ * how each item was moderated, while previewing the bytes stays on the media
+ * queue, which is the screen that issues short-lived signed URLs.
+ */
+export type TaskDetail = TaskRow & {
+  readonly description: string;
+  readonly currency: string;
+  readonly clientDisplayName: string;
+  readonly barangayCode: string;
+  readonly landmark: string;
+  readonly scheduledFor: string | null;
+  readonly sameDay: boolean;
+  readonly publishedAt: string | null;
+  readonly updatedAt: string;
+  readonly bookingId: string | null;
+  readonly attachments: ReadonlyArray<TaskAttachment>;
+  readonly moderationHistory: ReadonlyArray<TaskModerationEntry>;
+};
+
+
 export type ReportRow = {
   readonly id: string;
   readonly resourceType: string;
@@ -777,6 +822,8 @@ export interface AdminRepository {
       cityCode?: string;
     },
   ): Promise<Paginated<TaskRow>>;
+  /** One task with its locality, attachments, and recorded Admin decisions. */
+  getTask(taskId: string): Promise<TaskDetail | null>;
   moderateTask(input: {
     taskId: string;
     action: "remove" | "restore";
@@ -785,7 +832,9 @@ export interface AdminRepository {
   }): Promise<{ ok: boolean; message?: string }>;
 
   /** Task photos and clips for moderation, newest first. Filterable by status. */
-  listTaskMedia(input: PageInput & { status?: string }): Promise<Paginated<TaskMediaRow>>;
+  listTaskMedia(
+    input: PageInput & { status?: string; query?: string },
+  ): Promise<Paginated<TaskMediaRow>>;
   /**
    * Approve or hide a single attachment.
    *
@@ -1001,3 +1050,4 @@ export interface AdminRepository {
     capability: AdminCapability | null;
   }): Promise<{ ok: boolean; message?: string }>;
 }
+

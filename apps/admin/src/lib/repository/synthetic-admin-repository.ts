@@ -41,6 +41,7 @@ import type {
   TaskerApplicationDetail,
   TaskerApplicationRow,
   TaskRow,
+  TaskDetail,
   TicketDetail,
   TicketRow,
   UserDetail,
@@ -1178,28 +1179,28 @@ function createSeedState(): SeedState {
   const taskMedia: TaskMediaRow[] = [
     {
       id: "tmd-7001",
-      taskId: "tsk-5001",
-      taskTitle: "Deep clean two-bedroom condo",
+      taskId: "tsk-2003",
+      taskTitle: "Deep clean 2BR condo unit",
       kind: "image",
-      storagePath: "usr-1001/tsk-5001/living-room.jpg",
+      storagePath: "usr-1001/tsk-2003/living-room.jpg",
       moderationStatus: "PENDING",
       createdAt: "2026-07-19T02:15:00.000Z",
     },
     {
       id: "tmd-7002",
-      taskId: "tsk-5001",
-      taskTitle: "Deep clean two-bedroom condo",
+      taskId: "tsk-2003",
+      taskTitle: "Deep clean 2BR condo unit",
       kind: "image",
-      storagePath: "usr-1001/tsk-5001/kitchen.jpg",
+      storagePath: "usr-1001/tsk-2003/kitchen.jpg",
       moderationStatus: "APPROVED",
       createdAt: "2026-07-19T02:16:00.000Z",
     },
     {
       id: "tmd-7003",
-      taskId: "tsk-5002",
-      taskTitle: "Assemble flat-pack wardrobe",
+      taskId: "tsk-2002",
+      taskTitle: "Assemble IKEA wardrobe",
       kind: "video",
-      storagePath: "usr-1002/tsk-5002/walkthrough.mp4",
+      storagePath: "usr-1002/tsk-2002/walkthrough.mp4",
       moderationStatus: "HIDDEN",
       createdAt: "2026-07-18T11:40:00.000Z",
     },
@@ -1594,6 +1595,58 @@ export class SyntheticAdminRepository implements AdminRepository {
     };
   }
 
+  /**
+   * One task, assembled from the same synthetic state the queues read.
+   *
+   * The offline dataset stores tasks as list rows, so the fields only a detail
+   * page needs are derived deterministically from the row rather than stored
+   * twice and allowed to drift. Attachments come from the real media state, so
+   * the task page and the media queue agree offline exactly as they do live.
+   */
+  async getTask(taskId: string): Promise<TaskDetail | null> {
+    const row = this.state.tasks.find((task) => task.id === taskId);
+    if (!row) return null;
+
+    const attachments = this.state.taskMedia
+      .filter((media) => media.taskId === taskId)
+      .map((media) => ({
+        id: media.id,
+        kind: media.kind,
+        moderationStatus: media.moderationStatus,
+        createdAt: media.createdAt,
+      }));
+
+    // Same projection the synthetic user detail uses: offline, the audit log is
+    // the only record of a decision, keyed by the shortened resource label.
+    const decisions = this.state.auditLogs
+      .filter((entry) => entry.resource === `task ${taskId.slice(0, 8)}`)
+      .map((entry) => ({
+        id: entry.id,
+        action: entry.action,
+        reason: entry.reason ?? "",
+        actor: entry.actor,
+        at: entry.at,
+      }));
+
+    const scheduled = new Date(new Date(row.createdAt).getTime() + 3 * 86_400_000).toISOString();
+
+    return {
+      ...row,
+      description: `Synthetic task record for ${row.title}. Offline data set: the description is derived from the task title so the detail page has representative copy to lay out.`,
+      currency: "PHP",
+      clientDisplayName: "Development Client",
+      barangayCode: `${row.cityCode}001`,
+      landmark: "Near the barangay hall",
+      scheduledFor: scheduled,
+      sameDay: false,
+      publishedAt: row.status === "DRAFT" ? null : row.createdAt,
+      updatedAt: row.createdAt,
+      bookingId: null,
+      attachments,
+      moderationHistory: decisions,
+    };
+  }
+
   async moderateTask(input: {
     taskId: string;
     action: "remove" | "restore";
@@ -1611,10 +1664,13 @@ export class SyntheticAdminRepository implements AdminRepository {
     return { ok: true };
   }
 
-  async listTaskMedia(input: PageInput & { status?: string }) {
-    const filtered = input.status
-      ? this.state.taskMedia.filter((m) => m.moderationStatus === input.status)
-      : this.state.taskMedia;
+  async listTaskMedia(input: PageInput & { status?: string; query?: string }) {
+    const search = input.query?.trim().toLowerCase();
+    const filtered = this.state.taskMedia.filter((m) => {
+      if (input.status && m.moderationStatus !== input.status) return false;
+      if (search && !m.taskTitle.toLowerCase().includes(search)) return false;
+      return true;
+    });
     return paged<TaskMediaRow>(filtered, input);
   }
 
@@ -2772,3 +2828,7 @@ export function getSyntheticAdminRepository(): SyntheticAdminRepository {
   singleton ??= new SyntheticAdminRepository();
   return singleton;
 }
+
+
+
+

@@ -69,6 +69,39 @@ export function bookingStatusLabel(status: string): string {
 }
 
 /**
+ * Who or what caused a lifecycle change.
+ *
+ * The `source` column stores machine tokens (`payments`,
+ * `completion_confirmation_timeout`), which told an agent reading the history
+ * nothing about accountability. Unknown values are humanised rather than
+ * hidden, so a source added later reads as a phrase instead of looking broken.
+ */
+export function bookingEventSourceLabel(source: string): string {
+  switch (source) {
+    case "client":
+      return "Client action";
+    case "tasker":
+      return "Tasker action";
+    case "admin":
+      return "Admin action";
+    case "system":
+      return "Automatic";
+    case "provider":
+      return "Payment provider";
+    case "payments":
+      return "Payment system";
+    case "completion_confirmation_timeout":
+      return "Confirmation window expired";
+    case "freeze":
+      return "Support freeze";
+    default: {
+      const words = source.replace(/[_-]+/g, " ").trim();
+      return words ? words.charAt(0).toUpperCase() + words.slice(1) : "Unknown";
+    }
+  }
+}
+
+/**
  * One sentence: who is expected to act, and where the money currently sits.
  *
  * A label alone does not answer the two questions asked on an escalation, and
