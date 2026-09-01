@@ -17,6 +17,7 @@ import { Button } from "../ui/Button";
 import { Icon, type IconName } from "../ui/Icon";
 import { CenterDialogModal } from "../ui/CenterDialogModal";
 import { KeyboardAvoider } from "../ui/KeyboardAvoider";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   budgetToCentavos,
   canContinue,
@@ -126,6 +127,8 @@ export function TaskWizard({
   submitError,
   questions,
 }: TaskWizardProps) {
+  const insets = useSafeAreaInsets();
+  const topInset = Math.max(insets.top, 16);
   const steps = useMemo(() => stepsFor(), []);
   const [index, setIndex] = useState(0);
   /** Only show a step's error once the user has tried to move on. */
@@ -266,6 +269,22 @@ export function TaskWizard({
 
   const buttonVariant = isPhotos && photos.length === 0 ? "secondary" : "primary";
 
+  const progressAnim = useRef(new Animated.Value(fraction)).current;
+
+  useEffect(() => {
+    Animated.timing(progressAnim, {
+      toValue: fraction,
+      duration: 300,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [fraction, progressAnim]);
+
+  const progressWidth = progressAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0%", "100%"],
+  });
+
   const translateX = animValue.interpolate({
     inputRange: [-1, 0, 1],
     outputRange: [-32, 0, 32],
@@ -277,28 +296,54 @@ export function TaskWizard({
   });
 
   return (
-    <KeyboardAvoider style={styles.container}>
-      <View style={styles.header}>
-        <Pressable
-          onPress={goBack}
-          accessibilityRole="button"
-          accessibilityLabel={index === 0 ? "Leave task posting" : "Back to the previous step"}
-          hitSlop={10}
-          style={({ pressed }) => [
-            styles.backButton,
-            pressed ? { opacity: 0.7, transform: [{ scale: 0.92 }] } : null,
-          ]}
-        >
-          <Icon name="arrow-right" size={22} color={theme.textPrimary} />
-        </Pressable>
+    <KeyboardAvoider style={styles.container} offset={0}>
+      <View style={[styles.headerContainer, { paddingTop: topInset + spacing.xs }]}>
+        <View style={styles.headerRow}>
+          <Pressable
+            onPress={goBack}
+            accessibilityRole="button"
+            accessibilityLabel={index === 0 ? "Leave task posting" : "Back to the previous step"}
+            hitSlop={12}
+            style={({ pressed }) => [
+              styles.navButton,
+              pressed ? { opacity: 0.5, transform: [{ scale: 0.92 }] } : null,
+            ]}
+          >
+            <Icon name="arrow-left" size={22} color={theme.textPrimary} />
+          </Pressable>
 
-        <View
-          style={styles.progressTrack}
-          accessibilityRole="progressbar"
-          accessibilityValue={{ min: 1, max: total, now: position }}
-          accessibilityLabel={`Step ${position} of ${total}`}
-        >
-          <View style={[styles.progressFill, { width: `${Math.round(fraction * 100)}%` }]} />
+          <View style={styles.progressContainer}>
+            <View
+              style={styles.progressTrack}
+              accessibilityRole="progressbar"
+              accessibilityValue={{ min: 1, max: total, now: position }}
+              accessibilityLabel={`Step ${position} of ${total}`}
+            >
+              <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
+            </View>
+            <Text style={styles.stepEndText}>
+              Step {position} of {total}
+            </Text>
+          </View>
+
+          <Pressable
+            onPress={() => {
+              if (hasEnteredTaskContent(value, photos)) {
+                setShowDiscard(true);
+                return;
+              }
+              runExitAnimation();
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel task posting"
+            hitSlop={12}
+            style={({ pressed }) => [
+              styles.navButton,
+              pressed ? { opacity: 0.5, transform: [{ scale: 0.92 }] } : null,
+            ]}
+          >
+            <Icon name="close" size={22} color={theme.textSecondary} />
+          </Pressable>
         </View>
       </View>
 
@@ -310,9 +355,6 @@ export function TaskWizard({
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.stepCount}>
-            Step {position} of {total}
-          </Text>
           <StepBody
             step={step}
             value={value}
@@ -351,9 +393,7 @@ export function TaskWizard({
 
       <CenterDialogModal visible={showDiscard} onClose={() => setShowDiscard(false)}>
         <View style={styles.discardCard}>
-          <View style={styles.discardIconBox}>
-            <Icon name="alert-circle" size={24} color={theme.errorSolid} />
-          </View>
+          <Icon name="alert-circle" size={32} color={theme.errorSolid} />
           <Text style={styles.discardTitle} accessibilityRole="header">
             Discard task?
           </Text>
@@ -361,21 +401,25 @@ export function TaskWizard({
             Are you sure you want to stop posting this task? Your progress won&apos;t be saved.
           </Text>
           <View style={styles.discardActions}>
-            <Button
-              label="Discard task"
-              variant="destructive"
-              onPress={() => {
-                setShowDiscard(false);
-                runExitAnimation();
-              }}
-              fullWidth
-            />
-            <Button
-              label="Nevermind"
-              variant="secondary"
-              onPress={() => setShowDiscard(false)}
-              fullWidth
-            />
+            <View style={{ flex: 1 }}>
+              <Button
+                label="Nevermind"
+                variant="secondary"
+                onPress={() => setShowDiscard(false)}
+                fullWidth
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button
+                label="Discard"
+                variant="destructive"
+                onPress={() => {
+                  setShowDiscard(false);
+                  runExitAnimation();
+                }}
+                fullWidth
+              />
+            </View>
           </View>
         </View>
       </CenterDialogModal>
@@ -554,8 +598,8 @@ function StepBody({
 
           {isRemovalsTask ? (
             /* Removals Task: Pickup and Drop-off */
-            <View style={{ gap: spacing.md, marginTop: spacing.xs }}>
-              <View>
+            <View style={{ gap: spacing.md, marginTop: spacing.md }}>
+              <View style={{ gap: spacing.xs }}>
                 <Text style={styles.locationInputLabel}>Pickup location</Text>
                 <Pressable
                   onPress={() => setLocSearchTarget("pickup")}
@@ -568,25 +612,23 @@ function StepBody({
                   accessibilityHint="Opens location search"
                 >
                   <View style={styles.locationSelectIcon}>
-                    <Icon name="map-pin" size={20} color={theme.primary} />
+                    <Icon name="map-pin" size={18} color={theme.primary} />
                   </View>
                   <Text
                     style={[
                       styles.suburbSelectText,
                       value.landmark ? styles.suburbSelectTextSelected : null,
                     ]}
-                    numberOfLines={2}
+                    numberOfLines={1}
                     ellipsizeMode="tail"
                   >
                     {value.landmark || "Enter suburb"}
                   </Text>
-                  <View style={styles.locationSelectChevron}>
-                    <Icon name="chevron-right" size={18} color={theme.textSecondary} />
-                  </View>
+                  <Icon name="arrow-right" size={18} color={theme.textSecondary} />
                 </Pressable>
               </View>
 
-              <View>
+              <View style={{ gap: spacing.xs }}>
                 <Text style={styles.locationInputLabel}>Drop-off location (optional)</Text>
                 <Pressable
                   onPress={() => setLocSearchTarget("dropoff")}
@@ -599,21 +641,19 @@ function StepBody({
                   accessibilityHint="Opens location search"
                 >
                   <View style={styles.locationSelectIcon}>
-                    <Icon name="map-pin" size={20} color={theme.primary} />
+                    <Icon name="map-pin" size={18} color={theme.primary} />
                   </View>
                   <Text
                     style={[
                       styles.suburbSelectText,
                       dropoffLocation ? styles.suburbSelectTextSelected : null,
                     ]}
-                    numberOfLines={2}
+                    numberOfLines={1}
                     ellipsizeMode="tail"
                   >
                     {dropoffLocation || "Enter suburb"}
                   </Text>
-                  <View style={styles.locationSelectChevron}>
-                    <Icon name="chevron-right" size={18} color={theme.textSecondary} />
-                  </View>
+                  <Icon name="arrow-right" size={18} color={theme.textSecondary} />
                 </Pressable>
               </View>
             </View>
@@ -711,7 +751,7 @@ function StepBody({
               </View>
 
               {locationType === "in_person" ? (
-                <View style={{ marginTop: spacing.sm }}>
+                <View style={{ marginTop: spacing.md, gap: spacing.xs }}>
                   <Text style={styles.locationInputLabel}>Suburb</Text>
                   <Pressable
                     onPress={() => setLocSearchTarget("suburb")}
@@ -726,7 +766,7 @@ function StepBody({
                     accessibilityHint="Opens location search"
                   >
                     <View style={styles.locationSelectIcon}>
-                      <Icon name="map-pin" size={20} color={theme.primary} />
+                      <Icon name="map-pin" size={18} color={theme.primary} />
                     </View>
                     <Text
                       style={[
@@ -735,16 +775,14 @@ function StepBody({
                           ? styles.suburbSelectTextSelected
                           : null,
                       ]}
-                      numberOfLines={2}
+                      numberOfLines={1}
                       ellipsizeMode="tail"
                     >
                       {value.landmark && value.landmark !== ONLINE_PLACEHOLDER
                         ? value.landmark
                         : "Enter suburb"}
                     </Text>
-                    <View style={styles.locationSelectChevron}>
-                      <Icon name="chevron-right" size={18} color={theme.textSecondary} />
-                    </View>
+                    <Icon name="arrow-right" size={18} color={theme.textSecondary} />
                   </Pressable>
                 </View>
               ) : null}
@@ -752,8 +790,7 @@ function StepBody({
           )}
 
           {/* City & barangay — canonical PSGC, required for discovery filtering. */}
-          <View style={{ marginTop: spacing.md, gap: spacing.xs }}>
-            <Text style={styles.locationInputLabel}>City & barangay</Text>
+          <View style={{ marginTop: spacing.md }}>
             <LocalityPicker
               value={{ cityCode: value.cityCode, barangayCode: value.barangayCode }}
               onChange={(next) =>
@@ -950,7 +987,10 @@ function StepBody({
       const overflowCount = photos.length - visiblePhotos.length;
       return (
         <>
-          <Prompt title="Alright, ready to get offers?" hint="Review the details before you post" />
+          <Prompt
+            title="Alright, ready to get offers?"
+            hint="Review the details before you post"
+          />
 
           <View style={styles.reviewCard}>
             <ReviewRow
@@ -1208,7 +1248,7 @@ function formatScheduleForReview(
 const styles = StyleSheet.create({
   discardCard: {
     width: "100%",
-    maxWidth: 380,
+    maxWidth: 340,
     backgroundColor: theme.surface,
     borderRadius: radii.lg,
     padding: spacing.xl,
@@ -1216,84 +1256,89 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  discardIconBox: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: "rgba(239, 68, 68, 0.12)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: spacing.xs,
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
   },
   discardTitle: {
-    fontSize: fontSize.xl,
+    fontSize: fontSize.lg + 2,
     fontWeight: "800",
     color: theme.textPrimary,
+    marginTop: spacing.xs,
+    textAlign: "center",
   },
   discardMessage: {
     fontSize: fontSize.sm,
-    lineHeight: lineHeight.sm,
+    lineHeight: lineHeight.sm + 2,
     color: theme.textSecondary,
     textAlign: "center",
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs,
   },
   discardActions: {
     width: "100%",
+    flexDirection: "row",
     gap: spacing.sm,
+    marginTop: spacing.sm,
   },
   container: { flex: 1 },
-  header: {
+  headerContainer: {
+    paddingBottom: spacing.sm,
+    backgroundColor: theme.background,
+  },
+  headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
-    paddingVertical: spacing.md,
+    gap: spacing.sm,
   },
-  backButton: {
-    width: MIN_TOUCH_TARGET,
-    height: MIN_TOUCH_TARGET,
+  navButton: {
+    width: 36,
+    height: 36,
     alignItems: "center",
     justifyContent: "center",
-    // The icon set has a single directional arrow; mirror it to point back.
-    transform: [{ scaleX: -1 }],
+    backgroundColor: "transparent",
+  },
+  progressContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
   },
   progressTrack: {
     flex: 1,
     height: 6,
     borderRadius: radii.pill,
-    backgroundColor: theme.borderSubtle,
+    backgroundColor: "rgba(109, 40, 217, 0.12)",
     overflow: "hidden",
-    marginRight: spacing.lg,
   },
   progressFill: {
     height: "100%",
     borderRadius: radii.pill,
     backgroundColor: theme.primary,
   },
-  body: { flex: 1 },
-  bodyContent: { paddingBottom: spacing.xl },
-  stepCount: {
+  stepEndText: {
     fontSize: fontSize.xs,
-    fontWeight: "600",
+    fontWeight: "700",
     color: theme.textSecondary,
     letterSpacing: 0.2,
-    marginBottom: spacing.sm,
   },
-  prompt: { marginBottom: spacing.xl },
+  body: { flex: 1 },
+  bodyContent: { paddingBottom: spacing.xl },
+  prompt: {
+    marginTop: spacing.md,
+    marginBottom: spacing.xl,
+  },
   promptTitle: {
-    fontSize: fontSize.xxl,
+    fontSize: 26,
     fontWeight: "800",
     color: theme.textPrimary,
     letterSpacing: -0.5,
+    lineHeight: 32,
   },
   promptHint: {
-    fontSize: fontSize.md,
-    lineHeight: lineHeight.md,
+    fontSize: 15,
+    lineHeight: 22,
     color: theme.textSecondary,
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   counter: {
     fontSize: fontSize.xs,
@@ -1546,7 +1591,10 @@ const styles = StyleSheet.create({
     borderRadius: radii.sm,
     fontWeight: "600",
   },
-  footer: { paddingVertical: spacing.md },
+  footer: {
+    paddingTop: spacing.xs,
+    paddingBottom: 6,
+  },
   checkboxRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1679,38 +1727,29 @@ const styles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.88)",
   },
   locationInputLabel: {
-    fontSize: fontSize.sm + 1,
-    fontWeight: "700",
+    fontSize: fontSize.sm,
+    fontWeight: "600",
     color: theme.textPrimary,
-    marginBottom: spacing.xs,
   },
   suburbSelectBox: {
-    minHeight: 56,
+    height: 48,
+    minHeight: 48,
     borderRadius: radii.md,
-    backgroundColor: theme.surfaceSubtle,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: theme.borderSubtle,
+    borderColor: theme.borderControl,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
     gap: spacing.sm,
   },
   suburbSelectBoxSelected: {
     backgroundColor: theme.surface,
-    borderColor: theme.primary,
+    borderColor: theme.borderControl,
   },
   locationSelectIcon: {
-    width: 26,
-    height: 26,
-    alignItems: "center",
-    justifyContent: "center",
-    flexShrink: 0,
-  },
-  locationSelectChevron: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 20,
+    height: 20,
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
@@ -1718,7 +1757,7 @@ const styles = StyleSheet.create({
   suburbSelectText: {
     flex: 1,
     fontSize: fontSize.sm,
-    lineHeight: lineHeight.sm,
+    fontWeight: "400",
     color: theme.textSecondary,
   },
   suburbSelectTextSelected: {

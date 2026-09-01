@@ -27,6 +27,7 @@ export type IconName =
   | "edit"
   | "star"
   | "arrow-right"
+  | "arrow-left"
   | "shield"
   | "chat"
   | "wallet"
@@ -205,6 +206,12 @@ export function Icon({ name, size = 20, color = "currentColor" }: IconProps) {
       return (
         <Frame size={size} color={color}>
           <Path {...STROKE_PROPS} stroke={color} d="M4 12h16M13 5l7 7-7 7" />
+        </Frame>
+      );
+    case "arrow-left":
+      return (
+        <Frame size={size} color={color}>
+          <Path {...STROKE_PROPS} stroke={color} d="M20 12H4M11 19l-7-7 7-7" />
         </Frame>
       );
     case "shield":
