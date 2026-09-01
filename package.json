@@ -30,7 +30,7 @@
     "admin:build": "npm run build --workspace apps/admin",
     "mobile:typecheck": "npm run typecheck --workspace apps/mobile",
     "mobile:test": "npm run test --workspace apps/mobile",
-    "mobile:export": "npm run export --workspace apps/mobile",
+    "mobile:export": "npm run build && npm run export --workspace apps/mobile",
     "mobile:config-check": "npm run config-check --workspace apps/mobile",
     "test:all": "npm run test && npm run admin:test && npm run mobile:test",
     "typecheck:all": "npm run typecheck && npm run admin:typecheck && npm run mobile:typecheck",
