@@ -239,32 +239,121 @@ export default function VerificationScreen() {
             {/* APPROVED: full hero success state */}
             {status === "APPROVED" ? (
               <View style={styles.approvedHero}>
-                {/* Hero checkmark ring */}
-                <View style={styles.heroIconRing}>
-                  <Icon name="check-circle" size={40} color={theme.successSolid} />
+                {/* Hero Badge Ring */}
+                <View style={styles.heroBadgeContainer}>
+                  <View style={styles.heroIconRing}>
+                    <Icon name="shield" size={44} color="#10B981" />
+                  </View>
+                  <View style={styles.heroMiniCheck}>
+                    <Icon name="check-circle" size={16} color="#FFFFFF" />
+                  </View>
                 </View>
 
                 {/* Title + subtitle */}
                 <View style={styles.heroTextBlock}>
-                  <Text style={styles.heroTitle}>{introCopy.title}</Text>
-                  <Text style={styles.heroSubtitle}>{introCopy.description}</Text>
+                  <Text style={styles.heroTitle}>Identity Verified</Text>
+                  <Text style={styles.heroSubtitle}>
+                    Your government ID and biometric verification have been approved with full marketplace privileges.
+                  </Text>
                 </View>
 
-                {/* Privacy info */}
-                <InfoCard
-                  icon="shield"
-                  title="Private and securely stored"
-                  body="Your documents are never public. Only an assigned verification reviewer can access them through an audited, short-lived link."
-                  tone="info"
-                />
+                {/* Verified Identity Credential Card */}
+                <View style={styles.credentialCard}>
+                  <View style={styles.credentialCardHeader}>
+                    <View style={styles.credentialHeaderTitleRow}>
+                      <Icon name="shield" size={18} color={theme.primary} />
+                      <Text style={styles.credentialCardTitle}>Verified Credentials</Text>
+                    </View>
+                    <View style={styles.statusPill}>
+                      <Icon name="check-circle" size={13} color="#059669" />
+                      <Text style={styles.statusPillText}>Active</Text>
+                    </View>
+                  </View>
 
-                {/* Verified status info */}
-                <InfoCard
-                  icon="check-circle"
-                  title="Identity verified"
-                  body="Your identity verification is approved. You can now continue using verified marketplace features."
-                  tone="success"
-                />
+                  <View style={styles.credentialDivider} />
+
+                  <View style={styles.credentialRows}>
+                    <View style={styles.credentialRow}>
+                      <Text style={styles.credentialLabel}>Account Name</Text>
+                      <Text style={styles.credentialValue}>{session?.displayName || "Verified User"}</Text>
+                    </View>
+
+                    <View style={styles.credentialRow}>
+                      <Text style={styles.credentialLabel}>Document Type</Text>
+                      <Text style={styles.credentialValue}>Government Issued Valid ID</Text>
+                    </View>
+
+                    <View style={styles.credentialRow}>
+                      <Text style={styles.credentialLabel}>Verification ID</Text>
+                      <Text style={[styles.credentialValue, styles.monospaceText]}>
+                        VC-{verificationCase.id.slice(0, 8).toUpperCase()}
+                      </Text>
+                    </View>
+
+                    <View style={styles.credentialRow}>
+                      <Text style={styles.credentialLabel}>Verified Date</Text>
+                      <Text style={styles.credentialValue}>
+                        {new Date(
+                          verificationCase.decidedAt || verificationCase.submittedAt || Date.now(),
+                        ).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric",
+                        })}
+                      </Text>
+                    </View>
+
+                    <View style={styles.credentialRow}>
+                      <Text style={styles.credentialLabel}>Biometrics</Text>
+                      <View style={styles.biometricBadge}>
+                        <Icon name="check-circle" size={14} color="#059669" />
+                        <Text style={styles.biometricText}>Liveness & Match Passed</Text>
+                      </View>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Unlocked Privileges */}
+                <View style={styles.privilegesCard}>
+                  <Text style={styles.privilegesTitle}>Unlocked Account Privileges</Text>
+                  <View style={styles.privilegesList}>
+                    <View style={styles.privilegeItem}>
+                      <View style={styles.privilegeIconWrap}>
+                        <Icon name="check-circle" size={16} color={theme.primary} />
+                      </View>
+                      <Text style={styles.privilegeText}>Instant task creation and publishing</Text>
+                    </View>
+                    <View style={styles.privilegeItem}>
+                      <View style={styles.privilegeIconWrap}>
+                        <Icon name="check-circle" size={16} color={theme.primary} />
+                      </View>
+                      <Text style={styles.privilegeText}>Submit tasker offers & receive escrow payouts</Text>
+                    </View>
+                    <View style={styles.privilegeItem}>
+                      <View style={styles.privilegeIconWrap}>
+                        <Icon name="check-circle" size={16} color={theme.primary} />
+                      </View>
+                      <Text style={styles.privilegeText}>Real-time direct messaging on confirmed tasks</Text>
+                    </View>
+                    <View style={styles.privilegeItem}>
+                      <View style={styles.privilegeIconWrap}>
+                        <Icon name="check-circle" size={16} color={theme.primary} />
+                      </View>
+                      <Text style={styles.privilegeText}>Verified trust badge displayed on your profile</Text>
+                    </View>
+                  </View>
+                </View>
+
+                {/* Privacy and Security Note */}
+                <View style={styles.securityCard}>
+                  <View style={styles.securityHeaderRow}>
+                    <Icon name="shield" size={18} color={theme.infoOnSoft} />
+                    <Text style={styles.securityTitle}>Private and securely stored</Text>
+                  </View>
+                  <Text style={styles.securityDescription}>
+                    Your ID photos and selfie are kept strictly private and secure. They are never shared publicly or visible to other users.
+                  </Text>
+                </View>
 
                 <Button
                   label="Back to profile"
@@ -548,21 +637,43 @@ const styles = StyleSheet.create({
   // Approved Hero
   approvedHero: {
     gap: spacing.lg,
-    paddingTop: spacing.xl,
+    paddingTop: spacing.sm,
     alignItems: "stretch",
   },
-  heroIconRing: {
+  heroBadgeContainer: {
     alignSelf: "center",
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: theme.successSoft,
+    position: "relative",
+    width: 92,
+    height: 92,
     alignItems: "center",
     justifyContent: "center",
   },
+  heroIconRing: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "rgba(16, 185, 129, 0.25)",
+  },
+  heroMiniCheck: {
+    position: "absolute",
+    bottom: 2,
+    right: 2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "#10B981",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: theme.background,
+  },
   heroTextBlock: {
     alignItems: "center",
-    gap: spacing.sm,
+    gap: spacing.xs,
     paddingHorizontal: spacing.md,
   },
   heroTitle: {
@@ -574,9 +685,151 @@ const styles = StyleSheet.create({
   },
   heroSubtitle: {
     fontSize: fontSize.sm,
-    lineHeight: lineHeight.sm,
+    lineHeight: 20,
     color: theme.textSecondary,
     textAlign: "center",
+    maxWidth: 440,
+  },
+
+  // Credential Card
+  credentialCard: {
+    backgroundColor: theme.surface,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    padding: spacing.lg,
+    gap: spacing.md,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+  },
+  credentialCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  credentialHeaderTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  credentialCardTitle: {
+    fontSize: fontSize.md,
+    fontWeight: "700",
+    color: theme.textPrimary,
+  },
+  statusPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(16, 185, 129, 0.12)",
+    paddingVertical: 4,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.pill,
+  },
+  statusPillText: {
+    fontSize: fontSize.xs,
+    fontWeight: "700",
+    color: "#059669",
+  },
+  credentialDivider: {
+    height: 1,
+    backgroundColor: theme.borderSubtle,
+  },
+  credentialRows: {
+    gap: spacing.sm + 2,
+  },
+  credentialRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  credentialLabel: {
+    fontSize: fontSize.xs + 1,
+    color: theme.textSecondary,
+    fontWeight: "500",
+  },
+  credentialValue: {
+    fontSize: fontSize.sm,
+    fontWeight: "600",
+    color: theme.textPrimary,
+    textAlign: "right",
+  },
+  monospaceText: {
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    letterSpacing: 0.5,
+  },
+  biometricBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  biometricText: {
+    fontSize: fontSize.xs + 1,
+    fontWeight: "600",
+    color: "#059669",
+  },
+
+  // Privileges Card
+  privilegesCard: {
+    backgroundColor: theme.surface,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  privilegesTitle: {
+    fontSize: fontSize.md,
+    fontWeight: "700",
+    color: theme.textPrimary,
+  },
+  privilegesList: {
+    gap: spacing.sm + 2,
+  },
+  privilegeItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  privilegeIconWrap: {
+    width: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  privilegeText: {
+    flex: 1,
+    fontSize: fontSize.sm,
+    color: theme.textPrimary,
+    lineHeight: 18,
+    fontWeight: "500",
+  },
+
+  // Security Note Card
+  securityCard: {
+    backgroundColor: theme.infoSoft,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  securityHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  securityTitle: {
+    fontSize: fontSize.sm,
+    fontWeight: "700",
+    color: theme.infoOnSoft,
+    lineHeight: lineHeight.sm,
+  },
+  securityDescription: {
+    fontSize: fontSize.sm,
+    color: theme.infoOnSoft,
+    lineHeight: lineHeight.sm,
   },
 
   // Standard page intro

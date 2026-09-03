@@ -1,15 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   AccessibilityInfo,
+  ActivityIndicator,
+  Alert,
   Animated,
   Easing,
+  Image,
+  Keyboard,
+  LayoutAnimation,
   Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
+  UIManager,
   View,
 } from "react-native";
+import { createSignedUrl } from "../../../src/services/storage/upload";
 import { Redirect, Stack, router, useLocalSearchParams } from "expo-router";
 import type { TaskId } from "@dizkarte/domain";
 import { formatPhp } from "@dizkarte/domain";
@@ -27,6 +34,7 @@ import {
 import { LoadingState, ErrorState, DeniedState } from "../../../src/components/ui/AsyncState";
 import { useSession } from "../../../src/providers/SessionProvider";
 import { useMarketplace } from "../../../src/providers/MarketplaceProvider";
+import { useScreenScroll } from "../../../src/providers/ScreenScrollContext";
 import type {
   OfferRecord,
   OwnedTaskRecord,
@@ -42,6 +50,15 @@ import {
   radii,
   useResponsiveLayout,
 } from "../../../src/theme";
+import {
+  MOTION_DURATION,
+  MOTION_EASING,
+  MOTION_NATIVE_DRIVER,
+} from "../../../src/theme/motion";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 type LoadState = "loading" | "loaded" | "denied" | "error";
 type ActivityTabId = "offers" | "questions";
@@ -74,11 +91,13 @@ function taskTimingLabel(task: OwnedTaskRecord["draft"]): string {
   if (!task.scheduledFor) return `Flexible schedule${suffix}`;
   const scheduled = new Date(task.scheduledFor);
   if (Number.isNaN(scheduled.getTime())) return `Flexible schedule${suffix}`;
-  return `${scheduled.toLocaleDateString([], {
-    weekday: "short",
-    month: "short",
+  const weekday = scheduled.toLocaleDateString("en-US", { weekday: "long" });
+  const datePart = scheduled.toLocaleDateString("en-US", {
+    month: "long",
     day: "numeric",
-  })}${suffix}`;
+    year: "numeric",
+  });
+  return `${weekday} - ${datePart}${suffix}`;
 }
 
 const STATUS_PRESENTATION: Record<
@@ -109,7 +128,7 @@ function shortDateLabel(value: string): string {
 
 function OwnedTaskPageShell({ children }: { readonly children: ReactNode }) {
   return (
-    <Screen subPageTitle="Your task">
+    <Screen subPageTitle="Your task" keyboardAvoiding>
       <Stack.Screen options={{ headerShown: false }} />
       {children}
     </Screen>
@@ -419,8 +438,6 @@ export default function OwnedTaskDetailScreen() {
               />
             </View>
 
-            <View style={styles.overviewDivider} />
-
             <View style={styles.metaRow}>
               <View style={styles.metaLabelRow}>
                 <Icon name="calendar" size={14} color={theme.primary} />
@@ -445,37 +462,33 @@ export default function OwnedTaskDetailScreen() {
               </Text>
             </View>
 
-            <View style={styles.overviewDivider} />
-
             <View style={styles.budgetRow}>
-              <View style={styles.budgetCol}>
-                <Text style={styles.budgetLabel}>Budget</Text>
-                <Text style={styles.budgetAmount} numberOfLines={1}>
-                  {formatPhp(task.draft.budgetCentavos)}
-                </Text>
-              </View>
-
-              {task.activeBookingId ? (
-                <Pressable
-                  onPress={() =>
-                    router.push({
-                      pathname: "/booking/[id]",
-                      params: { id: task.activeBookingId! },
-                    })
-                  }
-                  accessibilityRole="button"
-                  accessibilityLabel="View active booking"
-                  style={({ pressed }) => [
-                    styles.bookingButton,
-                    pressed ? styles.bookingButtonPressed : null,
-                  ]}
-                >
-                  <Icon name="note" size={13} color={theme.primary} />
-                  <Text style={styles.bookingButtonText}>Booking</Text>
-                  <Icon name="arrow-right" size={12} color={theme.primary} />
-                </Pressable>
-              ) : null}
+              <Text style={styles.budgetLabel}>Budget</Text>
+              <Text style={styles.budgetAmount} numberOfLines={1}>
+                {formatPhp(task.draft.budgetCentavos)}
+              </Text>
             </View>
+
+            {task.activeBookingId ? (
+              <Pressable
+                onPress={() =>
+                  router.push({
+                    pathname: "/booking/[id]",
+                    params: { id: task.activeBookingId! },
+                  })
+                }
+                accessibilityRole="button"
+                accessibilityLabel="View active booking"
+                style={({ pressed }) => [
+                  styles.bookingButton,
+                  pressed ? styles.bookingButtonPressed : null,
+                ]}
+              >
+                <Icon name="note" size={13} color={theme.primary} />
+                <Text style={styles.bookingButtonText}>Booking</Text>
+                <Icon name="arrow-right" size={12} color={theme.primary} />
+              </Pressable>
+            ) : null}
           </View>
         </View>
 
@@ -586,8 +599,8 @@ export default function OwnedTaskDetailScreen() {
                           }
                           icon={showAllOffers ? "chevron-up" : "chevron-down"}
                           variant="secondary"
+                          size="sm"
                           onPress={() => setShowAllOffers((prev) => !prev)}
-                          fullWidth
                         />
                       </View>
                     ) : null}
@@ -634,6 +647,20 @@ export default function OwnedTaskDetailScreen() {
                             session.userId,
                             answer,
                           );
+                          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                          setQuestions((prev) =>
+                            prev.map((q) => (q.id === updated.id ? updated : q)),
+                          );
+                          notifyChanged();
+                        }}
+                        onDeleteAnswer={async () => {
+                          if (!session) return;
+                          const updated = await repository.deleteAnswer(
+                            question.id as unknown as string,
+                            task.id,
+                            session.userId,
+                          );
+                          LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
                           setQuestions((prev) =>
                             prev.map((q) => (q.id === updated.id ? updated : q)),
                           );
@@ -652,8 +679,8 @@ export default function OwnedTaskDetailScreen() {
                           }
                           icon={showAllQuestions ? "chevron-up" : "chevron-down"}
                           variant="secondary"
+                          size="sm"
                           onPress={() => setShowAllQuestions((prev) => !prev)}
-                          fullWidth
                         />
                       </View>
                     ) : null}
@@ -1019,6 +1046,22 @@ function OfferRow({
     offer.etaText?.trim() || offer.availabilityText?.trim() || offer.experienceText?.trim()
   );
 
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    const path = offer.taskerProfile.avatarPath ?? null;
+    if (!path) {
+      setAvatarUri(null);
+      return;
+    }
+    void createSignedUrl("avatars", path).then((url) => {
+      if (active) setAvatarUri(url);
+    });
+    return () => {
+      active = false;
+    };
+  }, [offer.taskerProfile.avatarPath]);
+
   return (
     <View
       style={[
@@ -1044,7 +1087,11 @@ function OfferRow({
         style={({ pressed }) => [styles.offerHeader, pressed ? { opacity: 0.8 } : null]}
       >
         <View style={styles.offerAvatar}>
-          <Text style={styles.offerAvatarText}>{getInitials(offer.taskerDisplayName)}</Text>
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={styles.offerAvatarImage} />
+          ) : (
+            <Text style={styles.offerAvatarText}>{getInitials(offer.taskerDisplayName)}</Text>
+          )}
         </View>
 
         <View style={styles.offerTaskerMeta}>
@@ -1130,20 +1177,11 @@ function OfferRow({
                 </View>
               ) : null}
 
-              {offer.etaText?.trim() &&
-              (offer.availabilityText?.trim() || offer.experienceText?.trim()) ? (
-                <View style={styles.specDivider} />
-              ) : null}
-
               {offer.availabilityText?.trim() ? (
                 <View style={styles.specItem}>
                   <Text style={styles.specLabel}>AVAILABILITY</Text>
                   <Text style={styles.specValue}>{offer.availabilityText}</Text>
                 </View>
-              ) : null}
-
-              {offer.availabilityText?.trim() && offer.experienceText?.trim() ? (
-                <View style={styles.specDivider} />
               ) : null}
 
               {offer.experienceText?.trim() ? (
@@ -1156,8 +1194,6 @@ function OfferRow({
           </Collapsible>
         </View>
       ) : null}
-
-      <View style={styles.offerDivider} />
 
       <View style={styles.offerFooter}>
         <View style={styles.offerPriceRow}>
@@ -1182,6 +1218,7 @@ function OfferRow({
               <Button
                 label="View profile"
                 variant="secondary"
+                size="sm"
                 onPress={() =>
                   router.push({ pathname: "/profile/[id]", params: { id: offer.taskerId } })
                 }
@@ -1192,6 +1229,7 @@ function OfferRow({
               <Button
                 label="Select offer"
                 icon="check-circle"
+                size="sm"
                 onPress={onSelect}
                 loading={selecting}
                 fullWidth
@@ -1203,10 +1241,10 @@ function OfferRow({
             <Button
               label="View profile"
               variant="secondary"
+              size="sm"
               onPress={() =>
                 router.push({ pathname: "/profile/[id]", params: { id: offer.taskerId } })
               }
-              fullWidth
             />
           </View>
         ) : null}
@@ -1219,15 +1257,74 @@ function QuestionRow({
   question,
   separated,
   onAnswer,
+  onDeleteAnswer,
 }: {
   readonly question: TaskQuestionRecord;
   readonly separated: boolean;
   readonly onAnswer: (answer: string) => Promise<void>;
+  readonly onDeleteAnswer: () => Promise<void>;
 }) {
+  const screenScroll = useScreenScroll();
+  const cardRef = useRef<View>(null);
+  const inputRef = useRef<TextInput>(null);
+
   const [replyOpen, setReplyOpen] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [replyError, setReplyError] = useState<string | undefined>(undefined);
+
+  const replyAnim = useRef(new Animated.Value(0)).current;
+  const hasAnswer = Boolean(question.answer);
+  const answerAnim = useRef(new Animated.Value(hasAnswer ? 1 : 0)).current;
+
+  useEffect(() => {
+    if (hasAnswer) {
+      Animated.timing(answerAnim, {
+        toValue: 1,
+        duration: 250,
+        easing: MOTION_EASING.open,
+        useNativeDriver: MOTION_NATIVE_DRIVER,
+      }).start();
+    }
+  }, [hasAnswer, answerAnim]);
+
+  useEffect(() => {
+    if (replyOpen) {
+      replyAnim.setValue(0);
+      Animated.timing(replyAnim, {
+        toValue: 1,
+        duration: MOTION_DURATION.open,
+        easing: MOTION_EASING.open,
+        useNativeDriver: MOTION_NATIVE_DRIVER,
+      }).start();
+    }
+  }, [replyOpen, replyAnim]);
+
+  function handleOpenReply() {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setReplyOpen(true);
+    screenScroll?.scrollToRef(cardRef);
+    setTimeout(() => {
+      inputRef.current?.focus();
+      screenScroll?.scrollToRef(cardRef);
+    }, 180);
+  }
+
+  function handleCancelReply() {
+    Keyboard.dismiss();
+    Animated.timing(replyAnim, {
+      toValue: 0,
+      duration: MOTION_DURATION.close,
+      easing: MOTION_EASING.close,
+      useNativeDriver: MOTION_NATIVE_DRIVER,
+    }).start(() => {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+      setReplyOpen(false);
+      setReplyText("");
+      setReplyError(undefined);
+    });
+  }
 
   async function handleSubmit() {
     const trimmed = replyText.trim();
@@ -1237,8 +1334,10 @@ function QuestionRow({
     }
     setReplyError(undefined);
     setSubmitting(true);
+    Keyboard.dismiss();
     try {
       await onAnswer(trimmed);
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       setReplyText("");
       setReplyOpen(false);
     } catch {
@@ -1248,8 +1347,41 @@ function QuestionRow({
     }
   }
 
+  function handleDeleteAnswer() {
+    const doDelete = async () => {
+      setDeleting(true);
+      try {
+        Animated.timing(answerAnim, {
+          toValue: 0,
+          duration: 180,
+          easing: MOTION_EASING.close,
+          useNativeDriver: MOTION_NATIVE_DRIVER,
+        }).start(async () => {
+          await onDeleteAnswer();
+          setDeleting(false);
+        });
+      } catch {
+        setDeleting(false);
+      }
+    };
+
+    if (Platform.OS === "web") {
+      if (typeof window !== "undefined" && window.confirm("Are you sure you want to delete your response?")) {
+        void doDelete();
+      }
+    } else {
+      Alert.alert("Delete response", "Are you sure you want to delete your response?", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: () => void doDelete() },
+      ]);
+    }
+  }
+
   return (
-    <View style={[styles.questionCard, separated ? styles.questionCardSeparated : undefined]}>
+    <View
+      ref={cardRef}
+      style={[styles.questionCard, separated ? styles.questionCardSeparated : undefined]}
+    >
       <View style={styles.questionMetaRow}>
         <View style={styles.questionAuthorLead}>
           <View style={styles.questionAvatar}>
@@ -1265,15 +1397,65 @@ function QuestionRow({
       <Text style={styles.questionBody}>{question.body}</Text>
 
       {question.answer ? (
-        <View style={styles.answerBlock}>
-          <Text style={styles.answerLabel}>YOUR RESPONSE</Text>
+        <Animated.View
+          style={[
+            styles.answerBlock,
+            {
+              opacity: answerAnim,
+              transform: [
+                {
+                  translateY: answerAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-4, 0],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <View style={styles.answerHeaderRow}>
+            <Text style={styles.answerLabel}>YOUR RESPONSE</Text>
+            <Pressable
+              style={({ pressed }) => [
+                styles.answerDeleteBtn,
+                pressed ? styles.answerDeleteBtnPressed : null,
+              ]}
+              onPress={handleDeleteAnswer}
+              disabled={deleting}
+              accessibilityRole="button"
+              accessibilityLabel="Delete response"
+              hitSlop={8}
+            >
+              {deleting ? (
+                <ActivityIndicator size="small" color={theme.primary} />
+              ) : (
+                <Icon name="trash" size={13} color={theme.textSecondary} />
+              )}
+            </Pressable>
+          </View>
           <Text style={styles.answerBody}>{question.answer}</Text>
-        </View>
+        </Animated.View>
       ) : (
         <>
           {replyOpen ? (
-            <View style={styles.replyForm}>
+            <Animated.View
+              style={[
+                styles.replyForm,
+                {
+                  opacity: replyAnim,
+                  transform: [
+                    {
+                      translateY: replyAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [-6, 0],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
               <TextInput
+                ref={inputRef}
                 style={styles.replyInput}
                 placeholder="Type your reply…"
                 placeholderTextColor={theme.textSecondary}
@@ -1283,6 +1465,9 @@ function QuestionRow({
                   setReplyText(t);
                   if (replyError) setReplyError(undefined);
                 }}
+                onFocus={() => {
+                  screenScroll?.scrollToRef(cardRef);
+                }}
                 editable={!submitting}
                 accessibilityLabel="Reply to question"
               />
@@ -1290,11 +1475,7 @@ function QuestionRow({
               <View style={styles.replyActions}>
                 <Pressable
                   style={styles.replyCancelBtn}
-                  onPress={() => {
-                    setReplyOpen(false);
-                    setReplyText("");
-                    setReplyError(undefined);
-                  }}
+                  onPress={handleCancelReply}
                   disabled={submitting}
                   accessibilityRole="button"
                   accessibilityLabel="Cancel reply"
@@ -1308,23 +1489,28 @@ function QuestionRow({
                   accessibilityRole="button"
                   accessibilityLabel="Send reply"
                 >
-                  <Icon
-                    name="arrow-right"
-                    size={13}
-                    color={submitting ? theme.textSecondary : theme.onPrimary}
-                  />
-                  <Text
-                    style={[styles.replySendText, submitting ? styles.replySendTextDisabled : null]}
-                  >
-                    {submitting ? "Sending…" : "Send reply"}
-                  </Text>
+                  {submitting ? (
+                    <ActivityIndicator size="small" color={theme.primary} />
+                  ) : (
+                    <>
+                      <Icon
+                        name="arrow-right"
+                        size={13}
+                        color={theme.onPrimary}
+                      />
+                      <Text style={styles.replySendText}>Send reply</Text>
+                    </>
+                  )}
                 </Pressable>
               </View>
-            </View>
+            </Animated.View>
           ) : (
             <Pressable
-              style={styles.replyOpenBtn}
-              onPress={() => setReplyOpen(true)}
+              style={({ pressed }) => [
+                styles.replyOpenBtn,
+                pressed ? styles.replyOpenBtnPressed : null,
+              ]}
+              onPress={handleOpenReply}
               accessibilityRole="button"
               accessibilityLabel="Reply to this question"
             >
@@ -1446,7 +1632,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: theme.borderSubtle,
-    padding: spacing.lg,
+    padding: spacing.md + 2,
     gap: spacing.sm,
     marginBottom: spacing.lg,
     shadowColor: "#0F172A",
@@ -1477,10 +1663,10 @@ const styles = StyleSheet.create({
   taskTitle: {
     minWidth: 0,
     color: theme.textPrimary,
-    fontSize: fontSize.xl,
-    lineHeight: lineHeight.xl,
+    fontSize: fontSize.lg,
+    lineHeight: lineHeight.lg,
     fontWeight: "800",
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
   },
   taskDescription: {
     minWidth: 0,
@@ -1491,7 +1677,7 @@ const styles = StyleSheet.create({
   answerList: {
     minWidth: 0,
     gap: 2,
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   answerLine: {
     minWidth: 0,
@@ -1559,22 +1745,18 @@ const styles = StyleSheet.create({
     minWidth: 0,
     width: "100%",
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-end",
     justifyContent: "space-between",
     gap: spacing.md,
-    paddingTop: 2,
-  },
-  budgetCol: {
-    flex: 1,
-    minWidth: 0,
-    gap: 2,
+    paddingTop: 4,
   },
   budgetLabel: {
     color: theme.textSecondary,
     fontSize: fontSize.xs,
-    fontWeight: "600",
+    fontWeight: "700",
     textTransform: "uppercase",
     letterSpacing: 0.5,
+    paddingBottom: 2,
   },
   budgetAmount: {
     color: theme.primary,
@@ -1583,6 +1765,8 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   bookingButton: {
+    marginTop: spacing.xs,
+    alignSelf: "flex-end",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
@@ -1675,15 +1859,13 @@ const styles = StyleSheet.create({
   },
   checkpointFacts: {
     minWidth: 0,
-    borderTopWidth: 1,
-    borderTopColor: theme.borderSubtle,
     gap: spacing.md,
-    paddingTop: spacing.md,
+    paddingTop: spacing.xs,
   },
   checkpointFactsTablet: {
     flexDirection: "row",
     alignItems: "stretch",
-    paddingTop: spacing.md,
+    paddingTop: spacing.xs,
     paddingBottom: 0,
     gap: spacing.md,
   },
@@ -1701,8 +1883,6 @@ const styles = StyleSheet.create({
   checkpointFactSecondaryTablet: {
     paddingRight: 0,
     paddingLeft: spacing.md,
-    borderLeftWidth: 1,
-    borderLeftColor: theme.borderSubtle,
   },
   checkpointFactLabel: {
     color: theme.textSecondary,
@@ -1874,6 +2054,23 @@ const styles = StyleSheet.create({
     borderLeftWidth: 2,
     borderLeftColor: theme.primary,
   },
+  answerHeaderRow: {
+    minWidth: 0,
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  answerDeleteBtn: {
+    padding: 4,
+    borderRadius: radii.sm,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  answerDeleteBtnPressed: {
+    opacity: 0.6,
+    backgroundColor: theme.errorSoft,
+  },
   answerLabel: {
     color: theme.primary,
     fontSize: 10,
@@ -1888,15 +2085,19 @@ const styles = StyleSheet.create({
   replyOpenBtn: {
     flexDirection: "row",
     alignItems: "center",
-    alignSelf: "flex-start",
+    alignSelf: "flex-end",
     gap: 5,
     marginTop: spacing.xs,
-    paddingVertical: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+  },
+  replyOpenBtnPressed: {
+    opacity: 0.65,
   },
   replyOpenText: {
     color: theme.primary,
     fontSize: fontSize.sm,
-    fontWeight: "600",
+    fontWeight: "700",
   },
   replyForm: {
     minWidth: 0,
@@ -1920,6 +2121,7 @@ const styles = StyleSheet.create({
   replyError: {
     color: theme.errorOnSoft,
     fontSize: fontSize.xs,
+    fontWeight: "600",
   },
   replyActions: {
     flexDirection: "row",
@@ -1937,16 +2139,21 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   replySendBtn: {
+    minWidth: 105,
+    minHeight: 38,
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    justifyContent: "center",
+    gap: 6,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: radii.md,
     backgroundColor: theme.primary,
   },
   replySendBtnDisabled: {
-    backgroundColor: theme.surfaceSubtle,
+    backgroundColor: theme.primarySoft,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
   },
   replySendText: {
     color: theme.onPrimary,
@@ -1962,6 +2169,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   expandAction: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
     paddingTop: spacing.xs,
   },
   offerCard: {
@@ -2002,6 +2212,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     flexShrink: 0,
+    overflow: "hidden",
+  },
+  offerAvatarImage: {
+    width: 38,
+    height: 38,
+    borderRadius: radii.pill,
   },
   offerAvatarText: {
     color: theme.primary,
@@ -2111,10 +2327,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     backgroundColor: theme.surfaceSubtle,
   },
-  specsHeaderOpen: {
-    borderBottomWidth: 1,
-    borderBottomColor: theme.borderSubtle,
-  },
+  specsHeaderOpen: {},
   specsHeaderPressed: {
     backgroundColor: theme.primarySoft,
   },
@@ -2136,8 +2349,6 @@ const styles = StyleSheet.create({
     padding: 12,
     gap: spacing.sm,
     backgroundColor: theme.surface,
-    borderTopWidth: 1,
-    borderTopColor: theme.borderSubtle,
   },
   specItem: {
     gap: 2,
@@ -2156,12 +2367,10 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   specDivider: {
-    height: 1,
-    backgroundColor: theme.borderSubtle,
+    height: 0,
   },
   offerDivider: {
-    height: 1,
-    backgroundColor: theme.borderSubtle,
+    height: 0,
   },
   offerFooter: {
     minWidth: 0,
@@ -2225,6 +2434,8 @@ const styles = StyleSheet.create({
   },
   offerActionSingle: {
     width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
   },
   errorBanner: {
     minWidth: 0,

@@ -22,11 +22,13 @@ function taskTimingLabel(task: PublicTaskFeedItem): string {
   if (!task.scheduledFor) return "Flexible schedule";
   const scheduled = new Date(task.scheduledFor);
   if (Number.isNaN(scheduled.getTime())) return "Flexible schedule";
-  return scheduled.toLocaleDateString([], {
-    weekday: "short",
-    month: "short",
+  const weekday = scheduled.toLocaleDateString("en-US", { weekday: "long" });
+  const datePart = scheduled.toLocaleDateString("en-US", {
+    month: "long",
     day: "numeric",
+    year: "numeric",
   });
+  return `${weekday} - ${datePart}`;
 }
 
 export default function TaskDetailScreen() {
@@ -103,75 +105,81 @@ export default function TaskDetailScreen() {
   const offerLabel = task.offerCount + " offer" + (task.offerCount === 1 ? "" : "s");
 
   return (
-    <Screen subPageTitle="Task details">
+    <Screen subPageTitle="Task details" keyboardAvoiding>
       <Stack.Screen options={{ headerShown: false }} />
       <View style={styles.page}>
         <View style={styles.briefDocument}>
-          <View style={styles.titleCard}>
-            <View style={styles.badgeRow}>
-              <StatusBadge tone="brand" label={categoryLabel} />
-              <StatusBadge tone="success" label="Open" />
-              {task.sameDay ? <StatusBadge tone="warning" label="Same-day" /> : null}
-            </View>
+          {/* Card 1: Task Summary Card */}
+          <View style={styles.taskSummaryCard}>
+            <Text style={styles.taskTitle} accessibilityRole="header">
+              {task.title}
+            </Text>
+            <Text style={styles.taskDescription}>{task.description}</Text>
 
-            <View style={styles.titleBlock}>
-              <Text style={styles.title} accessibilityRole="header">
-                {task.title}
-              </Text>
-              <Text style={styles.description}>{task.description}</Text>
-            </View>
-
-            {/*
-              Category-specific specifics the Client answered when posting (property
-              type, stairs, key items). Shown as their own labelled rows because
-              this is what a Tasker actually quotes against.
-            */}
             {answers.length > 0 ? (
               <View style={styles.answerList}>
-                <Text style={styles.eyebrow}>TASK SPECIFICS</Text>
                 {answers.map((answer) => (
-                  <View key={answer.questionId} style={styles.answerRow}>
-                    <Text style={styles.answerLabel}>{answer.label}</Text>
-                    <Text style={styles.answerValue}>{answer.answer}</Text>
-                  </View>
+                  <Text key={answer.questionId} style={styles.answerLine}>
+                    <Text style={styles.answerLineLabel}>{answer.label}: </Text>
+                    {answer.answer}
+                  </Text>
                 ))}
               </View>
             ) : null}
           </View>
 
-          <View style={[styles.summaryRow, isTablet ? styles.summaryRowTablet : null]}>
-            <View style={[styles.summaryItem, isTablet ? styles.summaryItemTablet : null]}>
-              <Text style={styles.summaryLabel}>BUDGET</Text>
-              <Text style={styles.budget}>{formatPhp(task.budgetCentavos)}</Text>
+          {/* Card 2: Overview / Details Card */}
+          <View style={styles.overviewCard}>
+            <View style={styles.overviewTopRow}>
+              <Text style={styles.overviewSectionTitle}>Task details</Text>
+              <View style={styles.badgeGroup}>
+                <StatusBadge tone="brand" label={categoryLabel} />
+                {task.sameDay ? <StatusBadge tone="warning" label="Same-day" /> : null}
+              </View>
             </View>
-            <View style={isTablet ? styles.summaryDividerTablet : styles.summaryDivider} />
-            <View style={[styles.summaryItem, isTablet ? styles.summaryItemTablet : null]}>
-              <Text style={styles.summaryLabel}>OFFER ACTIVITY</Text>
-              <Text style={styles.summaryValue}>{offerLabel}</Text>
+
+            {/* Spec Tiles: Schedule & Area */}
+            <View style={[styles.specGrid, isTablet ? styles.specGridTablet : null]}>
+              <View style={[styles.specTile, isTablet ? styles.specTileTablet : null]}>
+                <View style={styles.specHeader}>
+                  <Icon name="calendar" size={14} color={theme.primary} />
+                  <Text style={styles.specLabel}>SCHEDULE</Text>
+                </View>
+                <Text style={styles.specValue}>{taskTimingLabel(task)}</Text>
+              </View>
+
+              <View style={[styles.specTile, isTablet ? styles.specTileTablet : null]}>
+                <View style={styles.specHeader}>
+                  <Icon name="map-pin" size={14} color={theme.primary} />
+                  <Text style={styles.specLabel}>APPROXIMATE AREA</Text>
+                </View>
+                <Text style={styles.specValue}>
+                  {task.landmark?.trim() || "Approximate area not specified"}
+                </Text>
+              </View>
+            </View>
+
+            {/* Formal Financial & Activity Banner */}
+            <View style={styles.financialBanner}>
+              <View style={styles.financialCol}>
+                <Text style={styles.financialLabel}>ESTIMATED BUDGET</Text>
+                <Text style={styles.financialAmount} numberOfLines={1}>
+                  {formatPhp(task.budgetCentavos)}
+                </Text>
+              </View>
+              <View style={styles.financialColRight}>
+                <Text style={[styles.financialLabel, styles.financialLabelCenter]}>
+                  OFFER ACTIVITY
+                </Text>
+                <Text style={styles.financialActivity}>{offerLabel}</Text>
+              </View>
             </View>
           </View>
 
-          <View style={[styles.detailTable, isTablet ? styles.detailTableTablet : null]}>
-            <View style={[styles.detailBlock, isTablet ? styles.detailBlockTablet : null]}>
-              <View style={styles.detailHeader}>
-                <Icon name="calendar" size={20} color={theme.primary} />
-                <Text style={styles.detailLabel}>SCHEDULE</Text>
-              </View>
-              <Text style={styles.detailValue}>{taskTimingLabel(task)}</Text>
-            </View>
-            <View style={isTablet ? styles.detailDividerTablet : styles.detailDivider} />
-            <View style={[styles.detailBlock, isTablet ? styles.detailBlockTablet : null]}>
-              <View style={styles.detailHeader}>
-                <Icon name="map-pin" size={20} color={theme.primary} />
-                <Text style={styles.detailLabel}>APPROXIMATE AREA</Text>
-              </View>
-              <Text style={styles.detailValue}>{task.landmark}</Text>
-            </View>
-          </View>
-
+          {/* Privacy Notice */}
           <View style={styles.privacyStatement}>
             <View style={styles.privacyHeader}>
-              <Icon name="shield" size={20} color={theme.textSecondary} />
+              <Icon name="shield" size={15} color={theme.textSecondary} />
               <Text style={styles.privacyTitle}>Private until payment is confirmed</Text>
             </View>
             <Text style={styles.privacyText}>
@@ -201,15 +209,57 @@ const styles = StyleSheet.create({
   briefDocument: {
     minWidth: 0,
     width: "100%",
-    gap: spacing.lg,
+    gap: spacing.md,
   },
-  titleCard: {
+  taskSummaryCard: {
     minWidth: 0,
     backgroundColor: theme.surface,
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: theme.borderSubtle,
     padding: spacing.lg,
+    gap: spacing.sm,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  taskTitle: {
+    color: theme.textPrimary,
+    fontSize: fontSize.xl,
+    lineHeight: lineHeight.xl,
+    fontWeight: "800",
+    letterSpacing: -0.2,
+  },
+  taskDescription: {
+    minWidth: 0,
+    color: theme.textSecondary,
+    fontSize: fontSize.sm,
+    lineHeight: lineHeight.sm + 4,
+  },
+  answerList: {
+    minWidth: 0,
+    gap: 2,
+    marginTop: spacing.xs,
+  },
+  answerLine: {
+    minWidth: 0,
+    color: theme.textPrimary,
+    fontSize: fontSize.xs,
+    lineHeight: lineHeight.sm,
+  },
+  answerLineLabel: {
+    color: theme.textSecondary,
+    fontWeight: "700",
+  },
+  overviewCard: {
+    minWidth: 0,
+    padding: spacing.md + 2,
+    borderRadius: radii.lg,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
     gap: spacing.md,
     shadowColor: "#0F172A",
     shadowOffset: { width: 0, height: 2 },
@@ -217,184 +267,138 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 1,
   },
-  taskTypeChip: {
+  overviewTopRow: {
     minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  overviewSectionTitle: {
+    color: theme.textPrimary,
+    fontSize: fontSize.md,
+    fontWeight: "800",
+  },
+  badgeGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    flexWrap: "wrap",
+  },
+  specGrid: {
+    minWidth: 0,
+    gap: spacing.sm,
+  },
+  specGridTablet: {
+    flexDirection: "row",
+    gap: spacing.md,
+  },
+  specTile: {
+    minWidth: 0,
+    backgroundColor: theme.surfaceSubtle,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    gap: 4,
+  },
+  specTileTablet: {
+    flex: 1,
+  },
+  specHeader: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
   },
-  badgeRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: spacing.sm,
-  },
-  titleBlock: {
-    minWidth: 0,
-    gap: spacing.sm,
-  },
-  eyebrow: {
-    color: theme.textSecondary,
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 1,
-  },
-  title: {
-    color: theme.textPrimary,
-    fontSize: fontSize.xxl,
-    lineHeight: lineHeight.xxl,
-    fontWeight: "800",
-  },
-  description: {
-    color: theme.textSecondary,
-    fontSize: fontSize.md,
-    lineHeight: lineHeight.md,
-  },
-  answerList: {
-    minWidth: 0,
-    width: "100%",
-    gap: spacing.sm,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderColor: theme.borderSubtle,
-  },
-  answerRow: {
-    minWidth: 0,
-    gap: 2,
-  },
-  answerLabel: {
-    minWidth: 0,
-    color: theme.textSecondary,
-    fontSize: fontSize.xs,
-    lineHeight: lineHeight.xs,
-    fontWeight: "700",
-  },
-  answerValue: {
-    minWidth: 0,
-    color: theme.textPrimary,
-    fontSize: fontSize.sm,
-    lineHeight: lineHeight.sm,
-    fontWeight: "600",
-  },
-  summaryRow: {
-    minWidth: 0,
-    width: "100%",
-    paddingVertical: spacing.md,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: theme.borderSubtle,
-  },
-  summaryRowTablet: {
-    flexDirection: "row",
-    alignItems: "stretch",
-  },
-  summaryItem: {
-    minWidth: 0,
-    gap: spacing.xs,
-  },
-  summaryItemTablet: {
-    flex: 1,
-  },
-  summaryDivider: {
-    height: 1,
-    marginVertical: spacing.md,
-    backgroundColor: theme.borderSubtle,
-  },
-  summaryDividerTablet: {
-    width: 1,
-    alignSelf: "stretch",
-    marginHorizontal: spacing.md,
-    backgroundColor: theme.borderSubtle,
-  },
-  summaryLabel: {
+  specLabel: {
     color: theme.textSecondary,
     fontSize: 10,
     fontWeight: "800",
     letterSpacing: 0.7,
+    textTransform: "uppercase",
   },
-  budget: {
+  specValue: {
+    color: theme.textPrimary,
+    fontSize: fontSize.sm,
+    lineHeight: lineHeight.sm + 2,
+    fontWeight: "700",
+  },
+  financialBanner: {
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: theme.surfaceSubtle,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    gap: spacing.md,
+  },
+  financialCol: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  financialColRight: {
+    minWidth: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 2,
+  },
+  financialLabel: {
+    color: theme.textSecondary,
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.7,
+    textTransform: "uppercase",
+  },
+  financialLabelCenter: {
+    textAlign: "center",
+  },
+  financialAmount: {
     color: theme.primary,
     fontSize: fontSize.xl,
+    lineHeight: lineHeight.xl,
     fontWeight: "800",
+    letterSpacing: -0.3,
   },
-  summaryValue: {
+  financialActivity: {
     color: theme.textPrimary,
     fontSize: fontSize.md,
     lineHeight: lineHeight.md,
     fontWeight: "800",
-  },
-  detailTable: {
-    minWidth: 0,
-    width: "100%",
-    overflow: "hidden",
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: theme.borderSubtle,
-  },
-  detailTableTablet: {
-    flexDirection: "row",
-    alignItems: "stretch",
-  },
-  detailBlock: {
-    minWidth: 0,
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-  },
-  detailBlockTablet: {
-    flex: 1,
-  },
-  detailHeader: {
-    minHeight: 24,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
-  detailLabel: {
-    minWidth: 0,
-    flexShrink: 1,
-    color: theme.textSecondary,
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 0.6,
-  },
-  detailValue: {
-    color: theme.textPrimary,
-    fontSize: fontSize.sm,
-    lineHeight: lineHeight.sm,
-    fontWeight: "600",
-  },
-  detailDivider: {
-    height: 1,
-    backgroundColor: theme.borderSubtle,
-  },
-  detailDividerTablet: {
-    width: 1,
-    alignSelf: "stretch",
-    marginHorizontal: spacing.md,
-    backgroundColor: theme.borderSubtle,
+    textAlign: "center",
   },
   privacyStatement: {
     minWidth: 0,
-    gap: spacing.sm,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
   },
   privacyHeader: {
-    minWidth: 0,
-    minHeight: 24,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
+    justifyContent: "center",
+    gap: 6,
   },
   privacyTitle: {
-    minWidth: 0,
-    flex: 1,
-    color: theme.textPrimary,
-    fontSize: fontSize.sm,
+    color: theme.textSecondary,
+    fontSize: fontSize.xs + 1,
     lineHeight: lineHeight.sm,
     fontWeight: "700",
+    textAlign: "center",
   },
   privacyText: {
-    minWidth: 0,
+    maxWidth: 380,
     color: theme.textSecondary,
     fontSize: fontSize.xs,
-    lineHeight: lineHeight.xs,
+    lineHeight: lineHeight.xs + 4,
+    textAlign: "center",
   },
 });

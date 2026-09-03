@@ -43,11 +43,13 @@ function taskTimingLabel(task: OwnedTaskRecord["draft"]): string {
   if (!task.scheduledFor) return `Flexible schedule${suffix}`;
   const scheduled = new Date(task.scheduledFor);
   if (Number.isNaN(scheduled.getTime())) return `Flexible schedule${suffix}`;
-  return `${scheduled.toLocaleDateString([], {
-    weekday: "short",
-    month: "short",
+  const weekday = scheduled.toLocaleDateString("en-US", { weekday: "long" });
+  const datePart = scheduled.toLocaleDateString("en-US", {
+    month: "long",
     day: "numeric",
-  })}${suffix}`;
+    year: "numeric",
+  });
+  return `${weekday} - ${datePart}${suffix}`;
 }
 
 function PreviewPageShell({ children }: { readonly children: ReactNode }) {
@@ -204,8 +206,6 @@ export default function PreviewTaskScreen() {
                     />
                   </View>
 
-                  <View style={styles.overviewDivider} />
-
                   <View style={styles.metaRow}>
                     <View style={styles.metaLabelRow}>
                       <Icon name="calendar" size={14} color={theme.primary} />
@@ -223,8 +223,6 @@ export default function PreviewTaskScreen() {
                       {task.draft.landmark?.trim() || "No landmark set"}
                     </Text>
                   </View>
-
-                  <View style={styles.overviewDivider} />
 
                   <View style={styles.budgetRow}>
                     <Text style={styles.budgetLabel}>Starting budget</Text>
@@ -525,7 +523,6 @@ function MediaCard({
           Photos and video appear with the public task to help Taskers quote accurately.
         </Text>
       </View>
-      <View style={styles.sectionDivider} />
 
       {media.length === 0 ? (
         <View style={styles.mediaEmpty}>
@@ -605,7 +602,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: theme.borderSubtle,
-    padding: spacing.lg,
+    padding: spacing.md + 2,
     gap: spacing.sm,
     shadowColor: "#0F172A",
     shadowOffset: { width: 0, height: 2 },
@@ -634,10 +631,10 @@ const styles = StyleSheet.create({
   },
   taskTitle: {
     color: theme.textPrimary,
-    fontSize: fontSize.xl,
-    lineHeight: lineHeight.xl,
+    fontSize: fontSize.lg,
+    lineHeight: lineHeight.lg,
     fontWeight: "800",
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
   },
   taskDescription: {
     color: theme.textSecondary,
@@ -706,16 +703,17 @@ const styles = StyleSheet.create({
     minWidth: 0,
     width: "100%",
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-end",
     justifyContent: "space-between",
     gap: spacing.sm,
-    paddingVertical: 2,
+    paddingTop: 4,
   },
   budgetLabel: {
     color: theme.textSecondary,
     fontSize: fontSize.sm,
     lineHeight: lineHeight.sm,
     fontWeight: "600",
+    paddingBottom: 2,
   },
   budgetAmount: {
     color: theme.primary,
@@ -775,15 +773,13 @@ const styles = StyleSheet.create({
   },
   checkpointFacts: {
     minWidth: 0,
-    borderTopWidth: 1,
-    borderTopColor: theme.borderSubtle,
     gap: spacing.md,
-    paddingTop: spacing.md,
+    paddingTop: spacing.xs,
   },
   checkpointFactsTablet: {
     flexDirection: "row",
     alignItems: "stretch",
-    paddingTop: spacing.md,
+    paddingTop: spacing.xs,
     paddingBottom: 0,
     gap: spacing.md,
   },
@@ -801,8 +797,6 @@ const styles = StyleSheet.create({
   checkpointFactSecondaryTablet: {
     paddingRight: 0,
     paddingLeft: spacing.md,
-    borderLeftWidth: 1,
-    borderLeftColor: theme.borderSubtle,
   },
   checkpointFactLabel: {
     color: theme.textSecondary,
@@ -867,11 +861,8 @@ const styles = StyleSheet.create({
   accessTable: {
     minWidth: 0,
     overflow: "hidden",
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: theme.borderSubtle,
     gap: spacing.md,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.xs,
   },
   accessDetailBlock: {
     minWidth: 0,
@@ -890,8 +881,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   accessRowDivider: {
-    height: 1,
-    backgroundColor: theme.borderSubtle,
+    height: 0,
   },
   accessPolicy: {
     minWidth: 0,
@@ -952,8 +942,7 @@ const styles = StyleSheet.create({
     lineHeight: lineHeight.xs,
   },
   sectionDivider: {
-    height: 1,
-    backgroundColor: theme.borderSubtle,
+    height: 0,
   },
   infoText: {
     color: theme.textPrimary,

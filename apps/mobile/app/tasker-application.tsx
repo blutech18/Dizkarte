@@ -168,6 +168,48 @@ export default function TaskerApplicationScreen() {
     void load();
   }, [load]);
 
+  const [resolvedLocation, setResolvedLocation] = useState<{
+    city: string | null;
+    barangay: string | null;
+  }>({
+    city: null,
+    barangay: null,
+  });
+
+  useEffect(() => {
+    let active = true;
+    const targetCity = application?.cityCode || cityCode;
+    const targetBrgy = application?.barangayCode || barangayCode;
+
+    if (targetCity) {
+      void Promise.all([
+        repository.getCityByCode(targetCity),
+        targetBrgy ? repository.getBarangayByCode(targetBrgy) : Promise.resolve(null),
+      ]).then(([city, brgy]) => {
+        if (active) {
+          setResolvedLocation({
+            city: city?.name ?? null,
+            barangay: brgy?.name ?? null,
+          });
+        }
+      });
+    } else {
+      setResolvedLocation({ city: null, barangay: null });
+    }
+    return () => {
+      active = false;
+    };
+  }, [application?.cityCode, application?.barangayCode, cityCode, barangayCode, repository]);
+
+  const specialtyNames = useMemo(() => {
+    const list = application?.specialtyIds?.length ? application.specialtyIds : specialties;
+    if (!list || list.length === 0) return [];
+    return list.map((id) => {
+      const match = options.find((opt) => opt.id === id || opt.slug === id);
+      return match?.name || match?.slug || id;
+    });
+  }, [application?.specialtyIds, specialties, options]);
+
   const showForm = useMemo(() => {
     if (!application) return true;
     return (
@@ -271,75 +313,231 @@ export default function TaskerApplicationScreen() {
           >
             <ScreenScrollProvider scrollViewRef={scrollRef}>
               <View style={styles.contentFrame}>
-                <ProfilePageIntro title={intro.title} description={intro.description} />
+                {application && REVIEW_STATUSES.has(application.status) ? (
+                  <View style={styles.reviewHeroContainer}>
+                    {/* Hero Badge Ring */}
+                    <View style={styles.heroBadgeContainer}>
+                      <View style={styles.heroIconRingReview}>
+                        <Icon name="clock" size={42} color="#D97706" />
+                      </View>
+                      <View style={styles.heroMiniReviewBadge}>
+                        <Icon name="shield" size={14} color="#FFFFFF" />
+                      </View>
+                    </View>
 
-              <View style={styles.reviewNotice}>
-                <View style={styles.noticeHeader}>
-                  <Icon name="shield" size={21} color={theme.infoOnSoft} />
-                  <Text style={styles.noticeTitle}>Manual application review</Text>
-                </View>
-                <Text style={styles.noticeDescription}>
-                  Dizkarte reviews every application before Tasker capabilities are enabled. Your
-                  ratings and verification status cannot be edited here.
-                </Text>
-              </View>
+                    {/* Title & Subtitle */}
+                    <View style={styles.heroTextBlock}>
+                      <Text style={styles.heroTitle}>
+                        {application.status === "IN_REVIEW" ? "Review In Progress" : "Application Submitted"}
+                      </Text>
+                      <Text style={styles.heroSubtitle}>
+                        Your Tasker profile and qualifications are currently with our manual review team. We typically review applications within 1–2 business days.
+                      </Text>
+                    </View>
 
-              {application && REVIEW_STATUSES.has(application.status) ? (
-                <ApplicationStatusPanel
-                  icon="calendar"
-                  title={
-                    application.status === "IN_REVIEW"
-                      ? "Review in progress"
-                      : "Application submitted"
-                  }
-                  description="You will receive a notification when the Admin team makes a decision. Offers remain unavailable until approval."
-                  tone="info"
-                  action={
-                    <Button
-                      label="Back to profile"
-                      variant="secondary"
-                      onPress={() => router.replace("/(tabs)/profile")}
-                      fullWidth
-                    />
-                  }
-                />
-              ) : application?.status === "APPROVED" ? (
-                <ApplicationStatusPanel
-                  icon="check-circle"
-                  title="You are an approved Tasker"
-                  description="Manage your public bio, experience, and specialties from Edit Profile."
-                  tone="success"
-                  action={
-                    <Button
-                      label="Edit public profile"
-                      icon="edit"
-                      onPress={() => router.replace("/profile/edit")}
-                      fullWidth
-                    />
-                  }
-                />
-              ) : application?.status === "SUSPENDED" ? (
-                <ApplicationStatusPanel
-                  icon="alert-circle"
-                  title="Tasker access suspended"
-                  description={
-                    application.decisionReason ??
-                    "Contact support to understand the decision and available next steps."
-                  }
-                  tone="error"
-                  action={
-                    <Button
-                      label="Contact support"
-                      variant="secondary"
-                      onPress={() => router.push("/support")}
-                      fullWidth
-                    />
-                  }
-                />
-              ) : null}
+                    {/* Application Details Summary Card */}
+                    <View style={styles.credentialCard}>
+                      <View style={styles.credentialCardHeader}>
+                        <View style={styles.credentialHeaderTitleRow}>
+                          <Icon name="note" size={18} color={theme.primary} />
+                          <Text style={styles.credentialCardTitle}>Application Summary</Text>
+                        </View>
+                      </View>
 
-              {showForm ? (
-                <>
+                      <View style={styles.metaList}>
+                        {/* Full width Applicant */}
+                        <View style={styles.metaBlockFull}>
+                          <Text style={styles.metaLabel}>APPLICANT</Text>
+                          <Text style={styles.metaValueFull}>
+                            {session?.displayName || "Tasker Applicant"}
+                          </Text>
+                        </View>
+
+                        {/* 2-Column Metadata Grid for submitted date & payout */}
+                        <View style={styles.metaGrid}>
+                          <View style={styles.metaBlock}>
+                            <Text style={styles.metaLabel}>SUBMITTED ON</Text>
+                            <Text style={styles.metaValue} numberOfLines={1}>
+                              {new Date(application.submittedAt || Date.now()).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              })}
+                            </Text>
+                          </View>
+
+                          <View style={styles.metaBlock}>
+                            <Text style={styles.metaLabel}>PAYOUT METHOD</Text>
+                            <Text style={styles.metaValue} numberOfLines={1}>
+                              {application.payoutProvider === "gcash"
+                                ? "GCash"
+                                : application.payoutProvider === "maya"
+                                  ? "Maya"
+                                  : application.payoutProvider === "bank"
+                                    ? "Bank Transfer"
+                                    : application.payoutProvider || "Not set"}
+                            </Text>
+                          </View>
+                        </View>
+
+                        {/* Full-width responsive Service Area */}
+                        {resolvedLocation.city ? (
+                          <View style={styles.sectionBlock}>
+                            <Text style={styles.metaLabel}>SERVICE AREA</Text>
+                            <Text style={styles.locationValueText}>
+                              {resolvedLocation.barangay
+                                ? `${resolvedLocation.barangay}, ${resolvedLocation.city}`
+                                : resolvedLocation.city}
+                            </Text>
+                          </View>
+                        ) : null}
+
+                        {/* Full-width responsive Specialties */}
+                        {specialtyNames.length > 0 ? (
+                          <View style={styles.sectionBlock}>
+                            <Text style={styles.metaLabel}>SPECIALTIES</Text>
+                            <View style={styles.specialtiesPillWrap}>
+                              {specialtyNames.map((name, idx) => (
+                                <View key={idx} style={styles.specialtyTagPill}>
+                                  <Text style={styles.specialtyTagText}>{name}</Text>
+                                </View>
+                              ))}
+                            </View>
+                          </View>
+                        ) : null}
+                      </View>
+                    </View>
+
+                    {/* Application Next Steps Timeline */}
+                    <View style={styles.roadmapCard}>
+                      <Text style={styles.roadmapTitle}>Application Next Steps</Text>
+                      <View style={styles.roadmapList}>
+                        {/* Step 1 */}
+                        <View style={styles.roadmapItem}>
+                          <View style={styles.roadmapStepContent}>
+                            <Text style={styles.roadmapStepTitleCompleted}>1. Application Received</Text>
+                            <Text style={styles.roadmapStepDesc}>
+                              Your bio, work experience, specialties, and service area are safely recorded.
+                            </Text>
+                          </View>
+                          <View style={styles.roadmapBareIcon}>
+                            <Icon name="check-circle" size={18} color="#059669" />
+                          </View>
+                        </View>
+
+                        {/* Step 2 */}
+                        <View style={styles.roadmapItem}>
+                          <View style={styles.roadmapStepContent}>
+                            <Text style={styles.roadmapStepTitleActive}>2. Manual Review</Text>
+                            <Text style={styles.roadmapStepDesc}>
+                              Our team verifies your profile details to maintain trust and quality across the marketplace.
+                            </Text>
+                          </View>
+                          <View style={styles.roadmapBareIcon}>
+                            <Icon name="clock" size={18} color="#D97706" />
+                          </View>
+                        </View>
+
+                        {/* Step 3 */}
+                        <View style={styles.roadmapItem}>
+                          <View style={styles.roadmapStepContent}>
+                            <Text style={styles.roadmapStepTitlePending}>3. Tasker Activation</Text>
+                            <Text style={styles.roadmapStepDesc}>
+                              Once approved, you will be able to make offers on open tasks and receive protected payouts.
+                            </Text>
+                          </View>
+                          <View style={styles.roadmapBareIcon}>
+                            <Icon name="lock" size={18} color={theme.textSecondary} />
+                          </View>
+                        </View>
+                      </View>
+                    </View>
+
+                    {/* Notification Note */}
+                    <View style={styles.notificationNoticeBlock}>
+                      <View style={styles.noticeHeaderRow}>
+                        <Icon name="shield" size={18} color={theme.infoOnSoft} />
+                        <Text style={styles.noticeHeading}>You will be notified</Text>
+                      </View>
+                      <Text style={styles.noticeBody}>
+                        You'll receive an in-app notification when the review is complete. You can continue using Dizkarte to post and browse tasks in the meantime.
+                      </Text>
+                    </View>
+
+                    {/* Back to profile action button */}
+                    <View style={styles.heroActionContainer}>
+                      <Button
+                        label="Back to profile"
+                        onPress={() => router.replace("/(tabs)/profile")}
+                        fullWidth
+                      />
+                    </View>
+                  </View>
+                ) : application?.status === "APPROVED" ? (
+                  <View style={styles.reviewHeroContainer}>
+                    <View style={styles.heroBadgeContainer}>
+                      <View style={styles.heroIconRingSuccess}>
+                        <Icon name="check-circle" size={44} color="#10B981" />
+                      </View>
+                    </View>
+
+                    <View style={styles.heroTextBlock}>
+                      <Text style={styles.heroTitle}>You are an approved Tasker</Text>
+                      <Text style={styles.heroSubtitle}>
+                        Your Tasker profile is active and verified. You can bid on open tasks, chat with clients, and manage your specialties.
+                      </Text>
+                    </View>
+
+                    <View style={styles.heroActionContainer}>
+                      <Button
+                        label="Edit public profile"
+                        icon="edit"
+                        onPress={() => router.replace("/profile/edit")}
+                        fullWidth
+                      />
+                    </View>
+                  </View>
+                ) : application?.status === "SUSPENDED" ? (
+                  <View style={styles.reviewHeroContainer}>
+                    <View style={styles.heroBadgeContainer}>
+                      <View style={styles.heroIconRingError}>
+                        <Icon name="alert-circle" size={44} color="#EF4444" />
+                      </View>
+                    </View>
+
+                    <View style={styles.heroTextBlock}>
+                      <Text style={styles.heroTitle}>Tasker access suspended</Text>
+                      <Text style={styles.heroSubtitle}>
+                        {application.decisionReason ??
+                          "Contact Dizkarte support to understand the decision and available next steps."}
+                      </Text>
+                    </View>
+
+                    <View style={styles.heroActionContainer}>
+                      <Button
+                        label="Contact support"
+                        variant="secondary"
+                        onPress={() => router.push("/support")}
+                        fullWidth
+                      />
+                    </View>
+                  </View>
+                ) : null}
+
+                {showForm ? (
+                  <>
+                    <ProfilePageIntro title={intro.title} description={intro.description} />
+
+                    <View style={styles.reviewNotice}>
+                      <View style={styles.noticeHeader}>
+                        <Icon name="shield" size={21} color={theme.infoOnSoft} />
+                        <Text style={styles.noticeTitle}>Manual application review</Text>
+                      </View>
+                      <Text style={styles.noticeDescription}>
+                        Dizkarte reviews every application before Tasker capabilities are enabled. Your
+                        ratings and verification status cannot be edited here.
+                      </Text>
+                    </View>
                   {application?.decisionReason ? (
                     <ApplicationStatusPanel
                       icon="alert-circle"
@@ -972,6 +1170,302 @@ const styles = StyleSheet.create({
   },
   submitAction: {
     flex: 1.15,
+  },
+
+  // Redesigned Review Status Hero
+  reviewHeroContainer: {
+    gap: spacing.lg,
+    paddingBottom: spacing.xxl,
+  },
+  heroBadgeContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+    position: "relative",
+    alignSelf: "center",
+  },
+  heroIconRingReview: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: "#FEF3C7",
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#D97706",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  heroMiniReviewBadge: {
+    position: "absolute",
+    bottom: -2,
+    right: -2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#D97706",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+  heroIconRingSuccess: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: "#ECFDF5",
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#10B981",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  heroIconRingError: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#EF4444",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  heroTextBlock: {
+    alignItems: "center",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+  },
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: theme.textPrimary,
+    textAlign: "center",
+    letterSpacing: -0.3,
+  },
+  heroSubtitle: {
+    fontSize: fontSize.sm,
+    lineHeight: lineHeight.sm,
+    color: theme.textSecondary,
+    textAlign: "center",
+    maxWidth: 480,
+  },
+  credentialCard: {
+    backgroundColor: theme.surface,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    gap: spacing.md,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  credentialCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  credentialHeaderTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  credentialCardTitle: {
+    fontSize: fontSize.md,
+    fontWeight: "800",
+    color: theme.textPrimary,
+  },
+  pendingStatusPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#FEF3C7",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+  },
+  pendingStatusPillText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#B45309",
+    letterSpacing: 0.2,
+  },
+  credentialDivider: {
+    height: 1,
+    backgroundColor: theme.borderSubtle,
+  },
+  metaGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    rowGap: spacing.md,
+    columnGap: spacing.sm,
+  },
+  metaList: {
+    gap: spacing.md,
+  },
+  metaBlockFull: {
+    gap: 3,
+  },
+  metaValueFull: {
+    fontSize: fontSize.sm,
+    fontWeight: "700",
+    color: theme.textPrimary,
+  },
+  metaBlock: {
+    width: "48%",
+    flexGrow: 1,
+    gap: 3,
+  },
+  metaLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
+    color: theme.textSecondary,
+  },
+  metaValue: {
+    fontSize: fontSize.sm,
+    fontWeight: "700",
+    color: theme.textPrimary,
+  },
+  monospaceText: {
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+    letterSpacing: 0.5,
+  },
+  sectionBlock: {
+    gap: 5,
+  },
+  locationValueRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  locationValueText: {
+    flex: 1,
+    fontSize: fontSize.sm,
+    fontWeight: "700",
+    color: theme.textPrimary,
+  },
+  specialtiesPillWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 2,
+  },
+  specialtyTagPill: {
+    backgroundColor: theme.primarySoft,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: "rgba(92, 56, 222, 0.15)",
+  },
+  specialtyTagText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: theme.primary,
+  },
+  roadmapCard: {
+    backgroundColor: theme.surface,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    gap: spacing.md,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  roadmapTitle: {
+    fontSize: fontSize.md,
+    fontWeight: "800",
+    color: theme.textPrimary,
+  },
+  roadmapList: {
+    gap: spacing.md,
+  },
+  roadmapItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.sm + 2,
+  },
+  roadmapBareIcon: {
+    width: 20,
+    marginTop: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  roadmapStepContent: {
+    flex: 1,
+    gap: 2,
+  },
+  roadmapStepTitleCompleted: {
+    fontSize: fontSize.sm,
+    fontWeight: "700",
+    color: "#065F46",
+  },
+  roadmapStepTitleActive: {
+    fontSize: fontSize.sm,
+    fontWeight: "800",
+    color: "#B45309",
+  },
+  roadmapStepTitlePending: {
+    fontSize: fontSize.sm,
+    fontWeight: "600",
+    color: theme.textSecondary,
+  },
+  roadmapStepDesc: {
+    fontSize: fontSize.xs,
+    lineHeight: lineHeight.xs,
+    color: theme.textSecondary,
+  },
+  notificationNoticeBlock: {
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+    paddingHorizontal: spacing.sm,
+  },
+  noticeHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.xs,
+  },
+  noticeHeading: {
+    fontSize: fontSize.sm,
+    fontWeight: "700",
+    color: theme.textPrimary,
+    textAlign: "center",
+  },
+  noticeBody: {
+    fontSize: fontSize.xs,
+    lineHeight: lineHeight.xs,
+    color: theme.textSecondary,
+    textAlign: "center",
+    maxWidth: 480,
+  },
+  heroActionContainer: {
+    marginTop: spacing.xs,
+    width: "100%",
   },
 });
 

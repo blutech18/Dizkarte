@@ -3,14 +3,31 @@ import {
   Animated,
   Easing,
   Image,
+  LayoutAnimation,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  UIManager,
   View,
 } from "react-native";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+function triggerLayoutTransition() {
+  LayoutAnimation.configureNext(
+    LayoutAnimation.create(
+      280,
+      LayoutAnimation.Types.easeInEaseOut,
+      LayoutAnimation.Properties.opacity,
+    ),
+  );
+}
+
 import { formatPhp } from "@dizkarte/domain";
 import { TextField } from "../ui/TextField";
 import { Button } from "../ui/Button";
@@ -29,11 +46,15 @@ import {
 } from "./taskWizardSteps";
 import { timeOfDayLabel, type TaskDraftFormValue } from "./taskDraftValue";
 import { BOOLEAN_ANSWERS } from "./taskCategoryQuestions";
-import type { TaskQuestionDefinition } from "../../services/marketplace/types";
 import { TaskPhotoPicker, type PendingTaskPhoto } from "./TaskPhotoPicker";
-import { LocationSearchModal, locationSelectionToDraftPatch } from "./LocationSearchModal";
+import {
+  LocationSearchModal,
+  locationSelectionToDraftPatch,
+  resolvePsgcLocality,
+} from "./LocationSearchModal";
 import { LocalityPicker } from "./LocalityPicker";
 import { TaskSchedulePicker } from "./TaskSchedulePicker";
+import { useMarketplace } from "../../providers/MarketplaceProvider";
 import {
   theme,
   spacing,
@@ -312,18 +333,13 @@ export function TaskWizard({
             <Icon name="arrow-left" size={22} color={theme.textPrimary} />
           </Pressable>
 
-          <View style={styles.progressContainer}>
-            <View
-              style={styles.progressTrack}
-              accessibilityRole="progressbar"
-              accessibilityValue={{ min: 1, max: total, now: position }}
-              accessibilityLabel={`Step ${position} of ${total}`}
-            >
-              <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
-            </View>
-            <Text style={styles.stepEndText}>
-              Step {position} of {total}
-            </Text>
+          <View
+            style={styles.progressTrack}
+            accessibilityRole="progressbar"
+            accessibilityValue={{ min: 1, max: total, now: position }}
+            accessibilityLabel={`Step ${position} of ${total}`}
+          >
+            <Animated.View style={[styles.progressFill, { width: progressWidth }]} />
           </View>
 
           <Pressable
@@ -450,11 +466,138 @@ function StepBody({
   onEditStep,
   questions,
 }: StepBodyProps) {
+  const { repository } = useMarketplace();
   const [timeOfDayEnabled, setTimeOfDayEnabled] = useState(value.timeOfDay !== null);
   const selectedTimeSlot = value.timeOfDay;
+  const timeOfDayAnim = useRef(new Animated.Value(value.timeOfDay !== null ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(timeOfDayAnim, {
+      toValue: timeOfDayEnabled ? 1 : 0,
+      duration: 260,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      useNativeDriver: false,
+    }).start();
+  }, [timeOfDayEnabled, timeOfDayAnim]);
 
   const [isRemovalsTask, setIsRemovalsTask] = useState(value.dropoffLandmark.trim().length > 0);
+  const removalsAnim = useRef(new Animated.Value(value.dropoffLandmark.trim().length > 0 ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(removalsAnim, {
+      toValue: isRemovalsTask ? 1 : 0,
+      duration: 260,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      useNativeDriver: false,
+    }).start();
+  }, [isRemovalsTask, removalsAnim]);
+
   const locationType = value.locationType;
+  const inPersonAnim = useRef(new Animated.Value(locationType === "in_person" ? 1 : 0)).current;
+  const locTypeAnim = useRef(new Animated.Value(locationType === "in_person" ? 0 : 1)).current;
+
+  useEffect(() => {
+    Animated.timing(inPersonAnim, {
+      toValue: locationType === "in_person" ? 1 : 0,
+      duration: 240,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      useNativeDriver: false,
+    }).start();
+    Animated.timing(locTypeAnim, {
+      toValue: locationType === "in_person" ? 0 : 1,
+      duration: 220,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      useNativeDriver: false,
+    }).start();
+  }, [locationType, inPersonAnim, locTypeAnim]);
+
+  const yesNoAnim = useRef(new Animated.Value(isRemovalsTask ? 0 : 1)).current;
+
+  useEffect(() => {
+    Animated.timing(yesNoAnim, {
+      toValue: isRemovalsTask ? 0 : 1,
+      duration: 220,
+      easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+      useNativeDriver: false,
+    }).start();
+  }, [isRemovalsTask, yesNoAnim]);
+
+  const yesBg = yesNoAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.primary, theme.surface],
+  });
+  const yesBorder = yesNoAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.primary, theme.borderControl],
+  });
+  const yesTextColor = yesNoAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["#FFFFFF", theme.textPrimary],
+  });
+
+  const noBg = yesNoAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.surface, theme.primary],
+  });
+  const noBorder = yesNoAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.borderControl, theme.primary],
+  });
+  const noTextColor = yesNoAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.textPrimary, "#FFFFFF"],
+  });
+
+  const inPersonBg = locTypeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.primary, theme.surface],
+  });
+  const inPersonBorder = locTypeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.primary, theme.borderControl],
+  });
+  const inPersonTitleColor = locTypeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["#FFFFFF", theme.textPrimary],
+  });
+  const inPersonSubColor = locTypeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["rgba(255, 255, 255, 0.92)", theme.textSecondary],
+  });
+  const inPersonActiveOpacity = locTypeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0],
+  });
+  const inPersonInactiveOpacity = locTypeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+
+  const onlineBg = locTypeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.surface, theme.primary],
+  });
+  const onlineBorder = locTypeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.borderControl, theme.primary],
+  });
+  const onlineTitleColor = locTypeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.textPrimary, "#FFFFFF"],
+  });
+  const onlineSubColor = locTypeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [theme.textSecondary, "rgba(255, 255, 255, 0.92)"],
+  });
+  const onlineActiveOpacity = locTypeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+  const onlineInactiveOpacity = locTypeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 0],
+  });
+
   const [locSearchTarget, setLocSearchTarget] = useState<"suburb" | "pickup" | "dropoff" | null>(
     null,
   );
@@ -495,6 +638,7 @@ function StepBody({
           {/* Checkbox for Certain Time of Day */}
           <Pressable
             onPress={() => {
+              triggerLayoutTransition();
               const next = !timeOfDayEnabled;
               setTimeOfDayEnabled(next);
               // Turning the option off clears any stored slot so the posted task
@@ -507,14 +651,38 @@ function StepBody({
           >
             <View style={[styles.checkboxBox, timeOfDayEnabled ? styles.checkboxBoxChecked : null]}>
               {timeOfDayEnabled ? (
-                <Icon name="check-circle" size={14} color={theme.onPrimary} />
+                <Icon name="check" size={13} color="#FFFFFF" />
               ) : null}
             </View>
             <Text style={styles.checkboxLabel}>I need a certain time of day</Text>
           </Pressable>
 
-          {/* 2x2 Grid of Time Slots */}
-          {timeOfDayEnabled ? (
+          {/* Smooth animated 2x2 Grid of Time Slots */}
+          <Animated.View
+            style={{
+              maxHeight: timeOfDayAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 240],
+              }),
+              opacity: timeOfDayAnim,
+              transform: [
+                {
+                  translateY: timeOfDayAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-10, 0],
+                  }),
+                },
+                {
+                  scale: timeOfDayAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.96, 1],
+                  }),
+                },
+              ],
+              overflow: "hidden",
+            }}
+            pointerEvents={timeOfDayEnabled ? "auto" : "none"}
+          >
             <View style={styles.timeOfDayGrid}>
               {TIME_SLOTS.map((slot) => {
                 const isSelected = selectedTimeSlot === slot.key;
@@ -548,7 +716,7 @@ function StepBody({
                 );
               })}
             </View>
-          ) : null}
+          </Animated.View>
         </>
       );
     }
@@ -562,21 +730,34 @@ function StepBody({
           <Text style={styles.locationQuestionTitle}>Is this a removals task?</Text>
           <View style={styles.yesNoRow}>
             <Pressable
-              onPress={() => setIsRemovalsTask(true)}
+              onPress={() => {
+                triggerLayoutTransition();
+                setIsRemovalsTask(true);
+              }}
               accessibilityRole="button"
               accessibilityLabel="Yes, this is a removals task"
-              style={({ pressed }) => [
-                styles.yesNoBtn,
-                isRemovalsTask ? styles.yesNoBtnActive : null,
-                pressed ? { opacity: 0.88 } : null,
-              ]}
+              style={{ flex: 1 }}
             >
-              <Text style={[styles.yesNoText, isRemovalsTask ? styles.yesNoTextActive : null]}>
-                Yes
-              </Text>
+              {({ pressed }) => (
+                <Animated.View
+                  style={[
+                    styles.yesNoBtn,
+                    {
+                      backgroundColor: yesBg,
+                      borderColor: yesBorder,
+                      transform: [{ scale: pressed ? 0.98 : 1 }],
+                    },
+                  ]}
+                >
+                  <Animated.Text style={[styles.yesNoText, { color: yesTextColor }]}>
+                    Yes
+                  </Animated.Text>
+                </Animated.View>
+              )}
             </Pressable>
             <Pressable
               onPress={() => {
+                triggerLayoutTransition();
                 setIsRemovalsTask(false);
                 // Not a removals task any more, so a stored drop-off would be
                 // stale data on the posted task.
@@ -584,86 +765,125 @@ function StepBody({
               }}
               accessibilityRole="button"
               accessibilityLabel="No, this is not a removals task"
-              style={({ pressed }) => [
-                styles.yesNoBtn,
-                !isRemovalsTask ? styles.yesNoBtnActive : null,
-                pressed ? { opacity: 0.88 } : null,
-              ]}
+              style={{ flex: 1 }}
             >
-              <Text style={[styles.yesNoText, !isRemovalsTask ? styles.yesNoTextActive : null]}>
-                No
-              </Text>
+              {({ pressed }) => (
+                <Animated.View
+                  style={[
+                    styles.yesNoBtn,
+                    {
+                      backgroundColor: noBg,
+                      borderColor: noBorder,
+                      transform: [{ scale: pressed ? 0.98 : 1 }],
+                    },
+                  ]}
+                >
+                  <Animated.Text style={[styles.yesNoText, { color: noTextColor }]}>
+                    No
+                  </Animated.Text>
+                </Animated.View>
+              )}
             </Pressable>
           </View>
 
           {isRemovalsTask ? (
             /* Removals Task: Pickup and Drop-off */
-            <View style={{ gap: spacing.md, marginTop: spacing.md }}>
-              <View style={{ gap: spacing.xs }}>
-                <Text style={styles.locationInputLabel}>Pickup location</Text>
-                <Pressable
-                  onPress={() => setLocSearchTarget("pickup")}
-                  style={[
-                    styles.suburbSelectBox,
-                    value.landmark ? styles.suburbSelectBoxSelected : null,
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Pickup location"
-                  accessibilityHint="Opens location search"
-                >
-                  <View style={styles.locationSelectIcon}>
-                    <Icon name="map-pin" size={18} color={theme.primary} />
-                  </View>
-                  <Text
+            <Animated.View
+              style={{
+                opacity: removalsAnim,
+                transform: [
+                  {
+                    translateY: removalsAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-8, 0],
+                    }),
+                  },
+                ],
+              }}
+            >
+              <View style={{ gap: spacing.md, marginTop: spacing.md }}>
+                <View style={{ gap: spacing.xs }}>
+                  <Text style={styles.locationInputLabel}>Pickup location</Text>
+                  <Pressable
+                    onPress={() => setLocSearchTarget("pickup")}
                     style={[
-                      styles.suburbSelectText,
-                      value.landmark ? styles.suburbSelectTextSelected : null,
+                      styles.suburbSelectBox,
+                      value.landmark ? styles.suburbSelectBoxSelected : null,
                     ]}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
+                    accessibilityRole="button"
+                    accessibilityLabel="Pickup location"
+                    accessibilityHint="Opens location search"
                   >
-                    {value.landmark || "Enter suburb"}
-                  </Text>
-                  <Icon name="arrow-right" size={18} color={theme.textSecondary} />
-                </Pressable>
-              </View>
+                    <View style={styles.locationSelectIcon}>
+                      <Icon name="map-pin" size={18} color={theme.primary} />
+                    </View>
+                    <Text
+                      style={[
+                        styles.suburbSelectText,
+                        value.landmark ? styles.suburbSelectTextSelected : null,
+                      ]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {value.landmark || "Enter suburb"}
+                    </Text>
+                    <Icon name="arrow-right" size={18} color={theme.textSecondary} />
+                  </Pressable>
+                </View>
 
-              <View style={{ gap: spacing.xs }}>
-                <Text style={styles.locationInputLabel}>Drop-off location (optional)</Text>
-                <Pressable
-                  onPress={() => setLocSearchTarget("dropoff")}
-                  style={[
-                    styles.suburbSelectBox,
-                    dropoffLocation ? styles.suburbSelectBoxSelected : null,
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel="Drop-off location"
-                  accessibilityHint="Opens location search"
-                >
-                  <View style={styles.locationSelectIcon}>
-                    <Icon name="map-pin" size={18} color={theme.primary} />
-                  </View>
-                  <Text
+                <View style={{ gap: spacing.xs }}>
+                  <Text style={styles.locationInputLabel}>Drop-off location (optional)</Text>
+                  <Pressable
+                    onPress={() => setLocSearchTarget("dropoff")}
                     style={[
-                      styles.suburbSelectText,
-                      dropoffLocation ? styles.suburbSelectTextSelected : null,
+                      styles.suburbSelectBox,
+                      dropoffLocation ? styles.suburbSelectBoxSelected : null,
                     ]}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
+                    accessibilityRole="button"
+                    accessibilityLabel="Drop-off location"
+                    accessibilityHint="Opens location search"
                   >
-                    {dropoffLocation || "Enter suburb"}
-                  </Text>
-                  <Icon name="arrow-right" size={18} color={theme.textSecondary} />
-                </Pressable>
+                    <View style={styles.locationSelectIcon}>
+                      <Icon name="map-pin" size={18} color={theme.primary} />
+                    </View>
+                    <Text
+                      style={[
+                        styles.suburbSelectText,
+                        dropoffLocation ? styles.suburbSelectTextSelected : null,
+                      ]}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                    >
+                      {dropoffLocation || "Enter suburb"}
+                    </Text>
+                    <Icon name="arrow-right" size={18} color={theme.textSecondary} />
+                  </Pressable>
+                </View>
               </View>
-            </View>
+            </Animated.View>
           ) : (
             /* Standard Task: In Person vs Online cards */
-            <>
+            <Animated.View
+              style={{
+                opacity: removalsAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [1, 0],
+                }),
+                transform: [
+                  {
+                    translateY: removalsAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, -8],
+                    }),
+                  },
+                ],
+              }}
+            >
               <View style={styles.locTypeGrid}>
                 {/* In Person Card */}
                 <Pressable
-                  onPress={() =>
+                  onPress={() => {
+                    triggerLayoutTransition();
                     setMultiple({
                       locationType: "in_person",
                       // Clear the placeholder the online branch wrote so the
@@ -671,42 +891,61 @@ function StepBody({
                       ...(value.landmark === ONLINE_PLACEHOLDER
                         ? { landmark: "", exactAddress: "" }
                         : {}),
-                    })
-                  }
+                    });
+                  }}
                   accessibilityRole="button"
                   accessibilityLabel="In Person"
-                  style={({ pressed }) => [
-                    styles.locTypeCard,
-                    locationType === "in_person" ? styles.locTypeCardActive : null,
-                    pressed ? { opacity: 0.88 } : null,
-                  ]}
+                  style={{ flex: 1 }}
                 >
-                  <Icon
-                    name="home"
-                    size={28}
-                    color={locationType === "in_person" ? "#FFFFFF" : theme.textPrimary}
-                  />
-                  <Text
-                    style={[
-                      styles.locTypeTitle,
-                      locationType === "in_person" ? styles.locTypeTitleActive : null,
-                    ]}
-                  >
-                    In Person
-                  </Text>
-                  <Text
-                    style={[
-                      styles.locTypeSub,
-                      locationType === "in_person" ? styles.locTypeSubActive : null,
-                    ]}
-                  >
-                    They need to show up at a place
-                  </Text>
+                  {({ pressed }) => (
+                    <Animated.View
+                      style={[
+                        styles.locTypeCard,
+                        {
+                          backgroundColor: inPersonBg,
+                          borderColor: inPersonBorder,
+                          transform: [{ scale: pressed ? 0.98 : 1 }],
+                        },
+                      ]}
+                    >
+                      <View style={styles.locIconFrame}>
+                        <Animated.View
+                          style={[
+                            StyleSheet.absoluteFill,
+                            styles.locIconCenter,
+                            { opacity: inPersonActiveOpacity },
+                          ]}
+                        >
+                          <Icon name="home" size={28} color="#FFFFFF" />
+                        </Animated.View>
+                        <Animated.View
+                          style={[
+                            StyleSheet.absoluteFill,
+                            styles.locIconCenter,
+                            { opacity: inPersonInactiveOpacity },
+                          ]}
+                        >
+                          <Icon name="home" size={28} color={theme.textPrimary} />
+                        </Animated.View>
+                      </View>
+                      <Animated.Text
+                        style={[styles.locTypeTitle, { color: inPersonTitleColor }]}
+                      >
+                        In Person
+                      </Animated.Text>
+                      <Animated.Text
+                        style={[styles.locTypeSub, { color: inPersonSubColor }]}
+                      >
+                        They need to show up at a place
+                      </Animated.Text>
+                    </Animated.View>
+                  )}
                 </Pressable>
 
                 {/* Online Card */}
                 <Pressable
-                  onPress={() =>
+                  onPress={() => {
+                    triggerLayoutTransition();
                     setMultiple({
                       locationType: "online",
                       // A remote task has no work site, but the public location
@@ -716,86 +955,134 @@ function StepBody({
                       exactAddress: ONLINE_PLACEHOLDER,
                       // A remote task cannot have a physical drop-off.
                       dropoffLandmark: "",
-                    })
-                  }
+                    });
+                  }}
                   accessibilityRole="button"
                   accessibilityLabel="Online"
-                  style={({ pressed }) => [
-                    styles.locTypeCard,
-                    locationType === "online" ? styles.locTypeCardActive : null,
-                    pressed ? { opacity: 0.88 } : null,
-                  ]}
+                  style={{ flex: 1 }}
                 >
-                  <Icon
-                    name="video"
-                    size={28}
-                    color={locationType === "online" ? "#FFFFFF" : theme.textPrimary}
-                  />
-                  <Text
-                    style={[
-                      styles.locTypeTitle,
-                      locationType === "online" ? styles.locTypeTitleActive : null,
-                    ]}
-                  >
-                    Online
-                  </Text>
-                  <Text
-                    style={[
-                      styles.locTypeSub,
-                      locationType === "online" ? styles.locTypeSubActive : null,
-                    ]}
-                  >
-                    They can do it from their home
-                  </Text>
+                  {({ pressed }) => (
+                    <Animated.View
+                      style={[
+                        styles.locTypeCard,
+                        {
+                          backgroundColor: onlineBg,
+                          borderColor: onlineBorder,
+                          transform: [{ scale: pressed ? 0.98 : 1 }],
+                        },
+                      ]}
+                    >
+                      <View style={styles.locIconFrame}>
+                        <Animated.View
+                          style={[
+                            StyleSheet.absoluteFill,
+                            styles.locIconCenter,
+                            { opacity: onlineActiveOpacity },
+                          ]}
+                        >
+                          <Icon name="video" size={28} color="#FFFFFF" />
+                        </Animated.View>
+                        <Animated.View
+                          style={[
+                            StyleSheet.absoluteFill,
+                            styles.locIconCenter,
+                            { opacity: onlineInactiveOpacity },
+                          ]}
+                        >
+                          <Icon name="video" size={28} color={theme.textPrimary} />
+                        </Animated.View>
+                      </View>
+                      <Animated.Text
+                        style={[styles.locTypeTitle, { color: onlineTitleColor }]}
+                      >
+                        Online
+                      </Animated.Text>
+                      <Animated.Text
+                        style={[styles.locTypeSub, { color: onlineSubColor }]}
+                      >
+                        They can do it from their home
+                      </Animated.Text>
+                    </Animated.View>
+                  )}
                 </Pressable>
               </View>
 
               {locationType === "in_person" ? (
-                <View style={{ marginTop: spacing.md, gap: spacing.xs }}>
-                  <Text style={styles.locationInputLabel}>Suburb</Text>
-                  <Pressable
-                    onPress={() => setLocSearchTarget("suburb")}
-                    style={[
-                      styles.suburbSelectBox,
-                      value.landmark && value.landmark !== ONLINE_PLACEHOLDER
-                        ? styles.suburbSelectBoxSelected
-                        : null,
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityLabel="Suburb"
-                    accessibilityHint="Opens location search"
-                  >
-                    <View style={styles.locationSelectIcon}>
-                      <Icon name="map-pin" size={18} color={theme.primary} />
-                    </View>
-                    <Text
+                <Animated.View
+                  style={{
+                    maxHeight: inPersonAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0, 100],
+                    }),
+                    opacity: inPersonAnim,
+                    overflow: "hidden",
+                    transform: [
+                      {
+                        translateY: inPersonAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [-6, 0],
+                        }),
+                      },
+                    ],
+                  }}
+                >
+                  <View style={{ marginTop: spacing.md, gap: spacing.xs }}>
+                    <Text style={styles.locationInputLabel}>Suburb</Text>
+                    <Pressable
+                      onPress={() => setLocSearchTarget("suburb")}
                       style={[
-                        styles.suburbSelectText,
+                        styles.suburbSelectBox,
                         value.landmark && value.landmark !== ONLINE_PLACEHOLDER
-                          ? styles.suburbSelectTextSelected
+                          ? styles.suburbSelectBoxSelected
                           : null,
                       ]}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
+                      accessibilityRole="button"
+                      accessibilityLabel="Suburb"
+                      accessibilityHint="Opens location search"
                     >
-                      {value.landmark && value.landmark !== ONLINE_PLACEHOLDER
-                        ? value.landmark
-                        : "Enter suburb"}
-                    </Text>
-                    <Icon name="arrow-right" size={18} color={theme.textSecondary} />
-                  </Pressable>
-                </View>
+                      <View style={styles.locationSelectIcon}>
+                        <Icon name="map-pin" size={18} color={theme.primary} />
+                      </View>
+                      <Text
+                        style={[
+                          styles.suburbSelectText,
+                          value.landmark && value.landmark !== ONLINE_PLACEHOLDER
+                            ? styles.suburbSelectTextSelected
+                            : null,
+                        ]}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {value.landmark && value.landmark !== ONLINE_PLACEHOLDER
+                          ? value.landmark
+                          : "Enter suburb"}
+                      </Text>
+                      <Icon name="arrow-right" size={18} color={theme.textSecondary} />
+                    </Pressable>
+                  </View>
+                </Animated.View>
               ) : null}
-            </>
+            </Animated.View>
           )}
 
           {/* City & barangay — canonical PSGC, required for discovery filtering. */}
           <View style={{ marginTop: spacing.md }}>
             <LocalityPicker
               value={{ cityCode: value.cityCode, barangayCode: value.barangayCode }}
-              onChange={(next) =>
-                setMultiple({ cityCode: next.cityCode, barangayCode: next.barangayCode })
-              }
+              onChange={(next) => {
+                const patch: Partial<TaskDraftFormValue> = {
+                  cityCode: next.cityCode,
+                  barangayCode: next.barangayCode,
+                };
+                if (!value.landmark || value.landmark === ONLINE_PLACEHOLDER) {
+                  if (next.barangayName && next.cityName) {
+                    patch.landmark = `${next.barangayName}, ${next.cityName}`;
+                  } else if (next.cityName) {
+                    patch.landmark = next.cityName;
+                  }
+                }
+                setMultiple(patch);
+              }}
               cityRequired
               barangayRequired
             />
@@ -804,14 +1091,19 @@ function StepBody({
           {/* Location Search Modal Dialog */}
           <LocationSearchModal
             visible={locSearchTarget !== null}
-            onSelect={(selection) => {
+            userCityHint={value.cityName || value.landmark}
+            onSelect={async (selection) => {
               if (locSearchTarget === "dropoff") {
                 // Only the public area label is kept. `exactAddress` would be a
                 // second precise address on a publicly readable task, which the
                 // privacy model does not allow (requirement R4).
                 setMultiple({ dropoffLandmark: selection.description });
               } else {
-                setMultiple(locationSelectionToDraftPatch(selection));
+                const localityPatch = await resolvePsgcLocality(repository, selection);
+                setMultiple({
+                  ...locationSelectionToDraftPatch(selection),
+                  ...localityPatch,
+                });
               }
               setLocSearchTarget(null);
             }}
@@ -1297,12 +1589,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "transparent",
   },
-  progressContainer: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-  },
   progressTrack: {
     flex: 1,
     height: 6,
@@ -1314,12 +1600,6 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: radii.pill,
     backgroundColor: theme.primary,
-  },
-  stepEndText: {
-    fontSize: fontSize.xs,
-    fontWeight: "700",
-    color: theme.textSecondary,
-    letterSpacing: 0.2,
   },
   body: { flex: 1 },
   bodyContent: { paddingBottom: spacing.xl },
@@ -1598,15 +1878,15 @@ const styles = StyleSheet.create({
   checkboxRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.sm,
-    marginTop: spacing.md,
+    gap: spacing.sm + 2,
+    marginTop: spacing.lg,
     marginBottom: spacing.md,
   },
   checkboxBox: {
     width: 22,
     height: 22,
-    borderRadius: radii.sm - 2,
-    borderWidth: 2,
+    borderRadius: 6,
+    borderWidth: 1.5,
     borderColor: theme.borderControl,
     backgroundColor: theme.surface,
     alignItems: "center",
@@ -1670,9 +1950,9 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 48,
     borderRadius: radii.md,
-    backgroundColor: theme.surfaceSubtle,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: theme.borderSubtle,
+    borderColor: theme.borderControl,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1686,25 +1966,25 @@ const styles = StyleSheet.create({
     color: theme.textPrimary,
   },
   yesNoTextActive: {
-    color: theme.onPrimary,
+    color: "#FFFFFF",
     fontWeight: "700",
   },
   locTypeGrid: {
     flexDirection: "row",
     gap: spacing.md,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   locTypeCard: {
     flex: 1,
-    backgroundColor: theme.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: theme.borderSubtle,
+    backgroundColor: theme.surface,
+    borderWidth: 1.5,
+    borderColor: theme.borderControl,
     borderRadius: radii.md,
     padding: spacing.md,
     alignItems: "center",
     justifyContent: "center",
-    gap: spacing.xs,
-    minHeight: 120,
+    gap: 6,
+    minHeight: 112,
   },
   locTypeCardActive: {
     backgroundColor: theme.primary,
@@ -1716,15 +1996,23 @@ const styles = StyleSheet.create({
     color: theme.textPrimary,
   },
   locTypeTitleActive: {
-    color: theme.onPrimary,
+    color: "#FFFFFF",
   },
   locTypeSub: {
     fontSize: fontSize.xs,
     color: theme.textSecondary,
     textAlign: "center",
+    lineHeight: 16,
   },
-  locTypeSubActive: {
-    color: "rgba(255, 255, 255, 0.88)",
+  locIconFrame: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  locIconCenter: {
+    alignItems: "center",
+    justifyContent: "center",
   },
   locationInputLabel: {
     fontSize: fontSize.sm,
@@ -1756,11 +2044,12 @@ const styles = StyleSheet.create({
   },
   suburbSelectText: {
     flex: 1,
-    fontSize: fontSize.sm,
+    fontSize: fontSize.md,
     fontWeight: "400",
     color: theme.textSecondary,
   },
   suburbSelectTextSelected: {
+    fontSize: fontSize.md,
     color: theme.textPrimary,
     fontWeight: "600",
   },

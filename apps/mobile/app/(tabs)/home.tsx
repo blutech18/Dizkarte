@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { router } from "expo-router";
 import type { PublicTaskerProfile } from "@dizkarte/domain";
 import { Screen } from "../../src/components/ui/Screen";
@@ -11,6 +11,7 @@ import { CenterDialogModal } from "../../src/components/ui/CenterDialogModal";
 import { useSession } from "../../src/providers/SessionProvider";
 import { useMarketplace } from "../../src/providers/MarketplaceProvider";
 import type { BookingRecord, OwnedTaskRecord } from "../../src/services/marketplace/types";
+import { createSignedUrl } from "../../src/services/storage/upload";
 
 import {
   theme,
@@ -163,7 +164,6 @@ function ClientHome() {
   return (
     <Screen
       headerVariant="hero"
-      refreshControlTintColor={theme.onPrimary}
       refreshing={refreshing}
       onRefresh={handleRefresh}
     >
@@ -438,6 +438,12 @@ const clientStyles = StyleSheet.create({
     backgroundColor: theme.primarySoft,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
+  },
+  taskerAvatarImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
   },
   taskerAvatarText: {
     fontSize: 17,
@@ -558,6 +564,12 @@ const clientStyles = StyleSheet.create({
     backgroundColor: theme.primarySoft,
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
+  },
+  modalAvatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   modalAvatarText: {
     fontSize: fontSize.md,
@@ -577,12 +589,12 @@ const clientStyles = StyleSheet.create({
   modalStatsRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
+    gap: spacing.xs,
   },
   modalRatingInline: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
+    gap: 3,
   },
   modalRatingScore: {
     fontSize: fontSize.xs,
@@ -618,6 +630,16 @@ const clientStyles = StyleSheet.create({
   modalServicesListContent: {
     gap: spacing.xs + 2,
     paddingVertical: 2,
+  },
+  modalEmptyServices: {
+    paddingVertical: spacing.lg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalEmptyServicesText: {
+    fontSize: fontSize.sm,
+    color: theme.textSecondary,
+    textAlign: "center",
   },
   modalServiceItem: {
     flexDirection: "row",
@@ -734,6 +756,7 @@ type MyTaskerCardProps = {
 function MyTaskerCard({ booking }: MyTaskerCardProps) {
   const { repository } = useMarketplace();
   const [profile, setProfile] = useState<PublicTaskerProfile | null>(null);
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [servicesModalVisible, setServicesModalVisible] = useState(false);
 
   useEffect(() => {
@@ -748,6 +771,21 @@ function MyTaskerCard({ booking }: MyTaskerCardProps) {
       active = false;
     };
   }, [repository, booking.taskerId]);
+
+  useEffect(() => {
+    let active = true;
+    const path = profile?.avatarPath ?? null;
+    if (!path) {
+      setAvatarUri(null);
+      return;
+    }
+    void createSignedUrl("avatars", path).then((url) => {
+      if (active) setAvatarUri(url);
+    });
+    return () => {
+      active = false;
+    };
+  }, [profile?.avatarPath]);
 
   const displayName = (profile?.displayName ?? booking.taskerDisplayName).trim() || "Tasker";
   const ratingLabel =
@@ -774,9 +812,13 @@ function MyTaskerCard({ booking }: MyTaskerCardProps) {
             accessibilityRole="button"
             accessibilityLabel={`View ${displayName}'s profile`}
           >
-            <Text style={clientStyles.taskerAvatarText}>
-              {(displayName.charAt(0) || "?").toUpperCase()}
-            </Text>
+            {avatarUri ? (
+              <Image source={{ uri: avatarUri }} style={clientStyles.taskerAvatarImage} />
+            ) : (
+              <Text style={clientStyles.taskerAvatarText}>
+                {(displayName.charAt(0) || "?").toUpperCase()}
+              </Text>
+            )}
           </Pressable>
 
           <View style={clientStyles.taskerInfoCol}>
@@ -815,7 +857,7 @@ function MyTaskerCard({ booking }: MyTaskerCardProps) {
         {/* Action Row: Specialties + Rebook */}
         <View style={clientStyles.taskerActionsRow}>
           <Pressable
-            onPress={() => (services.length > 0 ? setServicesModalVisible(true) : openProfile())}
+            onPress={() => setServicesModalVisible(true)}
             accessibilityRole="button"
             accessibilityLabel={`View services offered by ${displayName}`}
             style={({ pressed }) => [
@@ -851,103 +893,113 @@ function MyTaskerCard({ booking }: MyTaskerCardProps) {
       </View>
 
       {/* Services List Modal */}
-      {services.length > 0 ? (
-        <CenterDialogModal
-          visible={servicesModalVisible}
-          onClose={() => setServicesModalVisible(false)}
-        >
-          <View style={clientStyles.modalCard}>
-            <View style={clientStyles.modalHeader}>
-              <View style={clientStyles.modalAvatar}>
+      <CenterDialogModal
+        visible={servicesModalVisible}
+        onClose={() => setServicesModalVisible(false)}
+      >
+        <View style={clientStyles.modalCard}>
+          <View style={clientStyles.modalHeader}>
+            <View style={clientStyles.modalAvatar}>
+              {avatarUri ? (
+                <Image source={{ uri: avatarUri }} style={clientStyles.modalAvatarImage} />
+              ) : (
                 <Text style={clientStyles.modalAvatarText}>
                   {(displayName.charAt(0) || "?").toUpperCase()}
                 </Text>
-              </View>
-              <View style={clientStyles.modalHeaderInfo}>
-                <Text style={clientStyles.modalTitle}>{displayName}</Text>
-                <View style={clientStyles.modalStatsRow}>
-                  {ratingLabel ? (
-                    <View style={clientStyles.modalRatingInline}>
-                      <Icon name="star" size={11} color="#EAB308" />
-                      <Text style={clientStyles.modalRatingScore}>{ratingLabel}</Text>
-                      {ratingCount > 0 ? (
-                        <Text style={clientStyles.modalRatingCount}>({ratingCount})</Text>
-                      ) : null}
-                      <Text style={clientStyles.modalDotSeparator}>·</Text>
-                    </View>
-                  ) : null}
-                  <Text style={clientStyles.modalJobsCount}>
-                    {completionCount > 0
-                      ? `${completionCount} job${completionCount === 1 ? "" : "s"} completed`
-                      : "Verified Tasker"}
-                  </Text>
-                </View>
-              </View>
-              <Pressable
-                onPress={() => setServicesModalVisible(false)}
-                style={({ pressed }) => [
-                  clientStyles.modalCloseButton,
-                  pressed ? { opacity: 0.7 } : null,
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel="Close services dialog"
-              >
-                <Icon name="close" size={15} color={theme.textSecondary} />
-              </Pressable>
+              )}
             </View>
-
-            <ScrollView
-              style={clientStyles.modalServicesList}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={clientStyles.modalServicesListContent}
+            <View style={clientStyles.modalHeaderInfo}>
+              <Text style={clientStyles.modalTitle}>{displayName}</Text>
+              <View style={clientStyles.modalStatsRow}>
+                {ratingLabel ? (
+                  <View style={clientStyles.modalRatingInline}>
+                    <Icon name="star" size={11} color="#EAB308" />
+                    <Text style={clientStyles.modalRatingScore}>{ratingLabel}</Text>
+                    {ratingCount > 0 ? (
+                      <Text style={clientStyles.modalRatingCount}>({ratingCount})</Text>
+                    ) : null}
+                    <Text style={clientStyles.modalDotSeparator}>·</Text>
+                  </View>
+                ) : null}
+                <Text style={clientStyles.modalJobsCount}>
+                  {completionCount > 0
+                    ? `${completionCount} job${completionCount === 1 ? "" : "s"} completed`
+                    : "Verified Tasker"}
+                </Text>
+              </View>
+            </View>
+            <Pressable
+              onPress={() => setServicesModalVisible(false)}
+              style={({ pressed }) => [
+                clientStyles.modalCloseButton,
+                pressed ? { opacity: 0.7 } : null,
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel="Close services dialog"
             >
-              {services.map((service, idx) => (
+              <Icon name="close" size={15} color={theme.textSecondary} />
+            </Pressable>
+          </View>
+
+          <ScrollView
+            style={clientStyles.modalServicesList}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={clientStyles.modalServicesListContent}
+          >
+            {services.length > 0 ? (
+              services.map((service, idx) => (
                 <View key={idx} style={clientStyles.modalServiceItem}>
                   <Icon name="check-circle" size={18} color={theme.primary} />
                   <Text style={clientStyles.modalServiceName}>{formatSpecialty(service)}</Text>
                 </View>
-              ))}
-            </ScrollView>
+              ))
+            ) : (
+              <View style={clientStyles.modalEmptyServices}>
+                <Text style={clientStyles.modalEmptyServicesText}>
+                  No specific specialties listed yet.
+                </Text>
+              </View>
+            )}
+          </ScrollView>
 
-            <View style={clientStyles.modalFooter}>
-              <Pressable
-                style={({ pressed }) => [
-                  clientStyles.modalViewProfileBtn,
-                  pressed ? { opacity: 0.85, transform: [{ scale: 0.985 }] } : null,
-                ]}
-                onPress={() => {
-                  setServicesModalVisible(false);
-                  openProfile();
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={`View ${displayName}'s profile`}
-              >
-                <Icon name="user" size={15} color={theme.primary} />
-                <Text style={clientStyles.modalViewProfileBtnText}>View profile</Text>
-              </Pressable>
+          <View style={clientStyles.modalFooter}>
+            <Pressable
+              style={({ pressed }) => [
+                clientStyles.modalViewProfileBtn,
+                pressed ? { opacity: 0.85, transform: [{ scale: 0.985 }] } : null,
+              ]}
+              onPress={() => {
+                setServicesModalVisible(false);
+                openProfile();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`View ${displayName}'s profile`}
+            >
+              <Icon name="user" size={15} color={theme.primary} />
+              <Text style={clientStyles.modalViewProfileBtnText}>View profile</Text>
+            </Pressable>
 
-              <Pressable
-                style={({ pressed }) => [
-                  clientStyles.modalRebookBtn,
-                  pressed ? { opacity: 0.88, transform: [{ scale: 0.985 }] } : null,
-                ]}
-                onPress={() => {
-                  setServicesModalVisible(false);
-                  router.push({
-                    pathname: "/chat/[bookingId]",
-                    params: { bookingId: booking.id, rebook: "1" },
-                  });
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={`Rebook ${displayName}`}
-              >
-                <Text style={clientStyles.modalRebookBtnText}>Rebook</Text>
-                <Icon name="arrow-right" size={14} color={theme.onPrimary} />
-              </Pressable>
-            </View>
+            <Pressable
+              style={({ pressed }) => [
+                clientStyles.modalRebookBtn,
+                pressed ? { opacity: 0.88, transform: [{ scale: 0.985 }] } : null,
+              ]}
+              onPress={() => {
+                setServicesModalVisible(false);
+                router.push({
+                  pathname: "/chat/[bookingId]",
+                  params: { bookingId: booking.id, rebook: "1" },
+                });
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={`Rebook ${displayName}`}
+            >
+              <Text style={clientStyles.modalRebookBtnText}>Rebook</Text>
+              <Icon name="arrow-right" size={11} color={theme.onPrimary} />
+            </Pressable>
           </View>
-        </CenterDialogModal>
-      ) : null}
+        </View>
+      </CenterDialogModal>
     </>
   );
 }

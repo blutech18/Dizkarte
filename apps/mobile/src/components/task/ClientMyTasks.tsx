@@ -110,7 +110,13 @@ function taskScheduleLabel(task: OwnedTaskRecord): string {
   if (!task.draft.scheduledFor) return "Flexible schedule";
   const scheduled = new Date(task.draft.scheduledFor);
   if (Number.isNaN(scheduled.getTime())) return "Flexible schedule";
-  return scheduled.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" });
+  const weekday = scheduled.toLocaleDateString("en-US", { weekday: "long" });
+  const datePart = scheduled.toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+  return `${weekday} - ${datePart}`;
 }
 
 function taskUpdatedLabel(task: OwnedTaskRecord): string {
@@ -604,12 +610,7 @@ export function ClientMyTasks() {
 
                       <View style={styles.budgetCol}>
                         <Text style={styles.microLabel}>BUDGET</Text>
-                        <Text
-                          style={styles.cardBudgetText}
-                          numberOfLines={1}
-                          adjustsFontSizeToFit
-                          minimumFontScale={0.8}
-                        >
+                        <Text style={styles.cardBudgetText} numberOfLines={1}>
                           {task.draft.budgetCentavos > 0
                             ? formatPhp(task.draft.budgetCentavos)
                             : "Not set"}
@@ -924,8 +925,7 @@ const styles = StyleSheet.create({
     color: theme.primary,
   },
   cardDivider: {
-    height: 1,
-    backgroundColor: theme.borderSubtle,
+    height: 0,
   },
   cardBottomBlock: {
     gap: spacing.sm + 2,

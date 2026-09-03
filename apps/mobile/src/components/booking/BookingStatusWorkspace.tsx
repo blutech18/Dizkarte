@@ -2,7 +2,6 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { AttachmentLabel } from "../ui/AttachmentLabel";
 import { Button, type ButtonVariant } from "../ui/Button";
 import { Icon, type IconName } from "../ui/Icon";
-import { StatusBadge } from "../ui/StatusBadge";
 import { SignedImage } from "../media/SignedImage";
 import { formatPhp } from "@dizkarte/domain";
 import type { BookingRecord, CompletionEvidenceItem } from "../../services/marketplace/types";
@@ -137,9 +136,8 @@ export function BookingStatusWorkspace({
       <BookingIdentityDocument
         counterpartName={counterpartName}
         counterpartRoleLabel={role === "client" ? "YOUR TASKER" : "YOUR CLIENT"}
-        statusLabel={presentation.statusLabel}
-        statusTone={presentation.tone}
         taskTitle={booking.taskTitle}
+        taskDescription={booking.taskDescription}
         amountLabel={formatPhp(booking.agreedCentavos)}
         onOpenReceipt={onOpenReceipt}
       />
@@ -195,17 +193,15 @@ export function BookingStatusWorkspace({
 function BookingIdentityDocument({
   counterpartName,
   counterpartRoleLabel,
-  statusLabel,
-  statusTone,
   taskTitle,
+  taskDescription,
   amountLabel,
   onOpenReceipt,
 }: {
   readonly counterpartName: string;
   readonly counterpartRoleLabel: string;
-  readonly statusLabel: string;
-  readonly statusTone: BookingStatusTone;
   readonly taskTitle: string;
+  readonly taskDescription?: string | null | undefined;
   readonly amountLabel: string;
   readonly onOpenReceipt: () => void;
 }) {
@@ -217,41 +213,25 @@ function BookingIdentityDocument({
         <Text style={styles.taskTitle} accessibilityRole="header">
           {taskTitle || "Untitled task"}
         </Text>
-        <View style={styles.taskFooterRow}>
-          <Text style={styles.taskFooterLabel}>Status</Text>
-          <StatusBadge
-            tone={statusTone}
-            label={statusLabel}
-            accessibilityLabel={`Booking status: ${statusLabel}`}
-          />
-        </View>
+        {taskDescription ? (
+          <Text style={styles.taskDescription}>{taskDescription}</Text>
+        ) : null}
       </View>
 
       <View style={styles.overviewCard}>
         <View style={styles.participantRow}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarText}>{initials}</Text>
+          <View style={styles.participantLeft}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarText}>{initials}</Text>
+            </View>
+            <View style={styles.participantInfo}>
+              <Text style={styles.counterpartName} numberOfLines={1}>
+                {counterpartName}
+              </Text>
+              <Text style={styles.identityEyebrow}>{counterpartRoleLabel}</Text>
+            </View>
           </View>
-          <View style={styles.participantInfo}>
-            <Text style={styles.counterpartName} numberOfLines={1}>
-              {counterpartName}
-            </Text>
-            <Text style={styles.identityEyebrow}>{counterpartRoleLabel}</Text>
-          </View>
-        </View>
 
-        <View style={styles.financialRow}>
-          <View style={styles.amountBlock}>
-            <Text style={styles.amountLabel}>AGREED AMOUNT</Text>
-            <Text
-              style={styles.amount}
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.75}
-            >
-              {amountLabel}
-            </Text>
-          </View>
           <Pressable
             onPress={onOpenReceipt}
             accessibilityRole="button"
@@ -261,9 +241,21 @@ function BookingIdentityDocument({
               pressed ? styles.receiptButtonPressed : null,
             ]}
           >
-            <Icon name="note" size={14} color={theme.primary} />
+            <Icon name="note" size={13} color={theme.primary} />
             <Text style={styles.receiptButtonText}>See receipt</Text>
           </Pressable>
+        </View>
+
+        <View style={styles.financialBanner}>
+          <Text style={styles.amountLabel}>AGREED AMOUNT</Text>
+          <Text
+            style={styles.amount}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+          >
+            {amountLabel}
+          </Text>
         </View>
       </View>
     </View>
@@ -699,56 +691,75 @@ const styles = StyleSheet.create({
   taskSummary: {
     minWidth: 0,
     backgroundColor: theme.surface,
-    borderRadius: radii.md,
+    borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: theme.borderSubtle,
-    padding: spacing.md,
+    padding: spacing.md + 2,
+    gap: spacing.sm,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  taskSummaryHeader: {
+    minWidth: 0,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
     gap: spacing.sm,
   },
   taskTitle: {
+    flex: 1,
     minWidth: 0,
     color: theme.textPrimary,
-    fontSize: fontSize.lg,
-    lineHeight: lineHeight.lg,
+    fontSize: fontSize.md + 1,
+    lineHeight: lineHeight.md + 2,
     fontWeight: "800",
     letterSpacing: -0.2,
   },
-  taskFooterRow: {
+  taskDescription: {
     minWidth: 0,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.sm,
-    paddingTop: 2,
-  },
-  taskFooterLabel: {
     color: theme.textSecondary,
-    fontSize: fontSize.xs,
-    fontWeight: "700",
+    fontSize: fontSize.sm,
+    lineHeight: lineHeight.sm + 4,
   },
   overviewCard: {
     minWidth: 0,
-    padding: spacing.md,
-    borderRadius: radii.md,
+    padding: spacing.md + 2,
+    borderRadius: radii.lg,
     backgroundColor: theme.surface,
     borderWidth: 1,
     borderColor: theme.borderSubtle,
     gap: spacing.md,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
   },
   participantRow: {
     minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
-    gap: spacing.md,
+    justifyContent: "space-between",
+    gap: spacing.sm,
+  },
+  participantLeft: {
+    minWidth: 0,
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm + 2,
   },
   avatarCircle: {
-    width: 42,
-    height: 42,
-    flexShrink: 0,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 21,
     backgroundColor: theme.primary,
+    flexShrink: 0,
   },
   avatarText: {
     color: theme.onPrimary,
@@ -770,27 +781,21 @@ const styles = StyleSheet.create({
   },
   identityEyebrow: {
     color: theme.textSecondary,
-    fontSize: 11,
-    fontWeight: "700",
-    letterSpacing: 0.5,
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.6,
     textTransform: "uppercase",
   },
-  overviewDivider: {
-    height: 1,
-    width: "100%",
-    backgroundColor: theme.borderSubtle,
-  },
-  financialRow: {
+  financialBanner: {
     minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: spacing.md,
-  },
-  amountBlock: {
-    minWidth: 0,
-    flex: 1,
-    gap: 2,
+    backgroundColor: theme.surfaceSubtle,
+    paddingVertical: spacing.sm + 2,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.md,
   },
   amountLabel: {
     color: theme.textSecondary,
@@ -800,21 +805,23 @@ const styles = StyleSheet.create({
   },
   amount: {
     color: theme.primary,
-    fontSize: fontSize.xl,
-    lineHeight: lineHeight.xl,
+    fontSize: fontSize.lg,
+    lineHeight: lineHeight.lg,
     fontWeight: "800",
   },
   receiptButton: {
     minHeight: 34,
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: spacing.md - 2,
+    justifyContent: "center",
+    gap: 5,
+    paddingHorizontal: spacing.md,
     paddingVertical: 6,
     borderRadius: radii.pill,
     backgroundColor: theme.surfaceSubtle,
     borderWidth: 1,
     borderColor: theme.borderSubtle,
+    flexShrink: 0,
   },
   receiptButtonPressed: {
     opacity: 0.75,

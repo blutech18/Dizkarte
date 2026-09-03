@@ -689,8 +689,6 @@ function BookingCard({
           <Text
             style={[styles.cardAmount, { fontSize: fontSize.md, lineHeight: lineHeight.md }]}
             numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.78}
           >
             {formatPhp(booking.agreedCentavos)}
           </Text>
@@ -990,8 +988,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   cardDivider: {
-    height: 1,
-    backgroundColor: theme.borderSubtle,
+    height: 0,
   },
   cardBottomRow: {
     flexDirection: "row",

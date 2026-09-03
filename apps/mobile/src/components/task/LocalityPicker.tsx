@@ -2,13 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
-import { BottomSheetModal } from "../ui/BottomSheetModal";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "../ui/Icon";
 import { useMarketplace } from "../../providers/MarketplaceProvider";
 import { useScreenScroll } from "../../providers/ScreenScrollContext";
@@ -19,7 +20,6 @@ import {
   fontSize,
   lineHeight,
   radii,
-  MIN_TOUCH_TARGET,
   noWebOutline,
 } from "../../theme";
 
@@ -69,6 +69,7 @@ export function LocalityPicker({
   onOpen,
   onClose,
 }: LocalityPickerProps) {
+  const insets = useSafeAreaInsets();
   const { repository } = useMarketplace();
   const screenScroll = useScreenScroll();
   const containerRef = useRef<View>(null);
@@ -80,7 +81,6 @@ export function LocalityPicker({
   const [cityResults, setCityResults] = useState<ReadonlyArray<PsgcCity>>([]);
   const [barangayResults, setBarangayResults] = useState<ReadonlyArray<PsgcBarangay>>([]);
   const [loading, setLoading] = useState(false);
-  const [searchFocused, setSearchFocused] = useState(false);
 
   // Resolve display names for pre-existing codes (edit/prefill).
   useEffect(() => {
@@ -119,12 +119,13 @@ export function LocalityPicker({
     };
   }, [value.barangayCode, value.barangayName, repository]);
 
-  // Debounced search while the picker sheet is open.
+  // Search results loader with immediate load on open and debounced typing.
   useEffect(() => {
     if (!picking) return;
     let active = true;
     setLoading(true);
-    const handle = setTimeout(async () => {
+
+    const performSearch = async () => {
       try {
         if (picking === "city") {
           const results = await repository.searchCities(query);
@@ -141,7 +142,16 @@ export function LocalityPicker({
       } finally {
         if (active) setLoading(false);
       }
-    }, 250);
+    };
+
+    if (query.trim().length === 0) {
+      void performSearch();
+      return () => {
+        active = false;
+      };
+    }
+
+    const handle = setTimeout(performSearch, 200);
     return () => {
       active = false;
       clearTimeout(handle);
@@ -149,7 +159,6 @@ export function LocalityPicker({
   }, [picking, query, value.cityCode, repository]);
 
   const closePicker = useCallback(() => {
-    setSearchFocused(false);
     setPicking(null);
     screenScroll?.scrollToRef(containerRef);
     onClose?.();
@@ -206,14 +215,9 @@ export function LocalityPicker({
 
   const pickerMode = picking ?? activePicker.current;
   const selectingCity = pickerMode === "city";
-  const sheetTitle = selectingCity ? "Select city or municipality" : "Select barangay";
-  const sheetDescription = selectingCity
-    ? "Search the official city and municipality directory by name."
-    : `Choose a barangay within ${cityName ?? "your selected city"}.`;
-  const searchPlaceholder = selectingCity ? "e.g. Quezon City" : "e.g. Commonwealth";
-  const searchAccessibilityLabel = selectingCity
+  const searchPlaceholder = selectingCity
     ? "Search for a city or municipality"
-    : "Search for a barangay";
+    : `Search barangay in ${cityName ?? "city"}`;
 
   return (
     <View
@@ -238,68 +242,61 @@ export function LocalityPicker({
         onPress={openBarangay}
       />
 
-      <BottomSheetModal visible={picking !== null} onClose={closePicker}>
-        <View style={styles.sheet}>
-          <View style={styles.sheetHeader}>
-            <View style={styles.sheetHeaderCopy}>
-              <Text style={styles.sheetTitle} accessibilityRole="header">
-                {sheetTitle}
-              </Text>
-              <Text style={styles.sheetDescription}>{sheetDescription}</Text>
-            </View>
-            <Pressable
-              onPress={closePicker}
-              accessibilityRole="button"
-              accessibilityLabel={`Close ${sheetTitle.toLowerCase()}`}
-              hitSlop={4}
-              style={({ pressed }) => [
-                styles.closeButton,
-                pressed ? styles.closeButtonPressed : null,
-              ]}
-            >
-              <Icon name="close" size={20} color={theme.textSecondary} />
-            </Pressable>
-          </View>
-
-          <View style={styles.searchArea}>
-            <View style={[styles.searchField, searchFocused ? styles.searchFieldFocused : null]}>
-              <Icon name="search" size={19} color={theme.textSecondary} />
+      <Modal
+        visible={picking !== null}
+        animationType="slide"
+        onRequestClose={closePicker}
+      >
+        <View
+          style={[
+            styles.modalContainer,
+            {
+              paddingTop: insets.top,
+              paddingBottom: insets.bottom,
+            },
+          ]}
+        >
+          <View style={styles.header}>
+            <View style={styles.searchRow}>
+              <Icon name="search" size={18} color={theme.textSecondary} />
               <TextInput
                 value={query}
                 onChangeText={setQuery}
-                onFocus={() => setSearchFocused(true)}
-                onBlur={() => setSearchFocused(false)}
-                accessibilityLabel={searchAccessibilityLabel}
                 placeholder={searchPlaceholder}
                 placeholderTextColor={theme.textSecondary}
+                underlineColorAndroid="transparent"
+                autoFocus
                 autoCorrect={false}
                 autoCapitalize="words"
-                returnKeyType="search"
                 spellCheck={false}
-                underlineColorAndroid="transparent"
+                returnKeyType="search"
                 style={[styles.searchInput, noWebOutline]}
               />
               {query ? (
                 <Pressable
                   onPress={() => setQuery("")}
+                  hitSlop={8}
                   accessibilityRole="button"
                   accessibilityLabel="Clear search"
-                  hitSlop={6}
-                  style={({ pressed }) => [
-                    styles.clearButton,
-                    pressed ? styles.clearButtonPressed : null,
-                  ]}
                 >
                   <Icon name="close" size={16} color={theme.textSecondary} />
                 </Pressable>
               ) : null}
             </View>
+            <Pressable
+              onPress={closePicker}
+              style={styles.cancelButton}
+              accessibilityRole="button"
+              accessibilityLabel="Cancel"
+            >
+              <Text style={styles.cancelText}>Cancel</Text>
+            </Pressable>
           </View>
 
           {loading ? (
-            <View style={styles.sheetLoading} accessibilityLiveRegion="polite">
+            <View style={styles.loadingArea} accessibilityLiveRegion="polite">
               <ActivityIndicator color={theme.primary} />
-              <Text style={styles.sheetLoadingText}>Searching locations…</Text>
+              <Text style={styles.loadingText}>Searching locations…</Text>
             </View>
           ) : selectingCity ? (
             <FlatList
@@ -308,16 +305,31 @@ export function LocalityPicker({
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
               showsVerticalScrollIndicator={false}
-              style={styles.list}
-              contentContainerStyle={styles.listContent}
-              ItemSeparatorComponent={ResultSeparator}
-              ListEmptyComponent={<EmptyResults query={query} />}
+              style={styles.results}
+              contentContainerStyle={styles.resultsContent}
+              ListEmptyComponent={<EmptyResults query={query} isCity />}
               renderItem={({ item }) => (
-                <ResultRow
-                  title={item.name}
-                  subtitle={item.provinceName ?? (item.isCity ? "City" : "Municipality")}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    item.provinceName ? `${item.name}, ${item.provinceName}` : item.name
+                  }
                   onPress={() => selectCity(item)}
-                />
+                  style={({ pressed }) => [
+                    styles.resultItem,
+                    pressed ? styles.resultItemPressed : null,
+                  ]}
+                >
+                  <Icon name="map-pin" size={17} color={theme.primary} />
+                  <View style={styles.resultCopy}>
+                    <Text style={styles.resultTitle} numberOfLines={1} ellipsizeMode="tail">
+                      {item.name}
+                      {item.provinceName ? (
+                        <Text style={styles.resultSubtitle}>, {item.provinceName}</Text>
+                      ) : null}
+                    </Text>
+                  </View>
+                </Pressable>
               )}
             />
           ) : (
@@ -327,17 +339,29 @@ export function LocalityPicker({
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
               showsVerticalScrollIndicator={false}
-              style={styles.list}
-              contentContainerStyle={styles.listContent}
-              ItemSeparatorComponent={ResultSeparator}
-              ListEmptyComponent={<EmptyResults query={query} />}
+              style={styles.results}
+              contentContainerStyle={styles.resultsContent}
+              ListEmptyComponent={<EmptyResults query={query} isCity={false} />}
               renderItem={({ item }) => (
-                <ResultRow title={item.name} onPress={() => selectBarangay(item)} />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={item.name}
+                  onPress={() => selectBarangay(item)}
+                  style={({ pressed }) => [
+                    styles.resultItem,
+                    pressed ? styles.resultItemPressed : null,
+                  ]}
+                >
+                  <Icon name="map-pin" size={17} color={theme.primary} />
+                  <View style={styles.resultCopy}>
+                    <Text style={styles.resultTitle}>{item.name}</Text>
+                  </View>
+                </Pressable>
               )}
             />
           )}
         </View>
-      </BottomSheetModal>
+      </Modal>
     </View>
   );
 }
@@ -361,10 +385,12 @@ function SelectRow({
 }) {
   return (
     <View style={[styles.field, responsive ? styles.fieldResponsive : null]}>
-      <Text style={styles.fieldLabel}>
-        {label}
-        {required ? <Text style={styles.required}> *</Text> : null}
-      </Text>
+      {label ? (
+        <Text style={styles.fieldLabel}>
+          {label}
+          {required ? <Text style={styles.required}> *</Text> : null}
+        </Text>
+      ) : null}
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ disabled: Boolean(disabled) }}
@@ -377,9 +403,17 @@ function SelectRow({
           pressed && !disabled ? styles.selectPressed : null,
         ]}
       >
+        <View style={styles.locationSelectIcon}>
+          <Icon
+            name="map-pin"
+            size={18}
+            color={disabled ? theme.textSecondary : theme.primary}
+          />
+        </View>
         <Text
           style={[styles.selectText, selectedLabel ? null : styles.selectPlaceholder]}
           numberOfLines={1}
+          ellipsizeMode="tail"
         >
           {selectedLabel ?? placeholder}
         </Text>
@@ -389,39 +423,19 @@ function SelectRow({
   );
 }
 
-function ResultRow({
-  title,
-  subtitle,
-  onPress,
+function EmptyResults({
+  query,
+  isCity,
 }: {
-  readonly title: string;
-  readonly subtitle?: string;
-  readonly onPress: () => void;
+  readonly query: string;
+  readonly isCity?: boolean;
 }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={title}
-      onPress={onPress}
-      style={({ pressed }) => [styles.resultRow, pressed ? styles.resultRowPressed : null]}
-    >
-      <View style={styles.resultCopy}>
-        <Text style={styles.resultTitle}>{title}</Text>
-        {subtitle ? <Text style={styles.resultSubtitle}>{subtitle}</Text> : null}
-      </View>
-    </Pressable>
-  );
-}
-
-function ResultSeparator() {
-  return <View style={styles.resultSeparator} />;
-}
-
-function EmptyResults({ query }: { readonly query: string }) {
   return (
     <Text style={styles.empty} accessibilityLiveRegion="polite">
       {query.trim().length === 0
-        ? "Start typing to search."
+        ? isCity
+          ? "Start typing to search city."
+          : "No barangays found for this city."
         : "No matches. Try a different spelling."}
     </Text>
   );
@@ -439,13 +453,17 @@ const styles = StyleSheet.create({
     minHeight: 48,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: theme.borderControl,
     backgroundColor: theme.surface,
+  },
+  locationSelectIcon: {
+    width: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
   selectDisabled: {
     backgroundColor: theme.surfaceSubtle,
@@ -455,127 +473,88 @@ const styles = StyleSheet.create({
     borderColor: theme.primary,
     backgroundColor: theme.surfaceSubtle,
   },
-  selectText: { flex: 1, fontSize: fontSize.sm, fontWeight: "600", color: theme.textPrimary },
-  selectPlaceholder: { color: theme.textSecondary, fontWeight: "400" },
-  sheet: {
-    minWidth: 0,
-    maxHeight: 560,
-  },
-  sheetHeader: {
-    minWidth: 0,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    gap: spacing.md,
-    paddingTop: spacing.sm,
-    paddingHorizontal: spacing.lg,
-  },
-  sheetHeaderCopy: {
-    minWidth: 0,
+  selectText: { flex: 1, fontSize: fontSize.md, fontWeight: "600", color: theme.textPrimary },
+  selectPlaceholder: { fontSize: fontSize.md, color: theme.textSecondary, fontWeight: "400" },
+  modalContainer: {
     flex: 1,
-    gap: spacing.xs,
-  },
-  sheetTitle: {
-    color: theme.textPrimary,
-    fontSize: fontSize.lg,
-    lineHeight: lineHeight.lg,
-    fontWeight: "800",
-  },
-  sheetDescription: {
-    color: theme.textSecondary,
-    fontSize: fontSize.sm,
-    lineHeight: lineHeight.sm,
-  },
-  closeButton: {
-    width: MIN_TOUCH_TARGET,
-    height: MIN_TOUCH_TARGET,
-    flexShrink: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: radii.md,
-  },
-  closeButtonPressed: {
-    backgroundColor: theme.surfaceSubtle,
-  },
-  searchArea: {
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-    paddingHorizontal: spacing.lg,
-  },
-  searchField: {
-    minHeight: MIN_TOUCH_TARGET,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.sm,
-    paddingLeft: spacing.md,
-    paddingRight: spacing.xs,
-    borderWidth: 1,
-    borderColor: theme.borderControl,
-    borderRadius: radii.md,
     backgroundColor: theme.surface,
   },
-  searchFieldFocused: {
-    borderColor: theme.primary,
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  searchRow: {
+    flex: 1,
+    minHeight: 44,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: theme.surfaceSubtle,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
   },
   searchInput: {
-    minWidth: 0,
-    minHeight: MIN_TOUCH_TARGET,
     flex: 1,
-    paddingVertical: 0,
-    color: theme.textPrimary,
     fontSize: fontSize.md,
+    color: theme.textPrimary,
+    padding: 0,
+    borderWidth: 0,
   },
-  clearButton: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
+  cancelButton: {
+    minHeight: 44,
     justifyContent: "center",
-    borderRadius: radii.sm,
+    paddingHorizontal: spacing.xs,
   },
-  clearButtonPressed: {
+  cancelText: {
+    fontSize: fontSize.md,
+    color: theme.primary,
+    fontWeight: "600",
+  },
+  results: {
+    flex: 1,
+  },
+  resultsContent: {
+    paddingVertical: spacing.xs,
+  },
+  resultItem: {
+    minHeight: 50,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginHorizontal: spacing.xs,
+    borderRadius: radii.md,
+    gap: spacing.sm,
+  },
+  resultItemPressed: {
     backgroundColor: theme.surfaceSubtle,
   },
-  sheetLoading: {
-    minHeight: 180,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
-  },
-  sheetLoadingText: {
-    color: theme.textSecondary,
-    fontSize: fontSize.sm,
-  },
-  list: {
-    maxHeight: 360,
-  },
-  listContent: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
-  },
-  resultRow: {
-    minHeight: 54,
-    justifyContent: "center",
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xs,
-    borderRadius: radii.sm,
-  },
-  resultRowPressed: { backgroundColor: theme.surfaceSubtle },
   resultCopy: {
     minWidth: 0,
     flex: 1,
   },
-  resultSeparator: {
-    height: 1,
-    backgroundColor: theme.borderSubtle,
+  resultTitle: {
+    fontSize: fontSize.md,
+    color: theme.textPrimary,
+    fontWeight: "600",
   },
-  resultTitle: { fontSize: fontSize.md, color: theme.textPrimary, fontWeight: "600" },
   resultSubtitle: {
-    marginTop: 2,
+    fontSize: fontSize.md,
     color: theme.textSecondary,
-    fontSize: fontSize.xs,
-    lineHeight: lineHeight.xs,
+    fontWeight: "400",
+  },
+  loadingArea: {
+    paddingVertical: spacing.xl,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+  },
+  loadingText: {
+    color: theme.textSecondary,
+    fontSize: fontSize.sm,
   },
   empty: {
     color: theme.textSecondary,

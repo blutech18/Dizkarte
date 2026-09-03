@@ -9,11 +9,13 @@ import { theme, radii, spacing, fontSize } from "../../theme";
 import { Icon, type IconName } from "./Icon";
 
 export type ButtonVariant = "primary" | "primaryDark" | "secondary" | "destructive" | "text";
+export type ButtonSize = "sm" | "md" | "lg";
 
 export type ButtonProps = {
   readonly label: string;
   readonly onPress: (event: GestureResponderEvent) => void;
   readonly variant?: ButtonVariant;
+  readonly size?: ButtonSize;
   readonly disabled?: boolean;
   readonly loading?: boolean;
   readonly accessibilityHint?: string;
@@ -31,6 +33,7 @@ export function Button({
   label,
   onPress,
   variant = "primary",
+  size = "md",
   disabled = false,
   loading = false,
   accessibilityHint,
@@ -38,6 +41,7 @@ export function Button({
   icon,
 }: ButtonProps) {
   const isDisabled = disabled || loading;
+  const currentSize = sizeStyles[size] ?? sizeStyles.md;
   const labelColor = isDisabled
     ? theme.disabledForeground
     : (variantStyles[variant].label as { color: string }).color;
@@ -51,6 +55,7 @@ export function Button({
       accessibilityState={{ disabled: isDisabled, busy: loading }}
       style={({ pressed }) => [
         styles.base,
+        currentSize.container,
         variantStyles[variant].container,
         fullWidth ? styles.fullWidth : null,
         isDisabled ? styles.disabled : null,
@@ -58,13 +63,17 @@ export function Button({
       ]}
     >
       {loading ? (
-        <ActivityIndicator color={variant === "primary" ? theme.onPrimary : theme.primary} />
+        <ActivityIndicator
+          color={variant === "primary" ? theme.onPrimary : theme.primary}
+          size={size === "sm" ? "small" : undefined}
+        />
       ) : (
         <>
-          {icon ? <Icon name={icon} size={17} color={labelColor} /> : null}
+          {icon ? <Icon name={icon} size={currentSize.iconSize} color={labelColor} /> : null}
           <Text
             style={[
               styles.label,
+              currentSize.label,
               variantStyles[variant].label,
               isDisabled ? styles.disabledLabel : null,
             ]}
@@ -80,23 +89,63 @@ export function Button({
   );
 }
 
+const sizeStyles = {
+  sm: {
+    container: {
+      height: 34,
+      minHeight: 34,
+      paddingHorizontal: spacing.md,
+      borderRadius: radii.pill,
+      gap: 5,
+    },
+    label: {
+      fontSize: 13,
+      lineHeight: 16,
+      fontWeight: "700" as const,
+    },
+    iconSize: 13,
+  },
+  md: {
+    container: {
+      height: 42,
+      minHeight: 42,
+      paddingHorizontal: spacing.md,
+      borderRadius: radii.md,
+      gap: 6,
+    },
+    label: {
+      fontSize: 14,
+      lineHeight: 18,
+      fontWeight: "700" as const,
+    },
+    iconSize: 15,
+  },
+  lg: {
+    container: {
+      height: 48,
+      minHeight: 48,
+      paddingHorizontal: spacing.lg,
+      borderRadius: radii.md,
+      gap: 8,
+    },
+    label: {
+      fontSize: fontSize.md,
+      fontWeight: "700" as const,
+    },
+    iconSize: 17,
+  },
+};
+
 const styles = StyleSheet.create({
   base: {
-    height: 48,
-    minHeight: 48,
-    borderRadius: radii.md,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: spacing.md,
     flexDirection: "row",
-    gap: spacing.xs + 2,
   },
   fullWidth: {
     width: "100%",
   },
   label: {
-    fontSize: fontSize.md,
-    fontWeight: "600",
     textAlign: "center",
   },
   disabled: {

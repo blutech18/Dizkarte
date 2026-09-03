@@ -67,11 +67,9 @@ export function Screen({
   refreshing,
   onRefresh,
   refreshControlTintColor,
-  topOverscrollColor,
 }: ScreenProps) {
   const { gutter, contentWidth, isTablet } = useResponsiveLayout();
   const isHero = headerVariant === "hero";
-  const overscrollColor = topOverscrollColor ?? (isHero ? theme.primary : undefined);
   const internalScrollRef = useRef<ScrollView>(null);
   const effectiveScrollRef = scrollViewRef ?? internalScrollRef;
 
@@ -137,8 +135,8 @@ export function Screen({
   const body = scroll ? (
     <ScrollView
       ref={effectiveScrollRef}
-      style={styles.scrollView}
-      contentContainerStyle={styles.scrollContent}
+      style={[styles.scrollView, isHero ? styles.heroScrollView : null]}
+      contentContainerStyle={[styles.scrollContent, isHero ? styles.heroScrollContent : null]}
       keyboardShouldPersistTaps="handled"
       keyboardDismissMode="interactive"
       automaticallyAdjustKeyboardInsets={!keyboardAvoiding}
@@ -148,22 +146,15 @@ export function Screen({
           <RefreshControl
             refreshing={Boolean(refreshing)}
             onRefresh={onRefresh}
-            tintColor={
-              refreshControlTintColor ?? (isHero ? "#FFFFFF" : theme.primary)
-            }
+            tintColor={refreshControlTintColor ?? (isHero ? theme.onPrimary : theme.primary)}
             colors={[theme.primary]}
             progressBackgroundColor={theme.surface}
           />
         ) : undefined
       }
     >
-      {overscrollColor ? (
-        <View
-          pointerEvents="none"
-          style={[styles.overscrollCover, { backgroundColor: overscrollColor }]}
-        />
-      ) : null}
       {content}
+      {isHero ? <View pointerEvents="none" style={styles.bottomOverscrollCover} /> : null}
     </ScrollView>
   ) : (
     content
@@ -222,14 +213,6 @@ const styles = StyleSheet.create({
     minWidth: 0,
     minHeight: 0,
   },
-  overscrollCover: {
-    position: "absolute",
-    top: -1500,
-    left: -1000,
-    right: -1000,
-    height: 1500,
-    zIndex: -1,
-  },
   // Browsers default flex children to min-height:auto. Without this explicit
   // zero minimum the RNW ScrollView measures to its full content height, then
   // the Expo Router card clips it instead of giving overflowY:auto a viewport.
@@ -237,6 +220,20 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     minHeight: 0,
+    backgroundColor: theme.background,
+  },
+  heroScrollView: {
+    backgroundColor: theme.primary,
+  },
+  heroScrollContent: {
+    backgroundColor: theme.background,
+  },
+  bottomOverscrollCover: {
+    position: "absolute",
+    bottom: -1500,
+    left: -1000,
+    right: -1000,
+    height: 1500,
     backgroundColor: theme.background,
   },
   scrollContent: {

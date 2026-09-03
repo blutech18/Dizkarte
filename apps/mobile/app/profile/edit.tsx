@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   Animated,
+  BackHandler,
   Dimensions,
   Easing,
   Image,
@@ -142,6 +143,16 @@ export default function EditProfileScreen() {
   const [selectedSpecialties, setSelectedSpecialties] = useState<ReadonlyArray<string>>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const toastAnim = useRef(new Animated.Value(0)).current;
+  const toastScale = useRef(new Animated.Value(0.85)).current;
+  const toastTimer = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+    };
+  }, []);
+
   const [formError, setFormError] = useState<string | null>(null);
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -271,6 +282,74 @@ export default function EditProfileScreen() {
     }
   }
 
+  const hasUnsavedChanges = useMemo(() => {
+    if (!profile) return false;
+    const nameDiff = displayName.trim() !== (profile.displayName ?? "").trim();
+    const mobileDiff = (mobile.trim().length > 0 ? mobile.trim() : "") !== (profile.mobile ?? "").trim();
+    const cityDiff = (cityCode ? cityCode.trim() : "") !== (profile.cityCode ?? "").trim();
+    const barangayDiff = (barangayCode ? barangayCode.trim() : "") !== (profile.barangayCode ?? "").trim();
+    const bioDiff = bio.trim() !== (profile.bio ?? "").trim();
+
+    let taskerDiff = false;
+    if (profile.tasker) {
+      const publicBioDiff = publicBio.trim() !== (profile.tasker.publicBio ?? "").trim();
+      const publicExpDiff =
+        publicExperience.trim() !== (profile.tasker.publicExperience ?? "").trim();
+      const initialSpecs = (profile.tasker.specialties ?? []).map((s) => s.id).sort().join(",");
+      const currentSpecs = [...selectedSpecialties].sort().join(",");
+      const specDiff = initialSpecs !== currentSpecs;
+      taskerDiff = publicBioDiff || publicExpDiff || specDiff;
+    }
+
+    return nameDiff || mobileDiff || cityDiff || barangayDiff || bioDiff || taskerDiff;
+  }, [
+    profile,
+    displayName,
+    mobile,
+    cityCode,
+    barangayCode,
+    bio,
+    publicBio,
+    publicExperience,
+    selectedSpecialties,
+  ]);
+
+  const promptDiscardChanges = useCallback(() => {
+    Alert.alert(
+      "Discard unsaved changes?",
+      "You have unsaved changes to your profile. If you leave now, your edits will be discarded.",
+      [
+        { text: "Keep editing", style: "cancel" },
+        {
+          text: "Discard",
+          style: "destructive",
+          onPress: () => router.back(),
+        },
+      ],
+    );
+  }, []);
+
+  const handleBack = useCallback(() => {
+    if (hasUnsavedChanges) {
+      promptDiscardChanges();
+    } else {
+      router.back();
+    }
+  }, [hasUnsavedChanges, promptDiscardChanges]);
+
+  useEffect(() => {
+    const backAction = () => {
+      if (hasUnsavedChanges) {
+        promptDiscardChanges();
+        return true;
+      }
+      return false;
+    };
+
+    const backHandler = BackHandler.addEventListener("hardwareBackPress", backAction);
+    return () => backHandler.remove();
+  }, [hasUnsavedChanges, promptDiscardChanges]);
+
   const markChanged = () => {
     setSaved(false);
     setFormError(null);
@@ -316,6 +395,44 @@ export default function EditProfileScreen() {
       setBio(result.profile.bio);
       setSaved(true);
       notifyChanged();
+
+      if (toastTimer.current) clearTimeout(toastTimer.current);
+      toastAnim.setValue(0);
+      toastScale.setValue(0.85);
+
+      Animated.parallel([
+        Animated.spring(toastScale, {
+          toValue: 1,
+          friction: 7,
+          tension: 65,
+          useNativeDriver: true,
+        }),
+        Animated.timing(toastAnim, {
+          toValue: 1,
+          duration: 220,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      toastTimer.current = setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(toastScale, {
+            toValue: 0.9,
+            duration: 240,
+            easing: Easing.in(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(toastAnim, {
+            toValue: 0,
+            duration: 240,
+            easing: Easing.in(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]).start(() => {
+          setSaved(false);
+        });
+      }, 2500);
     } catch {
       setFormError("Could not save your profile. Check your connection and try again.");
     } finally {
@@ -327,7 +444,7 @@ export default function EditProfileScreen() {
   if (!session) return <Redirect href="/(auth)/welcome" />;
 
   return (
-    <Screen subPageTitle="Edit profile" scroll={false} padded={false}>
+    <Screen subPageTitle="Edit profile" onBack={handleBack} scroll={false} padded={false}>
       <Stack.Screen options={{ headerShown: false }} />
 
       {loading ? (
@@ -363,12 +480,6 @@ export default function EditProfileScreen() {
                 <View style={styles.errorNotice} accessibilityRole="alert">
                   <Icon name="alert-circle" size={20} color={theme.errorOnSoft} />
                   <Text style={styles.errorText}>{formError}</Text>
-                </View>
-              ) : null}
-              {saved ? (
-                <View style={styles.successNotice} accessibilityLiveRegion="polite">
-                  <Icon name="check-circle" size={20} color={theme.successOnSoft} />
-                  <Text style={styles.successText}>Your profile has been updated.</Text>
                 </View>
               ) : null}
 
@@ -644,7 +755,7 @@ export default function EditProfileScreen() {
                 <Button
                   label="Cancel"
                   variant="secondary"
-                  onPress={() => router.back()}
+                  onPress={handleBack}
                   disabled={saving}
                   fullWidth
                 />
@@ -655,7 +766,7 @@ export default function EditProfileScreen() {
                   icon="check-circle"
                   onPress={() => void handleSave()}
                   loading={saving}
-                  disabled={!displayName.trim()}
+                  disabled={saving || !hasUnsavedChanges || !displayName.trim()}
                   fullWidth
                 />
               </View>
@@ -727,6 +838,27 @@ export default function EditProfileScreen() {
               </View>
             </View>
           </CenterDialogModal>
+
+          {/* Centered Popup Toast Notification */}
+          {saved ? (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.centerToastContainer,
+                {
+                  opacity: toastAnim,
+                  transform: [{ scale: toastScale }],
+                },
+              ]}
+            >
+              <View style={styles.centerToastCard}>
+                <View style={styles.centerToastIconWrapper}>
+                  <Icon name="check-circle" size={22} color="#FFFFFF" />
+                </View>
+                <Text style={styles.centerToastText}>Your profile has been updated.</Text>
+              </View>
+            </Animated.View>
+          ) : null}
         </View>
       )}
     </Screen>
@@ -770,19 +902,45 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: theme.errorOnSoft,
   },
-  successNotice: {
+  centerToastContainer: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 9999,
+    elevation: 9999,
+  },
+  centerToastCard: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: theme.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 22,
+    borderRadius: 28,
     gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radii.md,
-    backgroundColor: theme.successSoft,
+    shadowColor: theme.primary,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.35,
+    shadowRadius: 18,
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.22)",
+    maxWidth: "88%",
   },
-  successText: {
-    flex: 1,
-    fontSize: fontSize.sm,
+  centerToastIconWrapper: {
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  centerToastText: {
+    fontSize: fontSize.md,
     fontWeight: "600",
-    color: theme.successOnSoft,
+    color: "#FFFFFF",
+    letterSpacing: -0.2,
   },
   fieldLabel: {
     fontSize: fontSize.sm,

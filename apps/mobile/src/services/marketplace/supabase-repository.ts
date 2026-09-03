@@ -905,6 +905,49 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     };
   }
 
+  async deleteAnswer(
+    questionId: string,
+    taskId: TaskId,
+    clientId: string,
+  ): Promise<TaskQuestionRecord> {
+    const { data: taskRow, error: taskErr } = await this.client
+      .from("tasks")
+      .select("client_id")
+      .eq("id", taskId)
+      .maybeSingle();
+    fail("deleteAnswer:getTask", taskErr);
+    if (!taskRow || taskRow.client_id !== clientId) {
+      throw new Error("Forbidden: only the task owner may delete answers.");
+    }
+
+    const { data, error } = await this.client
+      .from("task_questions")
+      .update({ answer: null, answered_at: null })
+      .eq("id", questionId)
+      .eq("task_id", taskId)
+      .select("id,task_id,author_id,body,answer,created_at")
+      .single();
+    fail("deleteAnswer", error);
+    const row = data as {
+      id: string;
+      task_id: string;
+      author_id: string;
+      body: string;
+      answer: string | null;
+      created_at: string;
+    };
+    const names = await this.displayNames([row.author_id]);
+    return {
+      id: row.id as TaskQuestionId,
+      taskId: row.task_id as TaskId,
+      authorId: row.author_id as UserId,
+      authorDisplayName: this.nameOf(names, row.author_id),
+      body: row.body,
+      answer: row.answer ?? undefined,
+      createdAt: row.created_at,
+    };
+  }
+
   /**
    * Offers on a task. RLS already restricts rows to the submitting Tasker or
    * the task owner, so a Tasker browsing someone else's task sees only their
@@ -1164,7 +1207,7 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
   }
 
   async getBooking(bookingId: BookingId, viewerId: string): Promise<BookingRecord | null> {
-    const { data, error } = await this.client
+    let { data, error } = await this.client
       .from("bookings")
       .select(
         "id,task_id,client_id,tasker_id,agreed_centavos,status,idempotency_key,created_at,updated_at",
@@ -1172,6 +1215,23 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
       .eq("id", bookingId)
       .maybeSingle();
     fail("getBooking", error);
+    if (!data) {
+      const { data: convData } = await this.client
+        .from("conversations")
+        .select("booking_id")
+        .eq("id", bookingId)
+        .maybeSingle();
+      if (convData?.booking_id) {
+        const res = await this.client
+          .from("bookings")
+          .select(
+            "id,task_id,client_id,tasker_id,agreed_centavos,status,idempotency_key,created_at,updated_at",
+          )
+          .eq("id", convData.booking_id)
+          .maybeSingle();
+        data = res.data;
+      }
+    }
     if (!data) return null;
     const built = await this.buildBookings([data as RawBookingRow], viewerId);
     return built[0] ?? null;
@@ -1194,7 +1254,7 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     const bookingIds = rows.map((row) => row.id);
 
     const [taskRes, names, intents, disputes, privateLocs, evidence] = await Promise.all([
-      this.client.from("tasks").select("id,title").in("id", taskIds),
+      this.client.from("tasks").select("id,title,description").in("id", taskIds),
       this.displayNames([...rows.map((r) => r.client_id), ...rows.map((r) => r.tasker_id)]),
       this.client.from("payment_intents").select("id,booking_id").in("booking_id", bookingIds),
       this.client.from("disputes").select("id,booking_id").in("booking_id", bookingIds),
@@ -1209,11 +1269,14 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
         .in("resource_id", bookingIds),
     ]);
 
-    const titleByTask = new Map(
-      ((taskRes.data ?? []) as ReadonlyArray<{ id: string; title: string }>).map((task) => [
-        task.id,
-        task.title,
-      ]),
+    const taskMetaByTask = new Map(
+      (
+        (taskRes.data ?? []) as ReadonlyArray<{
+          id: string;
+          title: string;
+          description: string | null;
+        }>
+      ).map((task) => [task.id, { title: task.title, description: task.description }]),
     );
     const intentByBooking = new Map(
       ((intents.data ?? []) as ReadonlyArray<{ id: string; booking_id: string }>).map((intent) => [
@@ -1262,10 +1325,12 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
       const taskerName = this.nameOf(names, row.tasker_id);
       const isParticipant = viewerId === row.client_id || viewerId === row.tasker_id;
       const loc = isParticipant ? (locByTask.get(row.task_id) ?? null) : null;
+      const taskMeta = taskMetaByTask.get(row.task_id);
       return {
         id: row.id as BookingId,
         taskId: row.task_id as TaskId,
-        taskTitle: titleByTask.get(row.task_id) ?? "Task",
+        taskTitle: taskMeta?.title ?? "Task",
+        taskDescription: taskMeta?.description ?? null,
         clientId: row.client_id as UserId,
         clientDisplayName: clientName,
         taskerId: row.tasker_id as UserId,
@@ -1647,7 +1712,7 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
     const { data } = await this.client
       .from("conversations")
       .select("id,booking_id")
-      .eq("booking_id", bookingId)
+      .or(`booking_id.eq.${bookingId},id.eq.${bookingId}`)
       .maybeSingle();
     const row = data as { id: string; booking_id: string } | null;
     if (!row) return null;
@@ -2045,10 +2110,12 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
   // =========================================================================
 
   async listNotifications(userId: string): Promise<ReadonlyArray<NotificationRecord>> {
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const { data, error } = await this.client
       .from("notifications")
       .select("id,user_id,type,title,body,resource_type,resource_id,read_at,created_at")
       .eq("user_id", userId)
+      .or(`read_at.is.null,created_at.gte.${cutoff}`)
       .order("created_at", { ascending: false });
     fail("listNotifications", error);
     return ((data ?? []) as ReadonlyArray<Parameters<typeof mapNotification>[0]>).map(

@@ -3,9 +3,14 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { TextField } from "../ui/TextField";
 import { Icon, type IconName } from "../ui/Icon";
 import { CategoryPicker } from "./CategoryPicker";
-import { LocationSearchModal, locationSelectionToDraftPatch } from "./LocationSearchModal";
+import {
+  LocationSearchModal,
+  locationSelectionToDraftPatch,
+  resolvePsgcLocality,
+} from "./LocationSearchModal";
 import { LocalityPicker } from "./LocalityPicker";
 import { TaskSchedulePicker } from "./TaskSchedulePicker";
+import { useMarketplace } from "../../providers/MarketplaceProvider";
 import { theme, spacing, fontSize, lineHeight, radii, MIN_TOUCH_TARGET } from "../../theme";
 import type { TaskDraftFormValue } from "./taskDraftValue";
 
@@ -31,6 +36,7 @@ export type TaskDraftFormProps = {
  * are always presented as visually distinct, separately labeled sections.
  */
 export function TaskDraftForm({ value, onChange, errors }: TaskDraftFormProps) {
+  const { repository } = useMarketplace();
   const [locationSearchOpen, setLocationSearchOpen] = useState(false);
 
   function set<K extends keyof TaskDraftFormValue>(key: K, next: TaskDraftFormValue[K]) {
@@ -188,8 +194,14 @@ export function TaskDraftForm({ value, onChange, errors }: TaskDraftFormProps) {
 
       <LocationSearchModal
         visible={locationSearchOpen}
-        onSelect={(selection) => {
-          onChange({ ...value, ...locationSelectionToDraftPatch(selection) });
+        userCityHint={value.cityName || value.landmark}
+        onSelect={async (selection) => {
+          const localityPatch = await resolvePsgcLocality(repository, selection);
+          onChange({
+            ...value,
+            ...locationSelectionToDraftPatch(selection),
+            ...localityPatch,
+          });
           setLocationSearchOpen(false);
         }}
         onClose={() => setLocationSearchOpen(false)}

@@ -189,6 +189,7 @@ export type BookingRecord = {
   readonly id: BookingId;
   readonly taskId: TaskId;
   readonly taskTitle: string;
+  readonly taskDescription?: string | null;
   readonly clientId: UserId;
   readonly clientDisplayName: string;
   readonly taskerId: UserId;

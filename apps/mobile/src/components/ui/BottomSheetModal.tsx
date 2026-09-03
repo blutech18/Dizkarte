@@ -52,6 +52,7 @@ export function BottomSheetModal({ visible, onClose, children }: BottomSheetModa
   const fade = useRef(new Animated.Value(0)).current;
   const slide = useRef(new Animated.Value(sheetOffset)).current;
   const keyboardOffset = useRef(new Animated.Value(0)).current;
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
   useEffect(() => {
@@ -61,22 +62,24 @@ export function BottomSheetModal({ visible, onClose, children }: BottomSheetModa
     const onShow = (e: { endCoordinates?: { height: number }; duration?: number }) => {
       const height = e?.endCoordinates?.height ?? 0;
       const duration = e?.duration && e.duration > 0 ? e.duration : 250;
+      setKeyboardHeight(height);
       setIsKeyboardVisible(true);
       Animated.timing(keyboardOffset, {
         toValue: height,
         duration,
-        easing: Easing.out(Easing.cubic),
+        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
         useNativeDriver: false,
       }).start();
     };
 
     const onHide = (e: { duration?: number }) => {
       const duration = e?.duration && e.duration > 0 ? e.duration : 200;
+      setKeyboardHeight(0);
       setIsKeyboardVisible(false);
       Animated.timing(keyboardOffset, {
         toValue: 0,
         duration,
-        easing: Easing.out(Easing.cubic),
+        easing: Easing.bezier(0.25, 0.1, 0.25, 1),
         useNativeDriver: false,
       }).start();
     };
@@ -215,6 +218,8 @@ export function BottomSheetModal({ visible, onClose, children }: BottomSheetModa
 
   if (!rendered) return null;
 
+  const topSafeGap = Math.max(insets.top, 24) + 20;
+
   return (
     <Modal
       visible
@@ -228,6 +233,7 @@ export function BottomSheetModal({ visible, onClose, children }: BottomSheetModa
         style={[
           styles.overlay,
           {
+            paddingTop: topSafeGap,
             paddingLeft: insets.left,
             paddingRight: insets.right,
           },
@@ -236,9 +242,15 @@ export function BottomSheetModal({ visible, onClose, children }: BottomSheetModa
         <Animated.View style={[styles.backdrop, { opacity: fade }]}>
           <Pressable
             style={StyleSheet.absoluteFill}
-            onPress={onClose}
+            onPress={() => {
+              if (isKeyboardVisible) {
+                Keyboard.dismiss();
+              } else {
+                onClose();
+              }
+            }}
             accessibilityRole="button"
-            accessibilityLabel="Close"
+            accessibilityLabel={isKeyboardVisible ? "Dismiss keyboard" : "Close"}
           />
         </Animated.View>
 
@@ -251,13 +263,18 @@ export function BottomSheetModal({ visible, onClose, children }: BottomSheetModa
               transform: [{ translateY: slide }],
               marginBottom: keyboardOffset,
               maxHeight: isKeyboardVisible
-                ? Math.max(300, (windowHeight || 800) - 180)
-                : "85%",
+                ? Math.max(260, screenHeight - topSafeGap - keyboardHeight)
+                : Math.min(screenHeight - topSafeGap, screenHeight * 0.85),
             },
           ]}
         >
           <View
             {...panResponder.panHandlers}
+            onTouchStart={() => {
+              if (isKeyboardVisible) {
+                Keyboard.dismiss();
+              }
+            }}
             accessibilityRole="button"
             accessibilityLabel="Collapse modal"
             accessibilityHint="Drag down or tap to collapse this sheet"

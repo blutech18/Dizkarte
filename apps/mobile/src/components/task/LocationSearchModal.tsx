@@ -14,10 +14,12 @@ import type { PlaceSuggestion } from "@dizkarte/domain";
 import * as Location from "expo-location";
 import { Icon } from "../ui/Icon";
 import { getMapProvider } from "../../services/map/factory";
+import { useSession } from "../../providers/SessionProvider";
+import { useMarketplace } from "../../providers/MarketplaceProvider";
 import type { TaskDraftFormValue } from "./taskDraftValue";
 import { theme, spacing, fontSize, radii, noWebOutline } from "../../theme";
 
-const SUGGESTED_SUBURBS = [
+export const DEFAULT_SUGGESTED_SUBURBS = [
   "Quezon City, Metro Manila",
   "Makati City, Metro Manila",
   "BGC, Taguig City, Metro Manila",
@@ -29,18 +31,218 @@ const SUGGESTED_SUBURBS = [
   "Baguio City, Benguet",
 ];
 
+export async function getDynamicSuggestedSuburbs({
+  userId,
+  repository,
+  userCityHint,
+  userProvinceHint,
+}: {
+  readonly userId?: string | null;
+  readonly repository?: {
+    getBillingAddress?: (userId: string) => Promise<{
+      line1?: string;
+      city?: string;
+      province?: string | null;
+    } | null>;
+    searchCities?: (keyword: string) => Promise<ReadonlyArray<{ city6: string; name: string }>>;
+    searchBarangays?: (
+      city6: string,
+      keyword: string,
+    ) => Promise<ReadonlyArray<{ code: string; name: string }>>;
+  } | null;
+  readonly userCityHint?: string | null;
+  readonly userProvinceHint?: string | null;
+}): Promise<string[]> {
+  const list: string[] = [];
+
+  // 1. Check user's saved billing address
+  if (userId && repository?.getBillingAddress) {
+    try {
+      const billing = await repository.getBillingAddress(userId);
+      if (billing) {
+        if (billing.line1 && billing.city) {
+          list.push(`${billing.line1}, ${billing.city}`);
+        }
+        if (billing.city) {
+          const cityWithProv = billing.province
+            ? `${billing.city}, ${billing.province}`
+            : billing.city;
+          list.push(cityWithProv);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // 2. Check device's last known position if permissions are available
+  try {
+    const { status } = await Location.getForegroundPermissionsAsync();
+    if (status === "granted") {
+      const last = await Location.getLastKnownPositionAsync();
+      if (last) {
+        const [geo] = await Location.reverseGeocodeAsync({
+          latitude: last.coords.latitude,
+          longitude: last.coords.longitude,
+        });
+        if (geo) {
+          const parts: string[] = [];
+          if (geo.district) parts.push(geo.district);
+          if (geo.city && !parts.includes(geo.city)) parts.push(geo.city);
+          if (geo.region && !parts.includes(geo.region)) parts.push(geo.region);
+          if (parts.length > 0) list.push(parts.join(", "));
+        }
+      }
+    }
+  } catch {
+    // ignore
+  }
+
+  // 3. User city / province hint from current draft
+  if (userCityHint) {
+    const hint = userProvinceHint
+      ? `${userCityHint}, ${userProvinceHint}`
+      : userCityHint;
+    list.push(hint);
+  }
+
+  // 4. Query repository for local barangays in user's primary city
+  const primaryCity = userCityHint || list[0]?.split(",")[0]?.trim();
+  if (primaryCity && repository?.searchCities && repository?.searchBarangays) {
+    try {
+      const cities = await repository.searchCities(primaryCity);
+      if (cities.length > 0) {
+        const city = cities[0];
+        const barangays = await repository.searchBarangays(city.city6, "");
+        for (const b of barangays.slice(0, 4)) {
+          list.push(`${b.name}, ${city.name}`);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // 5. Append standard regional hubs to complete the list
+  for (const hub of DEFAULT_SUGGESTED_SUBURBS) {
+    list.push(hub);
+  }
+
+  // Deduplicate case-insensitively while preserving order
+  const seen = new Set<string>();
+  const uniqueList: string[] = [];
+  for (const item of list) {
+    const normalized = item.toLowerCase().trim();
+    if (!seen.has(normalized) && normalized.length > 0) {
+      seen.add(normalized);
+      uniqueList.push(item);
+    }
+  }
+
+  return uniqueList.slice(0, 10);
+}
+
 type SelectableLocation = PlaceSuggestion & {
   readonly exactAddress?: string;
+  readonly cityHint?: string | null;
+  readonly barangayHint?: string | null;
 };
 
 export type LocationSelection = PlaceSuggestion & {
   readonly exactAddress: string;
+  readonly cityHint?: string | null;
+  readonly barangayHint?: string | null;
 };
 
 export type TaskLocationPatch = Pick<
   TaskDraftFormValue,
   "landmark" | "exactAddress" | "approximateLat" | "approximateLng" | "exactLat" | "exactLng"
 >;
+
+export type LocalityResolution = {
+  readonly cityCode?: string;
+  readonly cityName?: string;
+  readonly barangayCode?: string | null;
+  readonly barangayName?: string | null;
+};
+
+/**
+ * Resolve canonical PSGC city/municipality and barangay codes from a map selection.
+ */
+export async function resolvePsgcLocality(
+  repository: {
+    searchCities: (keyword: string) => Promise<ReadonlyArray<{ city6: string; name: string }>>;
+    searchBarangays: (
+      city6: string,
+      keyword: string,
+    ) => Promise<ReadonlyArray<{ code: string; name: string }>>;
+  },
+  selection: LocationSelection,
+): Promise<LocalityResolution> {
+  try {
+    const cityCandidates = [
+      selection.cityHint,
+      ...selection.description.split(",").map((p) => p.trim()),
+    ].filter((c): c is string => Boolean(c && c.length >= 2));
+
+    let matchedCity: { city6: string; name: string } | null = null;
+    for (const cand of cityCandidates) {
+      const cleanCand = cand
+        .replace(/\s+(city|municipality)$/i, "")
+        .replace(/^(city\s+of|municipality\s+of)\s+/i, "")
+        .trim();
+      const results = await repository.searchCities(cleanCand || cand);
+      if (results.length > 0) {
+        const exact = results.find(
+          (c) =>
+            c.name.toLowerCase() === cand.toLowerCase() ||
+            c.name.toLowerCase() === cleanCand.toLowerCase() ||
+            c.name.toLowerCase().includes(cleanCand.toLowerCase()),
+        );
+        matchedCity = exact ?? results[0];
+        break;
+      }
+    }
+
+    if (!matchedCity) return {};
+
+    const patch: LocalityResolution = {
+      cityCode: matchedCity.city6,
+      cityName: matchedCity.name,
+      barangayCode: null,
+      barangayName: null,
+    };
+
+    const barangayCandidates = [
+      selection.barangayHint,
+      ...selection.description.split(",").map((p) => p.trim()),
+    ]
+      .filter((b): b is string => Boolean(b && b.length >= 2))
+      .map((b) => b.replace(/^(brgy\.?|barangay)\s*/i, "").trim());
+
+    for (const bCand of barangayCandidates) {
+      if (bCand.toLowerCase() === matchedCity.name.toLowerCase()) continue;
+      const bResults = await repository.searchBarangays(matchedCity.city6, bCand);
+      if (bResults.length > 0) {
+        const exactB = bResults.find(
+          (b) =>
+            b.name.toLowerCase() === bCand.toLowerCase() ||
+            b.name.toLowerCase().includes(bCand.toLowerCase()),
+        );
+        const chosen = exactB ?? bResults[0];
+        return {
+          ...patch,
+          barangayCode: chosen.code,
+          barangayName: chosen.name,
+        };
+      }
+    }
+
+    return patch;
+  } catch {
+    return {};
+  }
+}
 
 /**
  * Convert a picker result into the exact draft fields persisted by both
@@ -86,12 +288,20 @@ export function LocationSearchModal({
   visible,
   onSelect,
   onClose,
+  userCityHint,
+  userProvinceHint,
 }: {
   readonly visible: boolean;
   readonly onSelect: (selection: LocationSelection) => void;
   readonly onClose: () => void;
+  readonly userCityHint?: string | null;
+  readonly userProvinceHint?: string | null;
 }) {
   const insets = useSafeAreaInsets();
+  const { session } = useSession();
+  const { repository } = useMarketplace();
+  const [suggestedSuburbs, setSuggestedSuburbs] =
+    useState<ReadonlyArray<string>>(DEFAULT_SUGGESTED_SUBURBS);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ReadonlyArray<PlaceSuggestion>>([]);
   const [loading, setLoading] = useState(false);
@@ -99,6 +309,26 @@ export function LocationSearchModal({
   const [locating, setLocating] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [locError, setLocError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!visible) return;
+    let active = true;
+
+    void getDynamicSuggestedSuburbs({
+      userId: session?.userId,
+      repository,
+      userCityHint,
+      userProvinceHint,
+    }).then((list) => {
+      if (active && list.length > 0) {
+        setSuggestedSuburbs(list);
+      }
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [visible, session?.userId, repository, userCityHint, userProvinceHint]);
 
   useEffect(() => {
     if (!visible) {
@@ -190,7 +420,11 @@ export function LocationSearchModal({
       }
       const coords = await mapProvider.geocode(description);
       if (coords) {
-        choose({ description, ...coords });
+        choose({
+          description: publicAreaLabel(description),
+          ...coords,
+          cityHint: description.split(",")[0]?.trim(),
+        });
         return;
       }
       setLocError("We couldn't locate that address. Try adding a city or barangay.");
@@ -251,23 +485,28 @@ export function LocationSearchModal({
         providerAddress ||
         `My location (${latitude.toFixed(4)}, ${longitude.toFixed(4)})`;
 
-      const publicLabel =
-        [
-          deviceAddress?.district,
-          deviceAddress?.city,
-          deviceAddress?.subregion,
-          deviceAddress?.region,
-          deviceAddress?.country,
-        ]
-          .filter((part): part is string => Boolean(part))
-          .filter((part, index, parts) => parts.indexOf(part) === index)
-          .join(", ") || cleanLocationLabel(providerAddress ?? exactAddress);
+      const cityHint = deviceAddress?.city || deviceAddress?.subregion || null;
+      const barangayHint = deviceAddress?.district || null;
+
+      // Extract clean suburb / locality (e.g. "Diliman, Quezon City" or "Makati City")
+      // instead of the full precise street address.
+      const suburbParts: string[] = [];
+      if (deviceAddress?.district) suburbParts.push(deviceAddress.district);
+      if (deviceAddress?.city && !suburbParts.includes(deviceAddress.city)) {
+        suburbParts.push(deviceAddress.city);
+      }
+      let suburbOnly = suburbParts.join(", ");
+      if (!suburbOnly) {
+        suburbOnly = publicAreaLabel(providerAddress ?? exactAddress);
+      }
 
       choose({
-        description: publicLabel,
+        description: suburbOnly,
         exactAddress,
         lat: latitude,
         lng: longitude,
+        cityHint,
+        barangayHint,
       });
     } catch {
       setLocError("Couldn't get your location. Please try again or search manually.");
@@ -339,7 +578,10 @@ export function LocationSearchModal({
           {showStarter ? (
             <>
               <Pressable
-                style={styles.currentLocationButton}
+                style={({ pressed }) => [
+                  styles.currentLocationButton,
+                  pressed && !locating ? styles.resultItemPressed : null,
+                ]}
                 onPress={() => void useCurrentLocation()}
                 disabled={locating}
                 accessibilityRole="button"
@@ -357,10 +599,13 @@ export function LocationSearchModal({
               </Pressable>
               {locError ? <Text style={styles.message}>{locError}</Text> : null}
               <Text style={styles.sectionLabel}>Suggested places</Text>
-              {SUGGESTED_SUBURBS.map((item) => (
+              {suggestedSuburbs.map((item) => (
                 <Pressable
                   key={item}
-                  style={styles.resultItem}
+                  style={({ pressed }) => [
+                    styles.resultItem,
+                    pressed ? styles.resultItemPressed : null,
+                  ]}
                   onPress={() => void resolveAndChoose(item)}
                   accessibilityRole="button"
                   accessibilityLabel={item}
@@ -376,7 +621,10 @@ export function LocationSearchModal({
               {results.map((result, index) => (
                 <Pressable
                   key={`${result.description}-${index}`}
-                  style={styles.resultItem}
+                  style={({ pressed }) => [
+                    styles.resultItem,
+                    pressed ? styles.resultItemPressed : null,
+                  ]}
                   onPress={() => choose(result)}
                   accessibilityRole="button"
                   accessibilityLabel={result.description}
@@ -394,7 +642,10 @@ export function LocationSearchModal({
 
               {!loading && !hasExactMatch && !locError ? (
                 <Pressable
-                  style={styles.resultItem}
+                  style={({ pressed }) => [
+                    styles.resultItem,
+                    pressed ? styles.resultItemPressed : null,
+                  ]}
                   onPress={() => void resolveAndChoose(trimmed)}
                   accessibilityRole="button"
                   accessibilityLabel={`Use ${trimmed}`}
@@ -433,8 +684,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     gap: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.borderSubtle,
   },
   searchRow: {
     flex: 1,
@@ -465,14 +714,14 @@ const styles = StyleSheet.create({
   },
   results: { flex: 1 },
   currentLocationButton: {
-    minHeight: 54,
+    minHeight: 50,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    marginHorizontal: spacing.xs,
+    borderRadius: radii.md,
     gap: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.borderSubtle,
   },
   currentLocationText: {
     fontSize: fontSize.md,
@@ -490,14 +739,17 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xs,
   },
   resultItem: {
-    minHeight: 54,
+    minHeight: 50,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    marginHorizontal: spacing.xs,
+    borderRadius: radii.md,
     gap: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.borderSubtle,
+  },
+  resultItemPressed: {
+    backgroundColor: theme.surfaceSubtle,
   },
   resultText: {
     flex: 1,

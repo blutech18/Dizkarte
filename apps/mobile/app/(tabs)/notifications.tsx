@@ -22,24 +22,95 @@ type FilterTab = "all" | "unread";
 function resourceRoute(
   notification: NotificationRecord,
 ): { pathname: string; params: Record<string, string> } | null {
-  if (!notification.resourceId) return null;
+  const resourceId = notification.resourceId?.trim() || "";
 
   switch (notification.type) {
     case "NEARBY_TASK":
-      return { pathname: "/task/[id]", params: { id: notification.resourceId } };
+      return resourceId
+        ? { pathname: "/task/[id]", params: { id: resourceId } }
+        : { pathname: "/(tabs)/browse", params: {} };
+
+    case "OFFER_RECEIVED":
+      return resourceId
+        ? { pathname: "/task/[id]/owned", params: { id: resourceId } }
+        : { pathname: "/(tabs)/my-tasks", params: {} };
+
+    case "OFFER_SELECTED":
+      if (notification.resourceType === "booking" && resourceId) {
+        return { pathname: "/booking/[id]", params: { id: resourceId } };
+      }
+      return resourceId
+        ? { pathname: "/task/[id]", params: { id: resourceId } }
+        : { pathname: "/(tabs)/bookings", params: {} };
+
+    case "PAYMENT_CONFIRMED":
+    case "PAYMENT_FAILED":
+    case "BOOKING_STARTED":
+    case "BOOKING_COMPLETED":
+    case "COMPLETION_REQUESTED":
+    case "COMPLETION_REMINDER":
+      return resourceId
+        ? { pathname: "/booking/[id]", params: { id: resourceId } }
+        : { pathname: "/(tabs)/bookings", params: {} };
+
+    case "MESSAGE_RECEIVED":
+      return resourceId
+        ? {
+            pathname: "/chat/[bookingId]",
+            params: { bookingId: resourceId, conversationId: resourceId },
+          }
+        : { pathname: "/(tabs)/bookings", params: {} };
+
+    case "REVIEW_RECEIVED":
     case "REVIEW_REMINDER":
-      return { pathname: "/review/[bookingId]", params: { bookingId: notification.resourceId } };
+      return resourceId
+        ? { pathname: "/review/[bookingId]", params: { bookingId: resourceId } }
+        : { pathname: "/(tabs)/bookings", params: {} };
+
+    case "DISPUTE_OPENED":
+      return resourceId
+        ? { pathname: "/dispute/[bookingId]", params: { bookingId: resourceId } }
+        : { pathname: "/support", params: {} };
+
+    case "REPORT_RESOLVED":
+      return { pathname: "/support", params: {} };
+
+    case "VERIFICATION_DECISION":
+      return { pathname: "/verification", params: {} };
+
     default:
       break;
   }
 
+  // Fallback by resourceType if notification.type is generic or legacy
   switch (notification.resourceType) {
     case "booking":
-      return { pathname: "/booking/[id]", params: { id: notification.resourceId } };
+      return resourceId
+        ? { pathname: "/booking/[id]", params: { id: resourceId } }
+        : { pathname: "/(tabs)/bookings", params: {} };
     case "task":
-      return { pathname: "/task/[id]/owned", params: { id: notification.resourceId } };
+      return resourceId
+        ? { pathname: "/task/[id]/owned", params: { id: resourceId } }
+        : { pathname: "/(tabs)/my-tasks", params: {} };
+    case "conversation":
+      return resourceId
+        ? {
+            pathname: "/chat/[bookingId]",
+            params: { bookingId: resourceId, conversationId: resourceId },
+          }
+        : { pathname: "/(tabs)/bookings", params: {} };
+    case "review":
+      return resourceId
+        ? { pathname: "/review/[bookingId]", params: { bookingId: resourceId } }
+        : { pathname: "/(tabs)/bookings", params: {} };
+    case "dispute":
+      return resourceId
+        ? { pathname: "/dispute/[bookingId]", params: { bookingId: resourceId } }
+        : { pathname: "/support", params: {} };
+    case "report":
+      return { pathname: "/support", params: {} };
     default:
-      return null;
+      return { pathname: "/(tabs)/home", params: {} };
   }
 }
 
@@ -211,7 +282,13 @@ export default function NotificationsScreen() {
         notifyChanged();
       }
       const route = resourceRoute(notification);
-      if (route) router.push(route as never);
+      if (route) {
+        if (Object.keys(route.params).length > 0) {
+          router.push(route as never);
+        } else {
+          router.push(route.pathname as never);
+        }
+      }
     },
     [session, repository, notifyChanged],
   );
@@ -232,28 +309,6 @@ export default function NotificationsScreen() {
     }
     return notifications;
   }, [notifications, filter]);
-
-  const groups = useMemo(() => {
-    const today: NotificationRecord[] = [];
-    const yesterday: NotificationRecord[] = [];
-    const earlier: NotificationRecord[] = [];
-
-    for (const n of filteredNotifications) {
-      if (isToday(n.createdAt)) {
-        today.push(n);
-      } else if (isYesterday(n.createdAt)) {
-        yesterday.push(n);
-      } else {
-        earlier.push(n);
-      }
-    }
-
-    return [
-      { key: "Today", items: today },
-      { key: "Yesterday", items: yesterday },
-      { key: "Earlier", items: earlier },
-    ].filter((g) => g.items.length > 0);
-  }, [filteredNotifications]);
 
   return (
     <Screen
@@ -359,24 +414,15 @@ export default function NotificationsScreen() {
 
       {state === "loaded" && filteredNotifications.length > 0 ? (
         <View style={styles.listContainer}>
-          {groups.map((group) => (
-            <View key={group.key} style={styles.groupSection}>
-              <View style={styles.groupHeaderRow}>
-                <Text style={styles.groupLabel}>{group.key}</Text>
-                <Text style={styles.groupCount}>{group.items.length}</Text>
-              </View>
-
-              <View style={styles.groupCardsList}>
-                {group.items.map((notification) => (
-                  <NotificationCard
-                    key={notification.id}
-                    notification={notification}
-                    onOpen={handleOpen}
-                  />
-                ))}
-              </View>
-            </View>
-          ))}
+          <View style={styles.groupCardsList}>
+            {filteredNotifications.map((notification) => (
+              <NotificationCard
+                key={notification.id}
+                notification={notification}
+                onOpen={handleOpen}
+              />
+            ))}
+          </View>
         </View>
       ) : null}
     </Screen>
@@ -534,32 +580,9 @@ const styles = StyleSheet.create({
     color: theme.primary,
   },
 
-  // Groups
+  // List Container
   listContainer: {
-    gap: spacing.lg,
     paddingBottom: spacing.xxl,
-  },
-  groupSection: {
-    gap: spacing.xs,
-  },
-  groupHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: spacing.xs,
-    marginBottom: spacing.xs,
-  },
-  groupLabel: {
-    fontSize: 11,
-    fontWeight: "800",
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
-    color: theme.textSecondary,
-  },
-  groupCount: {
-    fontSize: 11,
-    fontWeight: "700",
-    color: theme.textSecondary,
   },
   groupCardsList: {
     gap: spacing.sm,

@@ -148,7 +148,11 @@ function useReducedMotionPreference(): boolean {
 }
 
 export default function ChatScreen() {
-  const params = useLocalSearchParams<{ bookingId: string; rebook?: string }>();
+  const params = useLocalSearchParams<{
+    bookingId?: string;
+    conversationId?: string;
+    rebook?: string;
+  }>();
 
   const { session, status } = useSession();
   const { repository, notifyChanged } = useMarketplace();
@@ -309,25 +313,32 @@ export default function ChatScreen() {
     messageContentHeight.current = 0;
     messageViewportHeight.current = 0;
     isNearListEnd.current = true;
-    Promise.all([
-      repository.getBooking(params.bookingId as BookingId, session.userId),
-      repository.getConversationForBooking(params.bookingId as BookingId, session.userId),
-    ])
-      .then(async ([bookingRecord, conversation]) => {
-        setBooking(bookingRecord);
+    const targetId = (params.bookingId || params.conversationId) as BookingId;
+    if (!targetId) {
+      setState("denied");
+      return;
+    }
+    repository
+      .getConversationForBooking(targetId, session.userId)
+      .then(async (conversation) => {
         if (!conversation) {
-          // Chat unlocks only after payment confirms the booking; before that
-          // there is no conversation to show.
+          // No unlocked conversation found. Try getting booking details if available
+          const fallbackBooking = await repository.getBooking(targetId, session.userId);
+          setBooking(fallbackBooking);
           setState("denied");
           return;
         }
         setConversationId(conversation.id);
-        const list = await repository.listMessages(conversation.id, session.userId);
+        const [bookingRecord, list] = await Promise.all([
+          repository.getBooking(conversation.bookingId, session.userId),
+          repository.listMessages(conversation.id, session.userId),
+        ]);
+        setBooking(bookingRecord);
         applyMessageList(list, false, "never");
         setState("loaded");
       })
       .catch(() => setState("error"));
-  }, [applyMessageList, params.bookingId, repository, session]);
+  }, [applyMessageList, params.bookingId, params.conversationId, repository, session]);
 
   useEffect(() => {
     load();
@@ -479,10 +490,37 @@ export default function ChatScreen() {
 
   if (status === "loading") return <LoadingState label="Loading" />;
   if (!session) return <Redirect href="/(auth)/welcome" />;
-  if (state === "loading") return <LoadingState label="Loading conversation" />;
-  if (state === "denied")
-    return <DeniedState description="Chat opens once payment confirms this booking." />;
-  if (state === "error") return <ErrorState onRetry={load} />;
+  if (state === "loading") {
+    return (
+      <Screen subPageTitle={counterpartName ? `Chat with ${counterpartName}` : "Chat"}>
+        <LoadingState label="Loading conversation" />
+      </Screen>
+    );
+  }
+  if (state === "denied") {
+    return (
+      <Screen subPageTitle={counterpartName ? `Chat with ${counterpartName}` : "Chat"}>
+        <DeniedState description="Chat opens once payment confirms this booking." />
+        {booking ? (
+          <View style={styles.deniedActionContainer}>
+            <Button
+              label="View booking details"
+              variant="secondary"
+              size="sm"
+              onPress={() => router.push({ pathname: "/booking/[id]", params: { id: booking.id } })}
+            />
+          </View>
+        ) : null}
+      </Screen>
+    );
+  }
+  if (state === "error") {
+    return (
+      <Screen subPageTitle={counterpartName ? `Chat with ${counterpartName}` : "Chat"}>
+        <ErrorState onRetry={load} />
+      </Screen>
+    );
+  }
 
   const canSend = (draft.trim().length > 0 || attachments.length > 0) && !sending && isAppActive;
 
@@ -1116,4 +1154,9 @@ const styles = StyleSheet.create({
   },
   sendButtonPressed: { backgroundColor: theme.primaryPressed, transform: [{ scale: 0.96 }] },
   sendButtonDisabled: { backgroundColor: theme.disabledBackground },
+  deniedActionContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingBottom: spacing.xl,
+  },
 });

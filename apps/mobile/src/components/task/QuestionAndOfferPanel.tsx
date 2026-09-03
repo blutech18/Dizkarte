@@ -398,10 +398,8 @@ const styles = StyleSheet.create({
   },
   workspaceHeader: {
     minWidth: 0,
-    gap: spacing.sm,
-    paddingBottom: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.borderSubtle,
+    gap: spacing.xs + 2,
+    paddingBottom: spacing.xs,
   },
   workspaceEyebrow: {
     color: theme.textSecondary,

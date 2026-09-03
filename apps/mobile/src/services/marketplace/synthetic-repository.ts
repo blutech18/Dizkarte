@@ -105,6 +105,8 @@ const SYNTHETIC_CITIES: ReadonlyArray<PsgcCity> = [
   { code: "137502000", city6: "137502", name: "Makati City", provinceName: null, isCity: true },
   { code: "133900000", city6: "133900", name: "City of Manila", provinceName: null, isCity: true },
   { code: "072217000", city6: "072217", name: "Cebu City", provinceName: "Cebu", isCity: true },
+  { code: "104321000", city6: "104321", name: "Opol", provinceName: "Misamis Oriental", isCity: false },
+  { code: "104305000", city6: "104305", name: "Cagayan de Oro City", provinceName: "Misamis Oriental", isCity: true },
 ];
 const SYNTHETIC_BARANGAYS: ReadonlyArray<PsgcBarangay> = [
   { code: "137404022", name: "Commonwealth", city6: "137404" },
@@ -113,6 +115,19 @@ const SYNTHETIC_BARANGAYS: ReadonlyArray<PsgcBarangay> = [
   { code: "137502025", name: "Poblacion", city6: "137502" },
   { code: "133900001", name: "Barangay 1 (Tondo)", city6: "133900" },
   { code: "072217050", name: "Lahug", city6: "072217" },
+  { code: "104321001", name: "Barra", city6: "104321" },
+  { code: "104321002", name: "Bonbon", city6: "104321" },
+  { code: "104321003", name: "Igpit", city6: "104321" },
+  { code: "104321004", name: "Malanang", city6: "104321" },
+  { code: "104321005", name: "Patag", city6: "104321" },
+  { code: "104321006", name: "Poblacion", city6: "104321" },
+  { code: "104321007", name: "Taboc", city6: "104321" },
+  { code: "104305001", name: "Bulua", city6: "104305" },
+  { code: "104305002", name: "Carmen", city6: "104305" },
+  { code: "104305003", name: "Macasandig", city6: "104305" },
+  { code: "104305004", name: "Nazareth", city6: "104305" },
+  { code: "104305005", name: "Lapasan", city6: "104305" },
+  { code: "104305006", name: "Kauswagan", city6: "104305" },
 ];
 
 function nowIso(): string {
@@ -605,6 +620,27 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
     return updated;
   }
 
+  async deleteAnswer(
+    questionId: string,
+    taskId: TaskId,
+    clientId: string,
+  ): Promise<TaskQuestionRecord> {
+    await delay();
+    const key = taskId as unknown as string;
+    const task = this.tasks.get(key);
+    if (!task || task.clientId !== clientId) {
+      throw new Error("Forbidden: only the task owner may delete answers.");
+    }
+    const list = this.questions.get(key) ?? [];
+    const idx = list.findIndex((q) => q.id === questionId);
+    const existing = idx === -1 ? undefined : list[idx];
+    if (!existing) throw new Error("Question not found.");
+    const updated: TaskQuestionRecord = { ...existing, answer: undefined };
+    list[idx] = updated;
+    this.questions.set(key, list);
+    return updated;
+  }
+
   /**
    * Offer visibility is private: only the task's owning Client may compare
    * every offer; a Tasker may see only their own offer(s) on this task;
@@ -826,6 +862,7 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
       id: bookingId as unknown as BookingId,
       taskId,
       taskTitle: task.draft.title,
+      taskDescription: task.draft.description,
       clientId: clientId as unknown as BookingRecord["clientId"],
       clientDisplayName: "You",
       taskerId: offer.taskerId,
@@ -986,10 +1023,21 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
 
   async getBooking(bookingId: BookingId, viewerId: string): Promise<BookingRecord | null> {
     await delay();
-    const booking = this.bookings.get(bookingId as unknown as string);
+    let booking = this.bookings.get(bookingId as unknown as string);
+    if (!booking) {
+      const conv = this.conversations.get(bookingId as unknown as string);
+      if (conv) {
+        booking = this.bookings.get(conv.bookingId as unknown as string);
+      }
+    }
     if (!booking) return null;
     if (booking.clientId !== viewerId && booking.taskerId !== viewerId) return null;
-    return this.projectBooking(booking, viewerId);
+    const task = this.tasks.get(booking.taskId as unknown as string);
+    const projected = this.projectBooking(booking, viewerId);
+    return {
+      ...projected,
+      taskDescription: booking.taskDescription ?? task?.draft.description ?? null,
+    };
   }
 
   /** Strips exact address/contact unless the booking is communication-unlocked. */
@@ -1460,11 +1508,17 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
     viewerId: string,
   ): Promise<ConversationRecord | null> {
     await delay();
-    const booking = this.bookings.get(bookingId as unknown as string);
+    let booking = this.bookings.get(bookingId as unknown as string);
+    if (!booking) {
+      const conv = this.conversations.get(bookingId as unknown as string);
+      if (conv) {
+        booking = this.bookings.get(conv.bookingId as unknown as string);
+      }
+    }
     if (!booking) return null;
     if (booking.clientId !== viewerId && booking.taskerId !== viewerId) return null;
     if (!isCommunicationUnlocked(booking.status)) return null;
-    return this.ensureConversation(bookingId, booking.clientId, booking.taskerId);
+    return this.ensureConversation(booking.id, booking.clientId, booking.taskerId);
   }
 
   async listMessages(
@@ -1940,8 +1994,9 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
 
   async listNotifications(userId: string): Promise<ReadonlyArray<NotificationRecord>> {
     await delay();
+    const cutoffIso = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     return (this.notifications.get(userId) ?? [])
-      .slice()
+      .filter((n) => !n.readAt || n.createdAt >= cutoffIso)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 

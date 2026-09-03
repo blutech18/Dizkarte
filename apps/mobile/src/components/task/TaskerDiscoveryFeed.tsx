@@ -541,11 +541,13 @@ function taskTimingLabel(task: PublicTaskFeedItem): string {
   if (!task.scheduledFor) return "Flexible schedule";
   const scheduled = new Date(task.scheduledFor);
   if (Number.isNaN(scheduled.getTime())) return "Flexible schedule";
-  return scheduled.toLocaleDateString([], {
-    weekday: "short",
-    month: "short",
+  const weekday = scheduled.toLocaleDateString("en-US", { weekday: "long" });
+  const datePart = scheduled.toLocaleDateString("en-US", {
+    month: "long",
     day: "numeric",
+    year: "numeric",
   });
+  return `${weekday} - ${datePart}`;
 }
 
 function distanceLabel(distanceMeters: number | null): string | null {
@@ -624,23 +626,13 @@ function TaskCard({
       <View style={styles.cardFooter}>
         <Text style={styles.budgetLabel}>BUDGET</Text>
         <View style={styles.cardBottomRow}>
-          <Text
-            style={styles.cardBudget}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.8}
-          >
+          <Text style={styles.cardBudget} numberOfLines={1}>
             {formatPhp(task.budgetCentavos)}
           </Text>
           <View style={styles.cardActionGroup}>
             <View style={styles.offersBadge}>
               <Icon name="chat" size={13} color={theme.primary} />
-              <Text
-                style={styles.offersText}
-                numberOfLines={1}
-                adjustsFontSizeToFit
-                minimumFontScale={0.8}
-              >
+              <Text style={styles.offersText} numberOfLines={1}>
                 {task.offerCount} offer{task.offerCount === 1 ? "" : "s"}
               </Text>
             </View>
@@ -911,8 +903,7 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   cardDivider: {
-    height: 1,
-    backgroundColor: theme.borderSubtle,
+    height: 0,
   },
   cardFooter: {
     minWidth: 0,
