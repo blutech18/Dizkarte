@@ -27,4 +27,27 @@ describe("admin config loader", () => {
     const serverConfig = loadServerConfig();
     expect(serverConfig.supabaseServiceRoleKey).toBe("test-service-role-key-that-is-secret");
   });
+
+  it("handles empty strings in NEXT_PUBLIC_* variables by falling back gracefully", () => {
+    process.env["NEXT_PUBLIC_SUPABASE_URL"] = "";
+    process.env["SUPABASE_URL"] = "https://avirdszrhsvduonuflao.supabase.co";
+    process.env["NEXT_PUBLIC_SUPABASE_ANON_KEY"] = "";
+    process.env["SUPABASE_ANON_KEY"] = "sb_publishable_test_anon_key";
+    process.env["NEXT_PUBLIC_MAP_MODE"] = "";
+    process.env["MAP_MODE"] = "";
+    process.env["NEXT_PUBLIC_PAYMENT_MODE"] = "   ";
+    process.env["PAYMENT_MODE"] = "";
+    process.env["SUPABASE_SERVICE_ROLE_KEY"] = "";
+    process.env["SUPABASE_SERVICE_ROLE"] = "fallback-service-role-key";
+    process.env["DIZKARTE_ENV"] = "development";
+
+    const publicConfig = loadPublicConfig();
+    expect(publicConfig.supabaseUrl).toBe("https://avirdszrhsvduonuflao.supabase.co");
+    expect(publicConfig.supabaseAnonKey).toBe("sb_publishable_test_anon_key");
+    expect(publicConfig.adapterModes.map).toBe("synthetic");
+    expect(publicConfig.adapterModes.payment).toBe("synthetic");
+
+    const serverConfig = loadServerConfig();
+    expect(serverConfig.supabaseServiceRoleKey).toBe("fallback-service-role-key");
+  });
 });
