@@ -1,7 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  transpilePackages: ["@dizkarte/config", "@dizkarte/domain"],
+  transpilePackages: [
+    "@dizkarte/config",
+    "@dizkarte/domain",
+    "@dizkarte/adapter-supabase",
+  ],
   eslint: {
     ignoreDuringBuilds: true,
   },
