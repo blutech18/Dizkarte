@@ -1,7 +1,6 @@
 {
   "buildCommand": "npm run export",
   "outputDirectory": "dist-export",
-  "cleanUrls": true,
   "rewrites": [
     {
       "source": "/(.*)",
