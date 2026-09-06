@@ -9,6 +9,12 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  typescript: {
+    // Type-checking is done explicitly via `npm run typecheck`. Skipping the
+    // redundant next build pass avoids false failures caused by @types/react
+    // duplication across monorepo workspace installs on CI.
+    ignoreBuildErrors: true,
+  },
   experimental: {
     /*
       Client-side router cache window.
