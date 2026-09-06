@@ -44,6 +44,50 @@ export function formatDate(value: string): string {
   return Number.isNaN(date.getTime()) ? "Unknown" : DATE_ONLY.format(date);
 }
 
+const TIME_ONLY = new Intl.DateTimeFormat("en-PH", {
+  hour: "numeric",
+  minute: "2-digit",
+  timeZone: TIME_ZONE,
+});
+
+/**
+ * Time without the date, e.g. `8:59 PM`.
+ */
+export function formatTime(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : TIME_ONLY.format(date);
+}
+
+const DATE_NUMERIC = new Intl.DateTimeFormat("en-CA", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  timeZone: TIME_ZONE,
+});
+
+/**
+ * Numeric date in ISO format, e.g. `2026-07-24`.
+ */
+export function formatDateNumeric(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Unknown" : DATE_NUMERIC.format(date);
+}
+
+const TIME_NUMERIC = new Intl.DateTimeFormat("en-GB", {
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+  timeZone: TIME_ZONE,
+});
+
+/**
+ * Numeric 24-hour time, e.g. `20:59`.
+ */
+export function formatTimeNumeric(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : TIME_NUMERIC.format(date);
+}
+
 /**
  * Coarse elapsed-time label for queue triage, e.g. `3 days`, `5 hours`.
  *

@@ -51,7 +51,6 @@ function dayLabels(day: DashboardTrendDay): { label: string; axisLabel: string }
   };
 }
 
-/** Period-over-period delta. Renders nothing when there is no baseline. */
 function DeltaNote({
   current,
   previous,
@@ -64,7 +63,7 @@ function DeltaNote({
 }) {
   const change = percentChange(current, previous);
   if (change === null) {
-    return <small className="dk-kpi-delta">No activity in the previous {WINDOW_DAYS} days</small>;
+    return <small className="dk-kpi-delta">No prior activity</small>;
   }
 
   const rounded = Math.round(change);
@@ -75,7 +74,7 @@ function DeltaNote({
   return (
     <small className={`dk-kpi-delta dk-kpi-delta-${tone}`}>
       {rounded > 0 ? "+" : ""}
-      {rounded}% vs previous {WINDOW_DAYS} days
+      {rounded}% vs prior {WINDOW_DAYS}d
     </small>
   );
 }
@@ -127,11 +126,10 @@ export default async function DashboardPage() {
     <section className="dk-dashboard">
       <header className="dk-dashboard-hero">
         <div className="dk-dashboard-hero-copy">
-          <h1>Good day, {session.displayName}</h1>
-          <p>
-            Business performance for the last {WINDOW_DAYS} days, compared with the {WINDOW_DAYS}{" "}
-            days before it.
-          </p>
+          <div className="dk-dashboard-title-row">
+            <h1>Good day, {session.displayName}</h1>
+            <span className="dk-dashboard-badge">{WINDOW_DAYS}-day overview</span>
+          </div>
         </div>
         <div className="dk-dashboard-hero-actions">
           <span className="dk-dashboard-updated">
@@ -174,7 +172,6 @@ async function DashboardCharts({ canViewFinance }: { readonly canViewFinance: bo
   }));
 
   const completedTotal = trends.current.bookingsCompleted;
-  const failedTotal = trends.days.reduce((sum, day) => sum + day.bookingsFailed, 0);
   const completionRate =
     trends.current.bookingsCreated > 0
       ? (completedTotal / trends.current.bookingsCreated) * 100
@@ -185,7 +182,7 @@ async function DashboardCharts({ canViewFinance }: { readonly canViewFinance: bo
       <div className="dk-kpi-grid">
         {canViewFinance ? (
           <KpiCard
-            label={`Platform revenue (${WINDOW_DAYS}d)`}
+            label="Platform revenue"
             value={formatPhp(trends.current.platformFeeCentavos)}
             delta={
               <DeltaNote
@@ -196,7 +193,7 @@ async function DashboardCharts({ canViewFinance }: { readonly canViewFinance: bo
           />
         ) : null}
         <KpiCard
-          label={`Marketplace value booked (${WINDOW_DAYS}d)`}
+          label="Marketplace value"
           value={formatPhp(trends.current.grossBookedCentavos)}
           delta={
             <DeltaNote
@@ -206,7 +203,7 @@ async function DashboardCharts({ canViewFinance }: { readonly canViewFinance: bo
           }
         />
         <KpiCard
-          label={`Bookings completed (${WINDOW_DAYS}d)`}
+          label="Completed bookings"
           value={String(completedTotal)}
           delta={
             <DeltaNote current={completedTotal} previous={trends.previous.bookingsCompleted} />
@@ -214,11 +211,10 @@ async function DashboardCharts({ canViewFinance }: { readonly canViewFinance: bo
         />
         <KpiCard
           label="Completion rate"
-          value={completionRate === null ? "No bookings yet" : `${Math.round(completionRate)}%`}
+          value={completionRate === null ? "—" : `${Math.round(completionRate)}%`}
           delta={
             <small className="dk-kpi-delta">
-              {completedTotal} completed and {failedTotal} failed of{" "}
-              {trends.current.bookingsCreated} created
+              {completedTotal} of {trends.current.bookingsCreated} completed
             </small>
           }
         />
@@ -228,13 +224,11 @@ async function DashboardCharts({ canViewFinance }: { readonly canViewFinance: bo
         {canViewFinance ? (
           <BarChart
             data={revenueData}
-            description="Platform fee posted to the ledger each day."
             formatValue={formatPesoAxis}
             id="revenue-chart"
             meta={
               <>
-                <strong>{formatPhp(trends.current.platformFeeCentavos)}</strong> earned in this
-                period
+                <strong>{formatPhp(trends.current.platformFeeCentavos)}</strong> total ({WINDOW_DAYS}d)
               </>
             }
             series={[{ key: "fee", label: "Platform fee", tone: "primary" }]}
@@ -245,21 +239,20 @@ async function DashboardCharts({ canViewFinance }: { readonly canViewFinance: bo
 
         <BarChart
           data={volumeData}
-          description="Bookings created each day, split by how they ended."
           formatValue={formatWholeNumber}
           id="volume-chart"
           meta={
             <>
-              <strong>{trends.current.bookingsCreated}</strong> bookings created in this period
+              <strong>{trends.current.bookingsCreated}</strong> total bookings ({WINDOW_DAYS}d)
             </>
           }
           series={[
             { key: "completed", label: "Completed", tone: "success" },
             { key: "active", label: "In progress", tone: "primary" },
-            { key: "failed", label: "Cancelled, disputed, or failed", tone: "danger" },
+            { key: "failed", label: "Cancelled / Failed", tone: "danger" },
           ]}
           summary={`Bookings per day by outcome for the last ${WINDOW_DAYS} days`}
-          title="Booking volume and outcomes"
+          title="Booking volume & outcomes"
         />
       </div>
     </>
@@ -335,14 +328,15 @@ async function DashboardQueues({
     <section className="dk-dashboard-section" aria-labelledby="dashboard-queues-heading">
       <div className="dk-dashboard-section-heading">
         <h2 id="dashboard-queues-heading">Needs attention now</h2>
-        <p>Open work waiting on your team. Select a queue to review it.</p>
       </div>
       <ul className="dk-queue-list">
         {queues.map((queue) => (
           <li key={queue.href}>
             <AppLink href={queue.href}>
               <span className="dk-queue-label">{queue.label}</span>
-              <span className="dk-queue-count">{queue.count === 0 ? "Clear" : queue.count}</span>
+              <span className={`dk-queue-count ${queue.count === 0 ? "is-clear" : ""}`}>
+                {queue.count === 0 ? "Clear" : queue.count}
+              </span>
             </AppLink>
           </li>
         ))}

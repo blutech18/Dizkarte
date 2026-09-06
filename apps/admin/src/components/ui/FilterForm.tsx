@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  createContext,
+  useContext,
   useEffect,
   useRef,
   useTransition,
@@ -9,6 +11,19 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
+import { useNavigationProgress } from "./NavigationProgress";
+
+export type FilterFormContextValue = {
+  readonly pending: boolean;
+};
+
+export const FilterFormContext = createContext<FilterFormContextValue>({
+  pending: false,
+});
+
+export function useFilterForm() {
+  return useContext(FilterFormContext);
+}
 
 export type FilterFormProps = {
   /** Route the filters apply to, e.g. `/tasks`. */
@@ -24,6 +39,8 @@ export type FilterFormProps = {
    */
   readonly autoApply?: boolean;
   readonly debounceMs?: number;
+  readonly formRef?: React.RefObject<HTMLFormElement | null>;
+  readonly onFormInput?: (form: HTMLFormElement) => void;
 };
 
 /**
@@ -47,10 +64,15 @@ export function FilterForm({
   className,
   autoApply = false,
   debounceMs = 350,
+  formRef,
+  onFormInput,
 }: FilterFormProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { reportPending } = useNavigationProgress();
+  const localRef = useRef<HTMLFormElement | null>(null);
+  const actualFormRef = formRef ?? localRef;
 
   // A pending keystroke must not navigate after the page has moved on.
   useEffect(
@@ -60,6 +82,12 @@ export function FilterForm({
     [],
   );
 
+  useEffect(() => {
+    if (!pending) {
+      reportPending("", false);
+    }
+  }, [pending, reportPending]);
+
   function apply(form: HTMLFormElement) {
     const params = new URLSearchParams();
     for (const [key, value] of new FormData(form).entries()) {
@@ -67,8 +95,10 @@ export function FilterForm({
       if (typeof value === "string" && value.trim() !== "") params.set(key, value.trim());
     }
     const query = params.toString();
+    const destination = query ? `${basePath}?${query}` : basePath;
+    reportPending(destination, true);
     startTransition(() => {
-      router.push(query ? `${basePath}?${query}` : basePath);
+      router.push(destination);
     });
   }
 
@@ -78,7 +108,12 @@ export function FilterForm({
     apply(event.currentTarget);
   }
 
+  function onInput(event: FormEvent<HTMLFormElement>) {
+    onFormInput?.(event.currentTarget);
+  }
+
   function onChange(event: ChangeEvent<HTMLFormElement>) {
+    onFormInput?.(event.currentTarget);
     if (!autoApply) return;
     // `currentTarget` is cleared once the handler returns, so hold the form.
     const form = event.currentTarget;
@@ -94,16 +129,21 @@ export function FilterForm({
   }
 
   return (
-    <form
-      method="get"
-      action={basePath}
-      onSubmit={onSubmit}
-      onChange={onChange}
-      className={className}
-      role="search"
-      aria-busy={pending}
-    >
-      {children}
-    </form>
+    <FilterFormContext.Provider value={{ pending }}>
+      <form
+        ref={actualFormRef}
+        method="get"
+        action={basePath}
+        onSubmit={onSubmit}
+        onChange={onChange}
+        onInput={onInput}
+        className={className}
+        role="search"
+        aria-busy={pending}
+        data-pending={pending ? "true" : undefined}
+      >
+        {children}
+      </form>
+    </FilterFormContext.Provider>
   );
 }

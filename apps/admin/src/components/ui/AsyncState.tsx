@@ -153,13 +153,25 @@ export function SkeletonMediaGrid({ count = 6 }: { readonly count?: number } = {
   return (
     <ul className="dk-media-grid" aria-hidden="true">
       {Array.from({ length: count }).map((_, index) => (
-        <li className="dk-card dk-media-card" key={index}>
-          <SkeletonBone style={{ width: "100%", aspectRatio: "4 / 3", borderRadius: 8 }} />
-          <SkeletonBone variant="text" style={{ width: "70%" }} />
-          <SkeletonBone variant="text-sm" style={{ width: "45%" }} />
-          <div className="dk-row" style={{ marginTop: 4 }}>
-            <SkeletonBone variant="btn" style={{ width: 88 }} />
-            <SkeletonBone variant="btn" style={{ width: 72 }} />
+        <li className="dk-media-card" key={index}>
+          <SkeletonBone style={{ width: "100%", aspectRatio: "16 / 10", borderRadius: 8 }} />
+          <div className="dk-media-card-body">
+            <div className="dk-media-card-header">
+              <SkeletonBone variant="text-sm" style={{ width: 85 }} />
+              <SkeletonBone variant="text-sm" style={{ width: 75 }} />
+            </div>
+            <SkeletonBone variant="text" style={{ width: "85%", height: 20 }} />
+            <div className="dk-media-identifiers">
+              <SkeletonBone variant="text-sm" style={{ width: 100 }} />
+              <SkeletonBone variant="text-sm" style={{ width: 100 }} />
+            </div>
+            <div className="dk-media-actions-bar">
+              <SkeletonBone variant="btn" style={{ width: 96 }} />
+              <div className="dk-media-decision-actions">
+                <SkeletonBone variant="btn" style={{ width: 82 }} />
+                <SkeletonBone variant="btn" style={{ width: 68 }} />
+              </div>
+            </div>
           </div>
         </li>
       ))}
@@ -285,7 +297,6 @@ export function DashboardSkeleton() {
       <div className="dk-dashboard-hero" aria-hidden="true">
         <div className="dk-dashboard-hero-copy">
           <SkeletonBone variant="title" style={{ width: 240 }} />
-          <SkeletonBone variant="subtitle" style={{ width: "64%", marginTop: 10 }} />
         </div>
         <div className="dk-dashboard-hero-actions">
           <SkeletonBone variant="text-sm" style={{ width: 190 }} />

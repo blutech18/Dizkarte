@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-export type BadgeTone = "neutral" | "brand" | "success" | "warning" | "error" | "info";
+export type BadgeTone = "neutral" | "brand" | "success" | "warning" | "error" | "info" | "client";
 
 const TONE_CLASS: Record<BadgeTone, string> = {
   neutral: "dk-badge-neutral",
@@ -9,6 +9,7 @@ const TONE_CLASS: Record<BadgeTone, string> = {
   warning: "dk-badge-warning",
   error: "dk-badge-error",
   info: "dk-badge-info",
+  client: "dk-badge-client",
 };
 
 export type StatusBadgeProps = {

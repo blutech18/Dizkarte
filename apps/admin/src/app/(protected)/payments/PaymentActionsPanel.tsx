@@ -24,58 +24,66 @@ export function PaymentActionsPanel({
   const router = useRouter();
 
   return (
-    <div className="dk-row">
-      <ConfirmDialog
-        triggerLabel="Refund"
-        triggerVariant="destructive"
-        title="Refund payment"
-        description="Records a refund request and asks the provider to refund the payer. The money moves only when the provider's refund is confirmed. Audited with your identity, reason, and timestamp."
-        confirmLabel="Refund"
-        requireReason
-        onConfirm={async (reason) => {
-          const result = await requestRefundAction({ paymentIntentId, reason });
-          if (result.ok) router.refresh();
-          return result;
-        }}
-      />
-      <ConfirmDialog
-        triggerLabel="Release"
-        triggerVariant="secondary"
-        title="Release payment"
-        description="Releases require an approved Philippine payment provider. This control is disabled until that integration exists."
-        confirmLabel="Release"
-        requireReason
-        disabled
-        disabledReason={refundDisabledReason}
-        onConfirm={(reason) => requestRefundAction({ paymentIntentId, reason })}
-      />
-      <ConfirmDialog
-        triggerLabel="Freeze"
-        triggerVariant="secondary"
-        title="Freeze payment"
-        description="Holds the booking pending review without rewriting any prior ledger entry. This action is audited with your identity, capability, reason, and timestamp."
-        confirmLabel="Freeze"
-        requireReason
-        disabled={!freezeEligible}
-        {...(!freezeEligible
-          ? { disabledReason: "Only committed, unsettled payments can be frozen." }
-          : {})}
-        onConfirm={async (reason) => {
-          const result = await freezePaymentAction({ paymentIntentId, reason });
-          if (result.ok) router.refresh();
-          return result;
-        }}
-      />
-      <ConfirmDialog
-        triggerLabel="Unfreeze"
-        triggerVariant="secondary"
-        title="Unfreeze payment"
-        description="Unfreeze is unavailable — no approved unfreeze policy or privileged command exists yet."
-        confirmLabel="Unfreeze"
-        disabled
-        disabledReason="No approved unfreeze policy or privileged command exists yet."
-        onConfirm={async () => ({ ok: false, message: "Unfreeze is unavailable." })}
-      />
+    <div className="dk-payment-actions-grid">
+      <div className="dk-payment-action-item">
+        <ConfirmDialog
+          triggerLabel="Refund"
+          triggerVariant="destructive"
+          title="Refund payment"
+          description="Records a refund request and asks the provider to refund the payer. The money moves only when the provider's refund is confirmed. Audited with your identity, reason, and timestamp."
+          confirmLabel="Refund"
+          requireReason
+          onConfirm={async (reason) => {
+            const result = await requestRefundAction({ paymentIntentId, reason });
+            if (result.ok) router.refresh();
+            return result;
+          }}
+        />
+      </div>
+      <div className="dk-payment-action-item">
+        <ConfirmDialog
+          triggerLabel="Release"
+          triggerVariant="secondary"
+          title="Release payment"
+          description="Releases require an approved Philippine payment provider. This control is disabled until that integration exists."
+          confirmLabel="Release"
+          requireReason
+          disabled
+          disabledReason={refundDisabledReason}
+          onConfirm={(reason) => requestRefundAction({ paymentIntentId, reason })}
+        />
+      </div>
+      <div className="dk-payment-action-item">
+        <ConfirmDialog
+          triggerLabel="Freeze"
+          triggerVariant="secondary"
+          title="Freeze payment"
+          description="Holds the booking pending review without rewriting any prior ledger entry. This action is audited with your identity, capability, reason, and timestamp."
+          confirmLabel="Freeze"
+          requireReason
+          disabled={!freezeEligible}
+          {...(!freezeEligible
+            ? { disabledReason: "Only committed, unsettled payments can be frozen." }
+            : {})}
+          onConfirm={async (reason) => {
+            const result = await freezePaymentAction({ paymentIntentId, reason });
+            if (result.ok) router.refresh();
+            return result;
+          }}
+        />
+      </div>
+      <div className="dk-payment-action-item">
+        <ConfirmDialog
+          triggerLabel="Unfreeze"
+          triggerVariant="secondary"
+          title="Unfreeze payment"
+          description="Unfreeze is unavailable — no approved unfreeze policy or privileged command exists yet."
+          confirmLabel="Unfreeze"
+          disabled
+          disabledReason="No approved unfreeze policy or privileged command exists yet."
+          onConfirm={async () => ({ ok: false, message: "Unfreeze is unavailable." })}
+        />
+      </div>
     </div>
   );
 }

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { formatDate, formatDateTime, formatElapsed } from "./datetime";
+import {
+  formatDate,
+  formatDateNumeric,
+  formatDateTime,
+  formatElapsed,
+  formatTime,
+  formatTimeNumeric,
+} from "./datetime";
 
 describe("formatDateTime", () => {
   it("renders a fixed Philippine-time label regardless of runtime zone", () => {
@@ -52,3 +59,37 @@ describe("formatElapsed", () => {
   });
 });
 
+
+describe("formatTime", () => {
+  it("renders the time in Philippine time", () => {
+    expect(formatTime("2026-07-24T12:59:44.000Z")).toBe("8:59 PM");
+    expect(formatTime("2026-07-24T23:30:00.000Z")).toBe("7:30 AM");
+  });
+
+  it("returns empty string on invalid date", () => {
+    expect(formatTime("not-a-date")).toBe("");
+  });
+});
+
+describe("formatDateNumeric", () => {
+  it("renders numeric date in YYYY-MM-DD format in Philippine time", () => {
+    expect(formatDateNumeric("2026-07-24T12:59:44.000Z")).toBe("2026-07-24");
+    // Crosses midnight in Manila
+    expect(formatDateNumeric("2026-07-24T23:30:00.000Z")).toBe("2026-07-25");
+  });
+
+  it("never renders an Invalid Date string", () => {
+    expect(formatDateNumeric("not-a-date")).toBe("Unknown");
+  });
+});
+
+describe("formatTimeNumeric", () => {
+  it("renders 24-hour numeric time in Philippine time", () => {
+    expect(formatTimeNumeric("2026-07-24T12:59:44.000Z")).toBe("20:59");
+    expect(formatTimeNumeric("2026-07-24T23:30:00.000Z")).toBe("07:30");
+  });
+
+  it("returns empty string on invalid date", () => {
+    expect(formatTimeNumeric("not-a-date")).toBe("");
+  });
+});

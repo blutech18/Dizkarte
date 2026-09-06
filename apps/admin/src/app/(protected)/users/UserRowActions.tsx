@@ -1,15 +1,38 @@
 "use client";
 
+import type { SVGProps } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { LinkButton } from "@/components/ui/Button";
 import { setUserAccountStatusAction } from "./actions";
+
+function UserIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
 
 export function UserRowActions({
   userId,
   status,
+  className,
+  showProfileLink = false,
 }: {
   readonly userId: string;
   readonly status: string;
+  readonly className?: string;
+  readonly showProfileLink?: boolean;
 }) {
   const router = useRouter();
 
@@ -20,7 +43,19 @@ export function UserRowActions({
   }
 
   return (
-    <div className="dk-row">
+    <div className={className ?? "dk-row"}>
+      {showProfileLink ? (
+        <LinkButton
+          href={`/users/${userId}`}
+          size="sm"
+          variant="secondary"
+          className="dk-action-btn dk-action-btn-case"
+          title="View and manage user account"
+        >
+          <UserIcon width={13} height={13} aria-hidden="true" />
+          <span>Profile</span>
+        </LinkButton>
+      ) : null}
       {status !== "suspended" ? (
         <ConfirmDialog
           triggerLabel="Suspend"

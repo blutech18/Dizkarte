@@ -471,6 +471,7 @@ export class SupabaseAdminRepository implements AdminRepository {
 
     const items = rows.map((row) => ({
       id: row.id,
+      userId: row.user_id,
       userDisplayName: displayNameFor(names, row.user_id),
       status: row.status as TaskerApplicationRow["status"],
       specialties: specialties.get(row.user_id) ?? [],
@@ -574,6 +575,7 @@ export class SupabaseAdminRepository implements AdminRepository {
 
     return {
       id: row.id,
+      userId: row.user_id,
       userDisplayName: displayNameFor(names, row.user_id),
       status: row.status as TaskerApplicationRow["status"],
       specialties: specialties.get(row.user_id) ?? [],
@@ -631,7 +633,11 @@ export class SupabaseAdminRepository implements AdminRepository {
     if (error) return paginate<UserRow>([], input.page, input.pageSize, 0);
 
     const rows = (data ?? []) as ReadonlyArray<RawProfileNameRow>;
-    const verified = await this.verifiedIdentitySet(rows.map((row) => row.id));
+    const userIds = rows.map((row) => row.id);
+    const [verified, rolesMap] = await Promise.all([
+      this.verifiedIdentitySet(userIds),
+      this.activeRolesMap(userIds),
+    ]);
     const items = rows.map((row) => ({
       id: row.id,
       displayName: row.display_name?.trim() || `User ${row.id.slice(0, 8)}`,
@@ -640,6 +646,7 @@ export class SupabaseAdminRepository implements AdminRepository {
       accountStatus: (row.account_status ?? "deactivated") as UserRow["accountStatus"],
       identityVerified: verified.has(row.id),
       createdAt: row.created_at ?? new Date(0).toISOString(),
+      roles: rolesMap.get(row.id) ?? ["CLIENT"],
     }));
     return paginate(items, input.page, input.pageSize, count ?? items.length);
   }
@@ -682,6 +689,27 @@ export class SupabaseAdminRepository implements AdminRepository {
     for (const row of (data ?? []) as ReadonlyArray<{ user_id: string; status: string }>) {
       // Ordered ascending, so the last write per user is the newest case.
       map.set(row.user_id, row.status);
+    }
+    return map;
+  }
+
+  /** Active capabilities / roles per user, for the list view. */
+  private async activeRolesMap(
+    userIds: ReadonlyArray<string>,
+  ): Promise<ReadonlyMap<string, ReadonlyArray<string>>> {
+    const unique = [...new Set(userIds)];
+    const map = new Map<string, string[]>();
+    if (unique.length === 0) return map;
+    const db = await this.db();
+    const { data } = await db
+      .from("user_capabilities")
+      .select("user_id,capability")
+      .in("user_id", unique)
+      .is("revoked_at", null);
+    for (const row of (data ?? []) as ReadonlyArray<{ user_id: string; capability: string }>) {
+      const list = map.get(row.user_id) ?? [];
+      list.push(row.capability);
+      map.set(row.user_id, list);
     }
     return map;
   }

@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { AppLink } from "@/components/ui/AppLink";
 import { requirePageCapability } from "@/lib/guard";
 import { getAdminRepository } from "@/lib/repository";
+import { formatDate, formatTime } from "@/lib/datetime";
+import { formatReferenceId } from "@/lib/format-id";
 import { Breadcrumbs } from "@/components/ui/Field";
 import { PageSection, Pagination } from "@/components/ui/Pagination";
 import { EmptyState, TableRegionSkeleton } from "@/components/ui/AsyncState";
 import { RecordList, type ColumnDef } from "@/components/ui/RecordList";
-import { StatusBadge } from "@/components/ui/StatusBadge";
+import { StatusBadge, type BadgeTone } from "@/components/ui/StatusBadge";
 import { QueueFilters } from "@/components/ui/QueueFilters";
 import type { UserRow } from "@/lib/repository/types";
 import { USER_STATUS_OPTIONS, userStatusLabel, userStatusTone } from "./status";
@@ -16,6 +17,37 @@ import { UserRowActions } from "./UserRowActions";
 export const metadata: Metadata = { title: "Users" };
 
 const PAGE_SIZE = 20;
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return `${parts[0]?.[0] ?? "U"}${parts[1]?.[0] ?? ""}`.toUpperCase();
+}
+
+function roleTone(role: string): BadgeTone {
+  if (role.startsWith("ADMIN")) return "brand";
+  if (role.toUpperCase() === "TASKER") return "info";
+  if (role.toUpperCase() === "CLIENT") return "client";
+  return "neutral";
+}
+
+function roleLabel(role: string): string {
+  switch (role.toUpperCase()) {
+    case "CLIENT":
+      return "Client";
+    case "TASKER":
+      return "Tasker";
+    case "ADMIN_SUPPORT":
+      return "Support Admin";
+    case "ADMIN_FINANCE":
+      return "Finance Admin";
+    case "ADMIN_DISPUTES":
+      return "Disputes Admin";
+    case "ADMIN_SUPER":
+      return "Super Admin";
+    default:
+      return role;
+  }
+}
 
 type UsersQuery = {
   readonly page: number;
@@ -82,7 +114,7 @@ export default async function UsersPage({
 
         <Suspense
           key={`${q ?? ""}|${active ?? ""}|${page}`}
-          fallback={<TableRegionSkeleton columns={4} />}
+          fallback={<TableRegionSkeleton columns={6} />}
         >
           <UsersTable page={page} query={q} status={active} />
         </Suspense>
@@ -101,9 +133,40 @@ async function UsersTable({ page, query, status }: UsersQuery) {
 
   const columns: ReadonlyArray<ColumnDef<UserRow>> = [
     {
-      key: "name",
-      header: "Name",
-      render: (row) => <AppLink href={`/users/${row.id}`}>{row.displayName}</AppLink>,
+      key: "user",
+      header: "User",
+      showInCard: false,
+      render: (row) => (
+        <div className="dk-user-cell">
+          <span className="dk-user-avatar" aria-hidden="true">
+            {initials(row.displayName)}
+          </span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span className="dk-user-name">{row.displayName}</span>
+            <span className="dk-ref-code" style={{ fontSize: 11 }} title={row.id}>
+              {formatReferenceId(row.id, "USR")}
+            </span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "roles",
+      header: "Roles",
+      render: (row) => {
+        const roles = row.roles && row.roles.length > 0 ? row.roles : ["CLIENT"];
+        return (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+            {roles.map((role) => (
+              <StatusBadge
+                key={role}
+                tone={roleTone(role)}
+                label={roleLabel(role)}
+              />
+            ))}
+          </div>
+        );
+      },
     },
     {
       key: "verified",
@@ -126,10 +189,25 @@ async function UsersTable({ page, query, status }: UsersQuery) {
       ),
     },
     {
+      key: "joined",
+      header: "Joined",
+      render: (row) => (
+        <time dateTime={row.createdAt} title={row.createdAt} className="dk-datetime-cell">
+          <span className="dk-datetime-date">{formatDate(row.createdAt)}</span>
+          <span className="dk-datetime-time">{formatTime(row.createdAt)}</span>
+        </time>
+      ),
+    },
+    {
       key: "actions",
       header: "Actions",
-      showInCard: false,
-      render: (row) => <UserRowActions userId={row.id} status={row.accountStatus} />,
+      render: (row) => (
+        <UserRowActions
+          userId={row.id}
+          status={row.accountStatus}
+          showProfileLink
+        />
+      ),
     },
   ];
 
@@ -152,7 +230,19 @@ async function UsersTable({ page, query, status }: UsersQuery) {
         columns={columns}
         getRowKey={(row) => row.id}
         caption="Users"
-        cardTitle={(row) => row.displayName}
+        cardTitle={(row) => (
+          <div className="dk-user-cell">
+            <span className="dk-user-avatar" aria-hidden="true">
+              {initials(row.displayName)}
+            </span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <span className="dk-user-name">{row.displayName}</span>
+              <span className="dk-ref-code" style={{ fontSize: 11 }}>
+                {formatReferenceId(row.id, "USR")}
+              </span>
+            </div>
+          </div>
+        )}
       />
       <Pagination
         page={result.page}

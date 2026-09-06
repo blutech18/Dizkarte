@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { AppLink } from "@/components/ui/AppLink";
 import { requirePageCapability } from "@/lib/guard";
 import { getAdminRepository } from "@/lib/repository";
-import { formatDateTime, formatElapsed } from "@/lib/datetime";
+import { formatDate, formatElapsed, formatTime } from "@/lib/datetime";
 import { Breadcrumbs } from "@/components/ui/Field";
 import { QueueFilters } from "@/components/ui/QueueFilters";
 import { PageSection, Pagination } from "@/components/ui/Pagination";
@@ -18,10 +17,16 @@ import {
   verificationStatusTone,
   verificationStatusLabel,
 } from "./status";
+import { VerificationRowActions } from "./VerificationRowActions";
 
 export const metadata: Metadata = { title: "Identity verification" };
 
 const PAGE_SIZE = 20;
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return `${parts[0]?.[0] ?? "U"}${parts[1]?.[0] ?? ""}`.toUpperCase();
+}
 
 type VerificationCasesQuery = {
   readonly page: number;
@@ -67,7 +72,7 @@ export default async function VerificationListPage({
       />
       <PageSection
         title="Identity verification"
-        subtitle="Manual review of submitted government ID and selfie pairs. Decisions are recorded with actor, reason, and timestamp."
+        subtitle="Manual review of submitted government ID and selfie pairs."
       >
         <QueueFilters
           basePath="/verification"
@@ -92,7 +97,7 @@ export default async function VerificationListPage({
 
         <Suspense
           key={`${search}|${active ?? ""}|${page}`}
-          fallback={<TableRegionSkeleton columns={5} />}
+          fallback={<TableRegionSkeleton columns={6} />}
         >
           <VerificationCasesTable page={page} active={active} search={search} />
         </Suspense>
@@ -119,9 +124,16 @@ async function VerificationCasesTable({ page, active, search }: VerificationCase
     {
       key: "user",
       header: "User",
-      // The card view already links the same name as its title.
+      // The card view already displays the user in the card header.
       showInCard: false,
-      render: (row) => <AppLink href={`/verification/${row.id}`}>{row.userDisplayName}</AppLink>,
+      render: (row) => (
+        <div className="dk-user-cell">
+          <span className="dk-user-avatar" aria-hidden="true">
+            {initials(row.userDisplayName)}
+          </span>
+          <span className="dk-user-name">{row.userDisplayName}</span>
+        </div>
+      ),
     },
     {
       key: "status",
@@ -141,13 +153,29 @@ async function VerificationCasesTable({ page, active, search }: VerificationCase
     {
       key: "submittedAt",
       header: "Submitted",
-      render: (row) => <time dateTime={row.submittedAt}>{formatDateTime(row.submittedAt)}</time>,
+      render: (row) => (
+        <time dateTime={row.submittedAt} className="dk-datetime-cell">
+          <span className="dk-datetime-date">{formatDate(row.submittedAt)}</span>
+          <span className="dk-datetime-time">{formatTime(row.submittedAt)}</span>
+        </time>
+      ),
     },
     {
       key: "waiting",
       header: "Waiting",
       render: (row) =>
         isVerificationCaseOpen(row.status) ? formatElapsed(row.submittedAt) : <NotApplicable />,
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      render: (row) => (
+        <VerificationRowActions
+          caseId={row.id}
+          userId={row.userId}
+          status={row.status}
+        />
+      ),
     },
   ];
 
@@ -184,7 +212,12 @@ async function VerificationCasesTable({ page, active, search }: VerificationCase
         getRowKey={(row) => row.id}
         caption="Identity verification cases"
         cardTitle={(row) => (
-          <AppLink href={`/verification/${row.id}`}>{row.userDisplayName}</AppLink>
+          <div className="dk-user-cell">
+            <span className="dk-user-avatar" aria-hidden="true">
+              {initials(row.userDisplayName)}
+            </span>
+            <span className="dk-user-name">{row.userDisplayName}</span>
+          </div>
         )}
       />
       <Pagination

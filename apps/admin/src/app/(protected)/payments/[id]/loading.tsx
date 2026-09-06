@@ -1,5 +1,9 @@
-import { DetailPageSkeleton } from "@/components/ui/AsyncState";
+import { PaymentRecordSkeleton } from "./PaymentSkeleton";
 
 export default function Loading() {
-  return <DetailPageSkeleton cards={4} />;
+  return (
+    <div className="dk-detail" role="status" aria-live="polite">
+      <PaymentRecordSkeleton />
+    </div>
+  );
 }

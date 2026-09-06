@@ -14,7 +14,7 @@ export function TaskRecordSkeleton() {
       <div className="dk-detail-header" aria-hidden="true">
         <div className="dk-detail-header-main">
           <SkeletonBone variant="title" style={{ width: 300 }} />
-          <SkeletonBone variant="badge" />
+          <SkeletonBone style={{ width: 140, height: 36, borderRadius: "var(--dk-radius-sm)" }} />
         </div>
         <SkeletonBone variant="subtitle" style={{ width: "58%", marginTop: 10 }} />
         <div className="dk-detail-header-meta">

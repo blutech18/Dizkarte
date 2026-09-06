@@ -208,6 +208,7 @@ function createSeedState(): SeedState {
   const taskerApplications: TaskerApplicationDetail[] = [
     {
       id: "tap-0001",
+      userId: "usr-1004",
       userDisplayName: "R. Bautista",
       status: "SUBMITTED",
       specialties: ["Home cleaning", "Laundry"],
@@ -220,6 +221,7 @@ function createSeedState(): SeedState {
     },
     {
       id: "tap-0002",
+      userId: "usr-1005",
       userDisplayName: "L. Fernandez",
       status: "IN_REVIEW",
       specialties: ["Appliance repair"],
@@ -240,6 +242,7 @@ function createSeedState(): SeedState {
       accountStatus: "active",
       identityVerified: false,
       createdAt: "2026-06-01T00:00:00.000Z",
+      roles: ["CLIENT"],
     },
     {
       id: "usr-1002",
@@ -248,6 +251,7 @@ function createSeedState(): SeedState {
       accountStatus: "active",
       identityVerified: false,
       createdAt: "2026-06-03T00:00:00.000Z",
+      roles: ["CLIENT", "TASKER"],
     },
     {
       id: "usr-1003",
@@ -256,6 +260,7 @@ function createSeedState(): SeedState {
       accountStatus: "active",
       identityVerified: false,
       createdAt: "2026-06-05T00:00:00.000Z",
+      roles: ["CLIENT"],
     },
     {
       id: "usr-1004",
@@ -264,6 +269,7 @@ function createSeedState(): SeedState {
       accountStatus: "suspended",
       identityVerified: true,
       createdAt: "2026-05-20T00:00:00.000Z",
+      roles: ["TASKER"],
     },
     {
       id: "usr-1005",
@@ -272,6 +278,7 @@ function createSeedState(): SeedState {
       accountStatus: "active",
       identityVerified: true,
       createdAt: "2026-05-11T00:00:00.000Z",
+      roles: ["CLIENT", "ADMIN_SUPPORT"],
     },
   ];
 
@@ -1524,7 +1531,11 @@ export class SyntheticAdminRepository implements AdminRepository {
       ...user,
       language: "en",
       cityCode: null,
-      capabilities: [{ capability: "CLIENT", grantedAt: user.createdAt, revokedAt: null }],
+      capabilities: (user.roles ?? ["CLIENT"]).map((capability) => ({
+        capability,
+        grantedAt: user.createdAt,
+        revokedAt: null,
+      })),
       verificationStatus: user.identityVerified ? "APPROVED" : "DRAFT",
       taskerApplicationStatus: null,
       taskCount: this.state.tasks.length,

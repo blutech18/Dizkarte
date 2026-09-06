@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { AppLink } from "@/components/ui/AppLink";
 import { requirePageCapability } from "@/lib/guard";
 import { getAdminRepository } from "@/lib/repository";
-import { formatDateTime, formatElapsed } from "@/lib/datetime";
+import { formatDate, formatElapsed, formatTime } from "@/lib/datetime";
 import { Breadcrumbs } from "@/components/ui/Field";
 import { PageSection, Pagination } from "@/components/ui/Pagination";
 import { EmptyState, TableRegionSkeleton } from "@/components/ui/AsyncState";
@@ -11,6 +10,7 @@ import { QueueFilters } from "@/components/ui/QueueFilters";
 import { RecordList, type ColumnDef } from "@/components/ui/RecordList";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { NotApplicable } from "@/components/ui/NotApplicable";
+import { formatReferenceId } from "@/lib/format-id";
 import type { TaskerApplicationRow } from "@/lib/repository/types";
 import {
   TASKER_STATUS_OPTIONS,
@@ -18,10 +18,17 @@ import {
   taskerApplicationStatusLabel,
   taskerApplicationStatusTone,
 } from "./status";
+import { TaskerRowActions } from "./TaskerRowActions";
+import { SpecialtiesModalButton } from "./SpecialtiesModalButton";
 
 export const metadata: Metadata = { title: "Tasker applications" };
 
 const PAGE_SIZE = 20;
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return `${parts[0]?.[0] ?? "U"}${parts[1]?.[0] ?? ""}`.toUpperCase();
+}
 
 type TaskerApplicationsQuery = {
   readonly page: number;
@@ -88,7 +95,7 @@ export default async function TaskerApplicationsPage({
 
         <Suspense
           key={`${search}|${active ?? ""}|${page}`}
-          fallback={<TableRegionSkeleton columns={5} />}
+          fallback={<TableRegionSkeleton columns={6} />}
         >
           <TaskerApplicationsTable page={page} active={active} search={search} />
         </Suspense>
@@ -111,7 +118,19 @@ async function TaskerApplicationsTable({ page, active, search }: TaskerApplicati
       key: "user",
       header: "Applicant",
       showInCard: false,
-      render: (row) => <AppLink href={`/taskers/${row.id}`}>{row.userDisplayName}</AppLink>,
+      render: (row) => (
+        <div className="dk-user-cell">
+          <span className="dk-user-avatar" aria-hidden="true">
+            {initials(row.userDisplayName)}
+          </span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span className="dk-user-name">{row.userDisplayName}</span>
+            <span className="dk-ref-code" style={{ fontSize: 11 }} title={row.id}>
+              {formatReferenceId(row.id, "TAP")}
+            </span>
+          </div>
+        </div>
+      ),
     },
     {
       key: "status",
@@ -126,17 +145,22 @@ async function TaskerApplicationsTable({ page, active, search }: TaskerApplicati
     {
       key: "specialties",
       header: "Specialties",
-      render: (row) =>
-        row.specialties.length === 0 ? (
-          <span className="dk-muted">None listed</span>
-        ) : (
-          row.specialties.join(", ")
-        ),
+      render: (row) => (
+        <SpecialtiesModalButton
+          specialties={row.specialties}
+          applicantName={row.userDisplayName}
+        />
+      ),
     },
     {
       key: "submittedAt",
       header: "Submitted",
-      render: (row) => <time dateTime={row.submittedAt}>{formatDateTime(row.submittedAt)}</time>,
+      render: (row) => (
+        <time dateTime={row.submittedAt} className="dk-datetime-cell">
+          <span className="dk-datetime-date">{formatDate(row.submittedAt)}</span>
+          <span className="dk-datetime-time">{formatTime(row.submittedAt)}</span>
+        </time>
+      ),
     },
     {
       key: "waiting",
@@ -144,6 +168,17 @@ async function TaskerApplicationsTable({ page, active, search }: TaskerApplicati
       // Only meaningful while the applicant is waiting on this team.
       render: (row) =>
         isAwaitingAdminDecision(row.status) ? formatElapsed(row.submittedAt) : <NotApplicable />,
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      render: (row) => (
+        <TaskerRowActions
+          applicationId={row.id}
+          userId={row.userId}
+          status={row.status}
+        />
+      ),
     },
   ];
 
@@ -177,7 +212,19 @@ async function TaskerApplicationsTable({ page, active, search }: TaskerApplicati
         columns={columns}
         getRowKey={(row) => row.id}
         caption="Tasker applications"
-        cardTitle={(row) => <AppLink href={`/taskers/${row.id}`}>{row.userDisplayName}</AppLink>}
+        cardTitle={(row) => (
+          <div className="dk-user-cell">
+            <span className="dk-user-avatar" aria-hidden="true">
+              {initials(row.userDisplayName)}
+            </span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <span className="dk-user-name">{row.userDisplayName}</span>
+              <span className="dk-ref-code" style={{ fontSize: 11 }}>
+                {formatReferenceId(row.id, "TAP")}
+              </span>
+            </div>
+          </div>
+        )}
       />
       <Pagination
         page={result.page}

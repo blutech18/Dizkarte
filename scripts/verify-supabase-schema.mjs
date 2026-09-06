@@ -221,6 +221,11 @@ const EXPECTED_NEW_VIEWS = {
   "0023 review moderation (NEW)": ["admin_review_queue"],
   "0025 media moderation (NEW)": ["admin_task_media_queue"],
   "0029 public profile reads (NEW)": ["public_profiles"],
+  "0051 read-path aggregates (NEW)": [
+    "admin_ledger_totals",
+    "admin_platform_fee_events",
+    "user_context",
+  ],
 };
 
 /**

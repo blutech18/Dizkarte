@@ -20,6 +20,7 @@ import type { AdminCapability, Paginated } from "@dizkarte/domain";
 
 export type VerificationCaseRow = {
   readonly id: string;
+  readonly userId?: string | undefined;
   readonly userDisplayName: string;
   readonly status: "SUBMITTED" | "IN_REVIEW" | "APPROVED" | "REJECTED" | "RESUBMISSION_REQUIRED";
   readonly submittedAt: string;
@@ -46,6 +47,7 @@ export type VerificationCaseDetail = VerificationCaseRow & {
 
 export type TaskerApplicationRow = {
   readonly id: string;
+  readonly userId?: string | undefined;
   readonly userDisplayName: string;
   readonly status:
     | "SUBMITTED"
@@ -73,6 +75,7 @@ export type UserRow = {
   readonly accountStatus: "active" | "suspended" | "banned" | "deactivated";
   readonly identityVerified: boolean;
   readonly createdAt: string;
+  readonly roles?: ReadonlyArray<string>;
 };
 
 export type TaskRow = {

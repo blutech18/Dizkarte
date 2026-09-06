@@ -1,16 +1,69 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
-import { AppLink } from "@/components/ui/AppLink";
+import { Suspense, type SVGProps } from "react";
 import { requirePageCapability } from "@/lib/guard";
 import { getAdminRepository } from "@/lib/repository";
-import { formatDate, formatDateTime } from "@/lib/datetime";
+import { formatDateNumeric, formatTimeNumeric, formatDateTime } from "@/lib/datetime";
+import { formatReferenceId } from "@/lib/format-id";
 import { Breadcrumbs } from "@/components/ui/Field";
 import { PageSection, Pagination } from "@/components/ui/Pagination";
 import { EmptyState, GalleryRegionSkeleton } from "@/components/ui/AsyncState";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { QueueFilters } from "@/components/ui/QueueFilters";
+import { LinkButton } from "@/components/ui/Button";
 import { MediaActionsPanel } from "./MediaActionsPanel";
 import { MEDIA_STATUS_OPTIONS, mediaStatusLabel, mediaStatusTone } from "./status";
+
+function EyeIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function ImageIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+      <circle cx="9" cy="9" r="2" />
+      <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+    </svg>
+  );
+}
+
+function VideoIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="m22 8-6 4 6 4V8Z" />
+      <rect width="14" height="12" x="2" y="6" rx="2" ry="2" />
+    </svg>
+  );
+}
 
 export const metadata: Metadata = { title: "Task media" };
 
@@ -42,13 +95,13 @@ export default async function MediaPage({
   const { status, page: pageParam, q } = await searchParams;
   const search = q?.trim() ?? "";
   const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
-  // No `status` in the URL means the default queue, not "everything".
+  // No `status` in the URL or status="all" means all attachments, matching every other queue.
   const active =
-    status === "all"
+    !status || status === "all"
       ? undefined
-      : (MEDIA_STATUS_OPTIONS as ReadonlyArray<string>).includes(status ?? "")
+      : (MEDIA_STATUS_OPTIONS as ReadonlyArray<string>).includes(status)
         ? status
-        : "PENDING";
+        : undefined;
 
   return (
     <>
@@ -69,8 +122,6 @@ export default async function MediaPage({
               name: "status",
               label: "Filter by attachment status",
               allLabel: "All attachments",
-              // This queue defaults to PENDING, so "all" must be explicit.
-              allValue: "all",
               value: active,
               options: MEDIA_STATUS_OPTIONS.map((option) => ({
                 value: option,
@@ -118,7 +169,7 @@ async function MediaGallery({
 
   function hrefFor(nextPage: number): string {
     const params = new URLSearchParams();
-    params.set("status", active ?? "all");
+    if (active) params.set("status", active);
     if (search) params.set("q", search);
     params.set("page", String(nextPage));
     return `/media?${params.toString()}`;
@@ -156,54 +207,100 @@ async function MediaGallery({
         {result.items.map((item, index) => {
           const preview = previews[index] ?? null;
           return (
-            <li key={item.id} className="dk-card dk-media-card">
-              {item.kind === "image" && preview ? (
-                /*
-                  A plain img, not next/image: the URL is signed and expires
-                  in five minutes, and routing private moderation media
-                  through the image optimiser would cache it on the server.
-                */
-                <img
-                  src={preview}
-                  alt={`Attachment on task ${item.taskTitle}`}
-                  className="dk-media-thumb"
-                />
-              ) : (
-                <div className="dk-media-thumb dk-media-thumb-empty">
-                  <span className="dk-muted">
-                    {item.kind === "video"
-                      ? "Video attachment — no inline preview"
-                      : "Preview unavailable"}
+            <li key={item.id} className="dk-media-card">
+              <div className="dk-media-preview-container">
+                {item.kind === "image" && preview ? (
+                  /*
+                    A plain img, not next/image: the URL is signed and expires
+                    in five minutes, and routing private moderation media
+                    through the image optimiser would cache it on the server.
+                  */
+                  <img
+                    src={preview}
+                    alt={`Attachment on task ${item.taskTitle}`}
+                    className="dk-media-thumb"
+                  />
+                ) : (
+                  <div className="dk-media-thumb-empty">
+                    {item.kind === "video" ? (
+                      <VideoIcon width={28} height={28} className="dk-media-placeholder-icon" aria-hidden="true" />
+                    ) : (
+                      <ImageIcon width={28} height={28} className="dk-media-placeholder-icon" aria-hidden="true" />
+                    )}
+                    <span className="dk-media-placeholder-text">
+                      {item.kind === "video"
+                        ? "Video attachment — no inline preview"
+                        : "Preview unavailable"}
+                    </span>
+                  </div>
+                )}
+                <span className="dk-media-kind-badge">
+                  {item.kind === "video" ? (
+                    <>
+                      <VideoIcon width={11} height={11} aria-hidden="true" />
+                      <span>Video</span>
+                    </>
+                  ) : (
+                    <>
+                      <ImageIcon width={11} height={11} aria-hidden="true" />
+                      <span>Image</span>
+                    </>
+                  )}
+                </span>
+              </div>
+
+              <div className="dk-media-card-body">
+                <div className="dk-media-card-header">
+                  <StatusBadge
+                    tone={mediaStatusTone(item.moderationStatus)}
+                    label={mediaStatusLabel(item.moderationStatus)}
+                  />
+                  <time
+                    dateTime={item.createdAt}
+                    title={formatDateTime(item.createdAt)}
+                    className="dk-datetime-cell dk-media-datetime"
+                  >
+                    <span className="dk-datetime-date">{formatDateNumeric(item.createdAt)}</span>
+                    <span className="dk-datetime-time">{formatTimeNumeric(item.createdAt)}</span>
+                  </time>
+                </div>
+
+                <h3 className="dk-media-task-title" title={item.taskTitle}>
+                  {item.taskTitle}
+                </h3>
+
+                <div className="dk-media-identifiers">
+                  <span className="dk-media-id-tag" title={`Task ID: ${item.taskId}`}>
+                    <span className="dk-media-id-label">Task</span>
+                    <span className="dk-ref-code" style={{ fontSize: 11 }}>
+                      {formatReferenceId(item.taskId, "TSK")}
+                    </span>
+                  </span>
+                  <span className="dk-media-id-tag" title={`Media ID: ${item.id}`}>
+                    <span className="dk-media-id-label">Media</span>
+                    <span className="dk-ref-code" style={{ fontSize: 11 }}>
+                      {formatReferenceId(item.id, "MED")}
+                    </span>
                   </span>
                 </div>
-              )}
-              <div className="dk-media-meta">
-                {/*
-                  Badge on its own line above the title. Sharing a row with the
-                  title made the layout depend on title length: short titles sat
-                  beside the badge, long ones wrapped, so no two cards in a row
-                  lined up.
-                */}
-                <StatusBadge
-                  tone={mediaStatusTone(item.moderationStatus)}
-                  label={mediaStatusLabel(item.moderationStatus)}
-                />
-                <p className="dk-media-title">
-                  <AppLink href={`/tasks/${item.taskId}`}>
-                    {item.taskTitle}
-                  </AppLink>
-                </p>
-                <p className="dk-media-uploaded">
-                  {/* Exact instant stays on the element; the queue only needs the day. */}
-                  <time dateTime={item.createdAt} title={formatDateTime(item.createdAt)}>
-                    {formatDate(item.createdAt)}
-                  </time>
-                </p>
-                <MediaActionsPanel
-                  mediaId={item.id}
-                  status={item.moderationStatus}
-                  previewAvailable={preview !== null}
-                />
+
+                <div className="dk-media-actions-bar">
+                  <LinkButton
+                    href={`/tasks/${item.taskId}`}
+                    size="sm"
+                    variant="secondary"
+                    className="dk-action-btn dk-media-view-btn"
+                    title="View task details"
+                  >
+                    <EyeIcon width={13} height={13} aria-hidden="true" />
+                    <span>View task</span>
+                  </LinkButton>
+                  <MediaActionsPanel
+                    mediaId={item.id}
+                    status={item.moderationStatus}
+                    previewAvailable={preview !== null}
+                  />
+                </div>
               </div>
             </li>
           );

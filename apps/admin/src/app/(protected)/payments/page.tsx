@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AppLink } from "@/components/ui/AppLink";
-import { formatPhp } from "@dizkarte/domain";
+import { formatPhp, formatPhpSigned } from "@dizkarte/domain";
 import { requirePageCapability } from "@/lib/guard";
 import { getAdminRepository } from "@/lib/repository";
 import { formatDateTime } from "@/lib/datetime";
@@ -80,25 +80,37 @@ async function PaymentsLedgerSection({ page }: { readonly page: number }) {
         </p>
       </div>
 
-      <div
-        role="group"
-        aria-label="Finance summary"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-          gap: 12,
-          marginBottom: 16,
-        }}
-      >
-        <SummaryCard label="Protected" value={formatPhp(summary.protectedCentavos)} />
-        <SummaryCard label="Captured" value={formatPhp(summary.capturedCentavos)} />
-        <SummaryCard label="Released" value={formatPhp(summary.releasedCentavos)} />
-        <SummaryCard label="Refunded" value={formatPhp(summary.refundedCentavos)} />
+      <div className="dk-summary-grid" role="group" aria-label="Finance summary">
+        <SummaryCard
+          label="Protected"
+          value={formatPhpSigned(summary.protectedCentavos)}
+          hint="Held in escrow"
+        />
+        <SummaryCard
+          label="Captured"
+          value={formatPhpSigned(summary.capturedCentavos)}
+          hint="Client funded"
+        />
+        <SummaryCard
+          label="Released"
+          value={formatPhpSigned(summary.releasedCentavos)}
+          hint="Paid to taskers"
+        />
+        <SummaryCard
+          label="Refunded"
+          value={formatPhpSigned(summary.refundedCentavos)}
+          hint="Returned to clients"
+        />
         <SummaryCard
           label="Platform fee"
-          value={`${formatPhp(summary.platformFeeCentavos)} (${(summary.platformFeeBps / 100).toFixed(2)}%)`}
+          value={formatPhpSigned(summary.platformFeeCentavos)}
+          hint={`${(summary.platformFeeBps / 100).toFixed(2)}% take rate`}
         />
-        <SummaryCard label="Ledger balance" value={formatPhp(summary.ledgerBalanceCentavos)} />
+        <SummaryCard
+          label="Ledger balance"
+          value={formatPhpSigned(summary.ledgerBalanceCentavos)}
+          hint={summary.ledgerBalanceCentavos === 0 ? "Balanced" : "Needs review"}
+        />
       </div>
       <p className="dk-field-description" style={{ marginBottom: 24 }}>
         {summary.synthetic
@@ -238,13 +250,20 @@ async function ProviderEventsTable() {
   );
 }
 
-function SummaryCard({ label, value }: { readonly label: string; readonly value: string }) {
+function SummaryCard({
+  label,
+  value,
+  hint,
+}: {
+  readonly label: string;
+  readonly value: string;
+  readonly hint?: string;
+}) {
   return (
-    <div className="dk-card" role="group" aria-label={label}>
-      <p className="dk-muted" style={{ margin: 0 }}>
-        {label}
-      </p>
-      <p style={{ margin: 0, fontSize: "1.25rem", fontWeight: 600 }}>{value}</p>
+    <div className="dk-summary-card" role="group" aria-label={label}>
+      <p className="dk-summary-card-label">{label}</p>
+      <p className="dk-summary-card-value">{value}</p>
+      {hint ? <p className="dk-summary-card-hint">{hint}</p> : null}
     </div>
   );
 }
@@ -269,19 +288,12 @@ function PaymentsLedgerFallback() {
         <SkeletonBone variant="badge" />
         <SkeletonBone variant="text-sm" style={{ width: "58%", marginTop: 8 }} />
       </div>
-      <div
-        aria-hidden="true"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-          gap: 12,
-          marginBottom: 16,
-        }}
-      >
+      <div className="dk-summary-grid" aria-hidden="true">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="dk-card">
+          <div key={i} className="dk-summary-card">
             <SkeletonBone variant="text-sm" style={{ width: "55%" }} />
-            <SkeletonBone variant="title" style={{ width: "72%", marginTop: 8 }} />
+            <SkeletonBone variant="title" style={{ width: "72%", marginTop: 10 }} />
+            <SkeletonBone variant="text-sm" style={{ width: "40%", marginTop: 8 }} />
           </div>
         ))}
       </div>

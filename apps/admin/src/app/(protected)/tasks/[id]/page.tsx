@@ -6,6 +6,7 @@ import { formatPhp } from "@dizkarte/domain";
 import { requirePageCapability } from "@/lib/guard";
 import { getAdminRepository } from "@/lib/repository";
 import { formatDate, formatDateTime } from "@/lib/datetime";
+import { formatReferenceId } from "@/lib/format-id";
 import { Breadcrumbs } from "@/components/ui/Field";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { mediaStatusLabel, mediaStatusTone } from "../../media/status";
@@ -14,6 +15,28 @@ import { TaskRowActions } from "../TaskRowActions";
 import { TaskRecordSkeleton } from "./TaskSkeleton";
 
 export const metadata: Metadata = { title: "Task" };
+
+
+function ExternalLinkIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <polyline points="15 3 21 3 21 9" />
+      <line x1="10" y1="14" x2="21" y2="3" />
+    </svg>
+  );
+}
 
 function Fact({ label, children }: { readonly label: string; readonly children: React.ReactNode }) {
   return (
@@ -72,10 +95,36 @@ async function TaskRecord({ taskId }: { readonly taskId: string }) {
       <header className="dk-detail-header">
         <div className="dk-detail-header-main">
           <h1>{task.title}</h1>
-          <StatusBadge tone={taskStatusTone(task.status)} label={taskStatusLabel(task.status)} />
+          <div className="dk-status-action-row">
+            <div className="dk-status-action-state">
+              <span
+                className={`dk-status-action-dot dk-status-action-dot-${taskStatusTone(task.status)}`}
+                aria-hidden="true"
+              />
+              <span className="dk-status-action-label">{taskStatusLabel(task.status)}</span>
+            </div>
+            {task.bookingId ? (
+              <>
+                <div className="dk-status-action-divider" aria-hidden="true" />
+                <AppLink
+                  href={`/bookings/${task.bookingId}`}
+                  className="dk-status-action-btn"
+                  title="Open booking"
+                >
+                  <span>Open booking</span>
+                  <ExternalLinkIcon />
+                </AppLink>
+              </>
+            ) : null}
+          </div>
         </div>
         <p className="dk-detail-header-meaning">{taskStatusMeaning(task.status)}</p>
         <dl className="dk-detail-header-meta">
+          <Fact label="Task Ref">
+            <span title={task.id} style={{ fontFamily: "ui-monospace, monospace", fontWeight: 600 }}>
+              {formatReferenceId(task.id, "TSK", task.createdAt)}
+            </span>
+          </Fact>
           <Fact label="Budget">
             <span className="dk-fact-amount">{formatPhp(task.budgetCentavos)}</span>
             {task.currency === "PHP" ? null : ` ${task.currency}`}

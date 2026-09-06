@@ -1,5 +1,95 @@
+"use client";
+
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type SVGProps,
+} from "react";
 import { AppLink } from "./AppLink";
-import { FilterForm } from "./FilterForm";
+import { FilterForm, useFilterForm } from "./FilterForm";
+
+function XIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
+
+export function buildClearHref(
+  basePath: string,
+  selects: ReadonlyArray<QueueFilterSelect>,
+): string {
+  const params = new URLSearchParams();
+  for (const select of selects) {
+    if (select.allValue) {
+      params.set(select.name, select.allValue);
+    }
+  }
+  const query = params.toString();
+  return query ? `${basePath}?${query}` : basePath;
+}
+
+function FilterBarActions({
+  clearHref,
+  hasActiveFilters,
+  onClear,
+}: {
+  readonly clearHref: string;
+  readonly hasActiveFilters: boolean;
+  readonly onClear: () => void;
+}) {
+  const { pending } = useFilterForm();
+
+  return (
+    <div className="dk-filter-bar-actions">
+      <AppLink
+        className="dk-btn dk-btn-secondary dk-filter-bar-clear"
+        href={clearHref}
+        title={
+          pending
+            ? "Updating..."
+            : hasActiveFilters
+              ? "Clear all active filters"
+              : "No active filters to clear"
+        }
+        aria-disabled={pending || !hasActiveFilters ? "true" : undefined}
+        aria-busy={pending}
+        tabIndex={pending || !hasActiveFilters ? -1 : undefined}
+        onClick={(e) => {
+          if (pending || !hasActiveFilters) {
+            e.preventDefault();
+            return;
+          }
+          onClear();
+        }}
+      >
+        {pending ? (
+          <>
+            <span className="dk-spinner" aria-hidden="true" />
+            <span>Updating...</span>
+          </>
+        ) : (
+          <>
+            <XIcon width={14} height={14} aria-hidden="true" />
+            <span>Clear</span>
+          </>
+        )}
+      </AppLink>
+    </div>
+  );
+}
 
 export type QueueFilterOption = {
   readonly value: string;
@@ -63,13 +153,87 @@ export type QueueFiltersProps = {
  */
 export function QueueFilters({ basePath, search, selects, texts = [] }: QueueFiltersProps) {
   const searchName = search?.name ?? "q";
-  const hasApplied =
-    Boolean(search?.value.trim()) ||
-    selects.some((select) => Boolean(select.value)) ||
-    texts.some((text) => Boolean(text.value.trim()));
+  const formRef = useRef<HTMLFormElement | null>(null);
+
+  const computeHasActive = useCallback(
+    (form: HTMLFormElement | null) => {
+      if (form) {
+        if (search) {
+          const input = form.querySelector<HTMLInputElement>(`input[name="${searchName}"]`);
+          const val = input ? input.value : (new FormData(form).get(searchName) as string | null);
+          if (typeof val === "string" && val.trim() !== "") return true;
+        }
+        for (const select of selects) {
+          const selectEl = form.querySelector<HTMLSelectElement>(`select[name="${select.name}"]`);
+          const val = selectEl
+            ? selectEl.value
+            : (new FormData(form).get(select.name) as string | null);
+          const allVal = select.allValue ?? "";
+          if (typeof val === "string" && val !== allVal && val !== "") return true;
+        }
+        for (const text of texts) {
+          const input = form.querySelector<HTMLInputElement>(`input[name="${text.name}"]`);
+          const val = input ? input.value : (new FormData(form).get(text.name) as string | null);
+          if (typeof val === "string" && val.trim() !== "") return true;
+        }
+        return false;
+      }
+
+      const hasSearch = Boolean(search?.value.trim());
+      const hasSelects = selects.some((select) => {
+        const allVal = select.allValue ?? "";
+        return select.value !== undefined && select.value !== allVal && select.value !== "";
+      });
+      const hasTexts = texts.some((text) => Boolean(text.value.trim()));
+      return hasSearch || hasSelects || hasTexts;
+    },
+    [search, searchName, selects, texts],
+  );
+
+  const [hasActiveFilters, setHasActiveFilters] = useState(() => computeHasActive(null));
+
+  useEffect(() => {
+    setHasActiveFilters(computeHasActive(formRef.current));
+  }, [computeHasActive]);
+
+  const handleFormInput = useCallback(
+    (form: HTMLFormElement) => {
+      setHasActiveFilters(computeHasActive(form));
+    },
+    [computeHasActive],
+  );
+
+  const handleClear = useCallback(() => {
+    const form = formRef.current;
+    if (form) {
+      const searchInputs = form.querySelectorAll<HTMLInputElement>(`input[name="${searchName}"]`);
+      searchInputs.forEach((input) => {
+        input.value = "";
+      });
+      for (const text of texts) {
+        const textInputs = form.querySelectorAll<HTMLInputElement>(`input[name="${text.name}"]`);
+        textInputs.forEach((input) => {
+          input.value = "";
+        });
+      }
+      for (const select of selects) {
+        const selectEls = form.querySelectorAll<HTMLSelectElement>(`select[name="${select.name}"]`);
+        selectEls.forEach((sel) => {
+          sel.value = select.allValue ?? "";
+        });
+      }
+    }
+    setHasActiveFilters(false);
+  }, [searchName, texts, selects]);
 
   return (
-    <FilterForm basePath={basePath} className="dk-filter-bar" autoApply>
+    <FilterForm
+      basePath={basePath}
+      className="dk-filter-bar"
+      autoApply
+      formRef={formRef}
+      onFormInput={handleFormInput}
+    >
       {search ? (
         <div className="dk-filter-bar-field dk-filter-bar-search">
           <label className="dk-visually-hidden" htmlFor={searchName}>
@@ -135,14 +299,14 @@ export function QueueFilters({ basePath, search, selects, texts = [] }: QueueFil
       </button>
 
       {/*
-        Only rendered once something is applied, so the row does not carry a
-        control that would do nothing.
+        The Clear button remains solidly in its place on the far right at all times,
+        disabled when no filter is used and dynamically enabled when filters are active.
       */}
-      {hasApplied ? (
-        <AppLink className="dk-btn dk-btn-text" href={basePath}>
-          Clear
-        </AppLink>
-      ) : null}
+      <FilterBarActions
+        clearHref={buildClearHref(basePath, selects)}
+        hasActiveFilters={hasActiveFilters}
+        onClear={handleClear}
+      />
     </FilterForm>
   );
 }

@@ -155,13 +155,87 @@ describe("QueueFilters", () => {
     expect(push).toHaveBeenCalledWith("/media?status=all");
   });
 
-  it("only offers Clear once a filter is applied", () => {
+  it("always renders Clear in its place, disabled when no filters are active and enabled when filters are applied", () => {
     const { unmount } = renderFilters();
-    expect(screen.queryByRole("link", { name: "Clear" })).toBeNull();
+    const clearLinkDefault = screen.getByRole("link", { name: "Clear" });
+    expect(clearLinkDefault).toBeInTheDocument();
+    expect(clearLinkDefault).toHaveAttribute("href", "/verification");
+    expect(clearLinkDefault).toHaveClass("dk-filter-bar-clear");
+    expect(clearLinkDefault).toHaveClass("dk-btn-secondary");
+    expect(clearLinkDefault).toHaveAttribute("aria-disabled", "true");
     unmount();
 
     renderFilters({ searchValue: "maria" });
-    expect(screen.getByRole("link", { name: "Clear" })).toHaveAttribute("href", "/verification");
+    const clearLink = screen.getByRole("link", { name: "Clear" });
+    expect(clearLink).toHaveAttribute("href", "/verification");
+    expect(clearLink).toHaveClass("dk-filter-bar-clear");
+    expect(clearLink).toHaveClass("dk-btn-secondary");
+    expect(clearLink).not.toHaveAttribute("aria-disabled");
+  });
+
+  it("dynamically enables Clear when typing or changing dropdowns, and disables when cleared", () => {
+    renderFilters();
+    const clearLink = screen.getByRole("link", { name: "Clear" });
+    expect(clearLink).toHaveAttribute("aria-disabled", "true");
+
+    fireEvent.change(searchBox(), { target: { value: "maria" } });
+    expect(clearLink).not.toHaveAttribute("aria-disabled");
+
+    fireEvent.change(searchBox(), { target: { value: "" } });
+    expect(clearLink).toHaveAttribute("aria-disabled", "true");
+
+    fireEvent.change(statusBox(), { target: { value: "APPROVED" } });
+    expect(clearLink).not.toHaveAttribute("aria-disabled");
+
+    fireEvent.change(statusBox(), { target: { value: "" } });
+    expect(clearLink).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("clears inputs and disables the Clear button when clicked", () => {
+    renderFilters({ searchValue: "maria" });
+    const clearLink = screen.getByRole("link", { name: "Clear" });
+    expect(clearLink).not.toHaveAttribute("aria-disabled");
+
+    fireEvent.click(clearLink);
+    expect(clearLink).toHaveAttribute("aria-disabled", "true");
+  });
+
+  it("prevents default navigation when Clear is disabled", () => {
+    renderFilters();
+    const clearLink = screen.getByRole("link", { name: "Clear" });
+    expect(clearLink).toHaveAttribute("aria-disabled", "true");
+
+    const allowed = fireEvent.click(clearLink);
+    expect(allowed).toBe(false); // default was prevented
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("does not render a separate status badge field beside the Clear button", () => {
+    renderFilters();
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByText("Updating...")).toBeNull();
+    expect(screen.getByRole("link", { name: "Clear" })).toBeInTheDocument();
+  });
+
+  it("builds a clear href with allValue when a filter defines an explicit all sentinel", () => {
+    render(
+      <QueueFilters
+        basePath="/media"
+        selects={[
+          {
+            name: "status",
+            label: "Filter by attachment status",
+            allLabel: "All attachments",
+            allValue: "all",
+            value: "PENDING",
+            options: [{ value: "PENDING", label: "Waiting for review" }],
+          },
+        ]}
+      />,
+    );
+
+    const clearLink = screen.getByRole("link", { name: "Clear" });
+    expect(clearLink).toHaveAttribute("href", "/media?status=all");
   });
 
   it("does not navigate after unmount when a keystroke is still pending", () => {

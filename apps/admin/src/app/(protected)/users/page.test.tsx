@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { Suspense, type ReactElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 
 /**
  * The point of the streaming refactor is a property that is easy to regress
@@ -13,13 +14,17 @@ import { Suspense, type ReactElement } from "react";
  */
 
 const { listUsers } = vi.hoisted(() => ({
-  listUsers: vi.fn(() => new Promise<never>(() => {})),
+  listUsers: vi.fn((): Promise<any> => new Promise<never>(() => {})),
 }));
 
 // `server-only` throws on import outside a server component; the modules under
 // test are server components, so it is stubbed exactly as the other Admin
 // server-side tests do.
 vi.mock("server-only", () => ({}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
 
 vi.mock("@/lib/guard", () => ({
   requirePageCapability: async () => ({
@@ -84,5 +89,55 @@ describe("users page streaming shell", () => {
     expect(names).toContain("Breadcrumbs");
     expect(names).toContain("PageSection");
     expect(names).toContain("QueueFilters");
+  });
+
+  it("renders user avatar initials, formal USR ref, role badges, verification status, joined date, and actions in table", async () => {
+    listUsers.mockResolvedValueOnce({
+      items: [
+        {
+          id: "edea3dcc-7b97-41d0-9fd0-92beb89424c8",
+          displayName: "Cristan Jade",
+          email: "cristan@example.test",
+          accountStatus: "active" as const,
+          identityVerified: true,
+          createdAt: "2026-08-12T11:02:00.000Z",
+          roles: ["CLIENT", "TASKER"],
+        },
+      ],
+      total: 1,
+      page: 1,
+      pageSize: 20,
+      hasMore: false,
+    });
+
+    const shell = (await UsersPage({ searchParams: Promise.resolve({}) })) as ReactElement;
+    const tableElement = walk(shell).find(
+      (element) =>
+        typeof element.type === "function" && element.type.constructor.name === "AsyncFunction",
+    );
+    expect(tableElement).toBeDefined();
+
+    const resolved = await (tableElement!.type as (props: unknown) => Promise<ReactElement>)(tableElement!.props);
+    const html = renderToStaticMarkup(resolved);
+
+    // Avatar initials
+    expect(html).toContain("CJ");
+    // Display name & formal USR reference (display name is non-clickable span)
+    expect(html).toContain('<span class="dk-user-name">Cristan Jade</span>');
+    expect(html).not.toMatch(/<a[^>]*>Cristan Jade<\/a>/);
+    expect(html).toContain("USR-EDEA3DCC");
+    // Role badges (Client has dedicated client tone, Tasker has info tone)
+    expect(html).toContain("Client");
+    expect(html).toContain("dk-badge-client");
+    expect(html).toContain("Tasker");
+    expect(html).toContain("dk-badge-info");
+    // Verification & Account status
+    expect(html).toContain("Verified");
+    expect(html).toContain("Active");
+    // Action buttons
+    expect(html).toContain("Profile");
+    expect(html).toContain("Suspend");
+    expect(html).toContain("Ban");
+    expect(html).toContain("/users/edea3dcc-7b97-41d0-9fd0-92beb89424c8");
   });
 });

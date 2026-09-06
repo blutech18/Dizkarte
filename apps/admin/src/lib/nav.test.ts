@@ -60,6 +60,13 @@ describe("isNavItemVisible", () => {
     expect(new Set(hrefs).size).toBe(hrefs.length);
   });
 
+  it("has unique icons across all sidebar nav items with zero duplicates", () => {
+    const items = NAV_SECTIONS.flatMap((section) => section.items);
+    const icons = items.map((item) => item.icon).filter(Boolean);
+    expect(icons.length).toBe(items.length);
+    expect(new Set(icons).size).toBe(items.length);
+  });
+
   it("gates every nav link with exactly the capabilities its page requires", () => {
     // A visible link that lands on /access-restricted is the same failure mode as
     // a link that 404s: it advertises a capability the signed-in Admin does not

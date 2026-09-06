@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useState, useRef, useCallback, useEffect, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
 import type { AdminSession } from "@/lib/session";
 import {
   NavigationProgressBar,
@@ -73,9 +72,69 @@ export function AppShell({
  * every click that would talk over the page the operator is leaving.
  */
 function MainRegion({ children }: { readonly children: ReactNode }) {
+  const mainRef = useRef<HTMLElement>(null);
+  const pathname = usePathname();
   const { pendingHref } = useNavigationProgress();
+
+  const scrollToTop = useCallback(() => {
+    if (typeof window === "undefined") return;
+
+    const reset = () => {
+      if (mainRef.current) {
+        mainRef.current.scrollTop = 0;
+      }
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    };
+
+    reset();
+    // Re-assert on the next animation frame after layout/DOM reconciliation
+    requestAnimationFrame(reset);
+  }, []);
+
+  // When pathname or page children change, scroll back to the very top
+  useEffect(() => {
+    scrollToTop();
+  }, [pathname, children, scrollToTop]);
+
+  // When a link navigation starts (e.g. clicking View or table links)
+  useEffect(() => {
+    if (pendingHref) {
+      scrollToTop();
+    }
+  }, [pendingHref, scrollToTop]);
+
+  // When browser back/forward history navigation occurs
+  useEffect(() => {
+    const handlePopState = () => {
+      scrollToTop();
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [scrollToTop]);
+
+  // Capture clicks on navigation links so scroll resets immediately upon click
+  useEffect(() => {
+    const handleLinkClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const target = (e.target as HTMLElement | null)?.closest("a");
+      if (!target) return;
+      if (target.getAttribute("target") === "_blank" || target.hasAttribute("download")) return;
+      const href = target.getAttribute("href");
+      if (href && (href.startsWith("/") || href.startsWith(window.location.origin))) {
+        if (href.startsWith("#")) return;
+        scrollToTop();
+      }
+    };
+
+    window.addEventListener("click", handleLinkClick, { capture: true });
+    return () => window.removeEventListener("click", handleLinkClick, { capture: true });
+  }, [scrollToTop]);
+
   return (
     <main
+      ref={mainRef}
       id="dk-main-content"
       className="dk-content"
       tabIndex={-1}

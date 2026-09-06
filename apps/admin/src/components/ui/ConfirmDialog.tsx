@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "./Button";
 
 export type ConfirmDialogProps = {
@@ -11,6 +12,8 @@ export type ConfirmDialogProps = {
   readonly variant?: "primary" | "destructive";
   readonly requireReason?: boolean;
   readonly triggerVariant?: "primary" | "secondary" | "destructive" | "text";
+  readonly triggerClassName?: string;
+  readonly triggerIcon?: React.ReactNode;
   readonly disabled?: boolean;
   readonly disabledReason?: string;
   /**
@@ -37,18 +40,25 @@ export function ConfirmDialog({
   variant = "primary",
   requireReason = false,
   triggerVariant = "secondary",
+  triggerClassName,
+  triggerIcon,
   disabled = false,
   disabledReason,
   disabledReasonPresentation = "text",
   onConfirm,
 }: ConfirmDialogProps) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const reasonId = useId();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (open) {
@@ -83,17 +93,23 @@ export function ConfirmDialog({
       <Button
         variant={triggerVariant}
         size="sm"
+        className={triggerClassName}
         onClick={() => setOpen(true)}
         disabled={disabled}
         title={disabled ? disabledReason : undefined}
         aria-disabled={disabled || undefined}
       >
+        {triggerIcon ? (
+          <span style={{ display: "inline-flex", marginRight: 5, alignItems: "center" }}>
+            {triggerIcon}
+          </span>
+        ) : null}
         {triggerLabel}
       </Button>
       {disabled && disabledReason && disabledReasonPresentation === "text" ? (
         <p className="dk-field-description">{disabledReason}</p>
       ) : null}
-      {open ? (
+      {open && mounted ? createPortal(
         <div
           className="dk-overlay"
           onKeyDown={(event) => {
@@ -145,7 +161,8 @@ export function ConfirmDialog({
               </Button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       ) : null}
     </>
   );

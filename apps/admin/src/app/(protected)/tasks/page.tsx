@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { formatPhp } from "@dizkarte/domain";
-import { AppLink } from "@/components/ui/AppLink";
 import { requirePageCapability } from "@/lib/guard";
 import { getAdminRepository } from "@/lib/repository";
+import { formatDate, formatTime } from "@/lib/datetime";
+import { formatReferenceId } from "@/lib/format-id";
 import { Breadcrumbs } from "@/components/ui/Field";
 import { PageSection, Pagination } from "@/components/ui/Pagination";
 import { EmptyState, SkeletonFilterRow, TableRegionSkeleton } from "@/components/ui/AsyncState";
@@ -62,7 +63,7 @@ export default async function TasksPage({
 
         <Suspense
           key={`${isValidStatus ? status : ""}|${q ?? ""}|${category ?? ""}|${city ?? ""}|${page}`}
-          fallback={<TableRegionSkeleton columns={5} />}
+          fallback={<TableRegionSkeleton columns={6} />}
         >
           <TasksTable page={page} q={q} status={status} category={category} city={city} />
         </Suspense>
@@ -156,12 +157,20 @@ async function TasksTable({
   const columns: ReadonlyArray<ColumnDef<TaskRow>> = [
     {
       key: "title",
-      header: "Title",
+      header: "Task",
+      showInCard: false,
       render: (row) => (
-        <>
-          <AppLink href={`/tasks/${row.id}`}>{row.title}</AppLink>{" "}
-          {row.flagged ? <StatusBadge tone="warning" label="Flagged" /> : null}
-        </>
+        <div style={{ display: "flex", flexDirection: "column", gap: 3, textAlign: "left" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span className="dk-task-title" style={{ fontWeight: 650, color: "var(--dk-textPrimary)" }}>
+              {row.title}
+            </span>
+            {row.flagged ? <StatusBadge tone="warning" label="Flagged" /> : null}
+          </div>
+          <span className="dk-ref-code" style={{ fontSize: 11 }} title={row.id}>
+            {formatReferenceId(row.id, "TSK")}
+          </span>
+        </div>
       ),
     },
     {
@@ -171,13 +180,35 @@ async function TasksTable({
         <StatusBadge tone={taskStatusTone(row.status)} label={taskStatusLabel(row.status)} />
       ),
     },
-    { key: "budget", header: "Budget", render: (row) => formatPhp(row.budgetCentavos) },
-    { key: "city", header: "City code", render: (row) => row.cityCode },
+    {
+      key: "budget",
+      header: "Budget",
+      render: (row) => (
+        <span style={{ fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+          {formatPhp(row.budgetCentavos)}
+        </span>
+      ),
+    },
+    {
+      key: "city",
+      header: "City code",
+      render: (row) => <span className="dk-ref-code">{row.cityCode}</span>,
+    },
+    {
+      key: "createdAt",
+      header: "Posted",
+      render: (row) => (
+        <time dateTime={row.createdAt} title={row.createdAt} className="dk-datetime-cell">
+          <span className="dk-datetime-date">{formatDate(row.createdAt)}</span>
+          <span className="dk-datetime-time">{formatTime(row.createdAt)}</span>
+        </time>
+      ),
+    },
     {
       key: "actions",
       header: "Actions",
       showInCard: false,
-      render: (row) => <TaskRowActions taskId={row.id} status={row.status} />,
+      render: (row) => <TaskRowActions taskId={row.id} status={row.status} showViewLink />,
     },
   ];
 
@@ -202,7 +233,19 @@ async function TasksTable({
         columns={columns}
         getRowKey={(row) => row.id}
         caption="Tasks"
-        cardTitle={(row) => row.title}
+        cardTitle={(row) => (
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <span className="dk-task-title" style={{ fontWeight: 650 }}>
+                {row.title}
+              </span>
+              {row.flagged ? <StatusBadge tone="warning" label="Flagged" /> : null}
+            </div>
+            <span className="dk-ref-code" style={{ fontSize: 11 }}>
+              {formatReferenceId(row.id, "TSK")}
+            </span>
+          </div>
+        )}
       />
       <Pagination
         page={result.page}
