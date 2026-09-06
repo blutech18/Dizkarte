@@ -13,5 +13,5 @@
     }
   ],
   "compilerOptions": {},
-  "extends": "expo/tsconfig.base"
+  "extends": "./tsconfig.base.json"
 }
