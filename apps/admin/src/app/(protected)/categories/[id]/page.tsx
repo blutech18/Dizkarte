@@ -79,7 +79,11 @@ async function CategoryRecord({ categoryId }: { readonly categoryId: string }) {
           <Fact label="Display order">{detail.displayOrder}</Fact>
           <Fact label="Tasks referencing">{detail.taskCount}</Fact>
           <Fact label="Last updated">
-            <time dateTime={detail.updatedAt}>{formatDateTime(detail.updatedAt)}</time>
+            {detail.updatedAt && !detail.updatedAt.startsWith("1970") && new Date(detail.updatedAt).getTime() > 0 ? (
+              <time dateTime={detail.updatedAt}>{formatDateTime(detail.updatedAt)}</time>
+            ) : (
+              <span className="dk-muted">Initial catalog</span>
+            )}
           </Fact>
         </dl>
       </header>

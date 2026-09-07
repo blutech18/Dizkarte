@@ -13,7 +13,12 @@ function slugify(value: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-export function CreateCategoryForm() {
+export type CreateCategoryFormProps = {
+  readonly onSuccess?: () => void;
+  readonly onCancel?: () => void;
+};
+
+export function CreateCategoryForm({ onSuccess, onCancel }: CreateCategoryFormProps = {}) {
   const router = useRouter();
   const nameId = useId();
   const slugId = useId();
@@ -40,6 +45,7 @@ export function CreateCategoryForm() {
           setSlug("");
           setSlugTouched(false);
           router.refresh();
+          onSuccess?.();
         } else {
           setError(result.message ?? "Could not create this category. Please try again.");
         }
@@ -96,10 +102,15 @@ export function CreateCategoryForm() {
           }}
         />
       </div>
-      <div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4 }}>
         <Button type="submit" variant="primary" loading={pending}>
           Add category
         </Button>
+        {onCancel ? (
+          <Button type="button" variant="secondary" onClick={onCancel} disabled={pending}>
+            Cancel
+          </Button>
+        ) : null}
       </div>
     </form>
   );

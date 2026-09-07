@@ -2565,15 +2565,34 @@ export class SupabaseAdminRepository implements AdminRepository {
   // =========================================================================
 
   async listCategories(
-    input: PageInput & { status?: "active" | "inactive" },
+    input: PageInput & { status?: "active" | "inactive"; query?: string; sort?: string },
   ): Promise<Paginated<CategoryRow>> {
     const db = await this.db();
     const { from, to } = pageRange(input.page, input.pageSize);
     let query = db.from("categories").select("id,name,slug,active,sort_order", { count: "exact" });
     if (input.status === "active") query = query.eq("active", true);
     if (input.status === "inactive") query = query.eq("active", false);
+
+    const keyword = input.query?.trim();
+    if (keyword) {
+      const safe = keyword.replace(/[,().*\\]/g, " ").trim();
+      if (safe.length > 0) {
+        query = query.or(`name.ilike.*${safe}*,slug.ilike.*${safe}*`);
+      }
+    }
+
+    let orderCol = "sort_order";
+    let ascending = true;
+    if (input.sort === "name") {
+      orderCol = "name";
+      ascending = true;
+    } else if (input.sort === "order_desc") {
+      orderCol = "sort_order";
+      ascending = false;
+    }
+
     const { data, count, error } = await query
-      .order("sort_order", { ascending: true })
+      .order(orderCol, { ascending })
       .range(from, to);
     if (error) return paginate<CategoryRow>([], input.page, input.pageSize, 0);
 
@@ -2585,7 +2604,7 @@ export class SupabaseAdminRepository implements AdminRepository {
       sort_order: number;
     }>;
     const taskCounts = await this.taskCountsByCategory(rows.map((row) => row.id));
-    const items = await Promise.all(
+    let items = await Promise.all(
       rows.map(async (row) => ({
         id: row.id,
         name: row.name,
@@ -2596,6 +2615,13 @@ export class SupabaseAdminRepository implements AdminRepository {
         updatedAt: await this.lastCategoryChangeAt(row.id),
       })),
     );
+
+    if (input.sort === "tasks") {
+      items = [...items].sort((a, b) => b.taskCount - a.taskCount);
+    } else if (input.sort === "updated") {
+      items = [...items].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    }
+
     return paginate(items, input.page, input.pageSize, count ?? items.length);
   }
 

@@ -2577,16 +2577,37 @@ export class SyntheticAdminRepository implements AdminRepository {
     return { ...category, taskCount };
   }
 
-  async listCategories(input: PageInput & { status?: "active" | "inactive" }) {
-    const filtered =
+  async listCategories(
+    input: PageInput & { status?: "active" | "inactive"; query?: string; sort?: string },
+  ) {
+    let filtered =
       input.status === "active"
         ? this.state.categories.filter((c) => c.active)
         : input.status === "inactive"
           ? this.state.categories.filter((c) => !c.active)
           : this.state.categories;
-    const sorted = [...filtered]
-      .sort((a, b) => a.displayOrder - b.displayOrder)
-      .map((c) => this.withTaskCount(c));
+
+    if (input.query) {
+      const q = input.query.trim().toLowerCase();
+      filtered = filtered.filter(
+        (c) => c.name.toLowerCase().includes(q) || c.slug.toLowerCase().includes(q),
+      );
+    }
+
+    let sorted = [...filtered].map((c) => this.withTaskCount(c));
+
+    if (input.sort === "name") {
+      sorted.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (input.sort === "tasks") {
+      sorted.sort((a, b) => b.taskCount - a.taskCount);
+    } else if (input.sort === "updated") {
+      sorted.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    } else if (input.sort === "order_desc") {
+      sorted.sort((a, b) => b.displayOrder - a.displayOrder);
+    } else {
+      sorted.sort((a, b) => a.displayOrder - b.displayOrder);
+    }
+
     return paged<CategoryRow>(sorted, input);
   }
 

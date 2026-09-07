@@ -995,7 +995,7 @@ export interface AdminRepository {
   }>;
 
   listCategories(
-    input: PageInput & { status?: "active" | "inactive" },
+    input: PageInput & { status?: "active" | "inactive"; query?: string; sort?: string },
   ): Promise<Paginated<CategoryRow>>;
   getCategory(id: string): Promise<CategoryDetail | null>;
   createCategory(input: {
