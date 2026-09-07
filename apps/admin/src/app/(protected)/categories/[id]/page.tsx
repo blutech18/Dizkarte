@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
-import { Suspense } from "react";
+import { Suspense, type SVGProps } from "react";
 import { notFound } from "next/navigation";
+import { AppLink } from "@/components/ui/AppLink";
 import { requirePageCapability } from "@/lib/guard";
 import { getAdminRepository } from "@/lib/repository";
-import { formatDateTime } from "@/lib/datetime";
+import { formatDate, formatDateTime, formatTime } from "@/lib/datetime";
 import { Breadcrumbs } from "@/components/ui/Field";
 import { DetailRegionSkeleton } from "@/components/ui/AsyncState";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -13,17 +14,71 @@ import { ReorderCategoryForm } from "./ReorderCategoryForm";
 
 export const metadata: Metadata = { title: "Category" };
 
+function ArrowLeftIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <path d="M19 12H5M12 19l-7-7 7-7" />
+    </svg>
+  );
+}
+
+function TagIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" />
+      <line x1="7" y1="7" x2="7.01" y2="7" />
+    </svg>
+  );
+}
+
+function ExternalLinkIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      {...props}
+    >
+      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+      <polyline points="15 3 21 3 21 9" />
+      <line x1="10" y1="14" x2="21" y2="3" />
+    </svg>
+  );
+}
+
 /**
- * Category detail.
+ * Category detail view.
  *
- * The whole body is one category record, so the shell shown without waiting is
- * deliberately small: the breadcrumb trail. It is proof the operator is on the
- * right page and a way back to the list if the record is slow, so it is returned
- * immediately while the record streams in behind its own boundary.
- *
- * The final breadcrumb is a static label rather than the category name: the name
- * is already the page's h1, so repeating it bought nothing and would have held
- * the whole trail back until the query returned.
+ * Designed with a consistent hero card, metrics overview, and responsive
+ * two-column layout separating catalog settings from availability controls.
  */
 export default async function CategoryDetailPage({
   params,
@@ -34,18 +89,11 @@ export default async function CategoryDetailPage({
   const { id } = await params;
 
   return (
-    <>
-      <Breadcrumbs
-        items={[
-          { label: "Dashboard", href: "/dashboard" },
-          { label: "Categories", href: "/categories" },
-          { label: "Category" },
-        ]}
-      />
+    <div className="dk-detail">
       <Suspense fallback={<DetailRegionSkeleton cards={4} lines={3} />}>
         <CategoryRecord categoryId={id} />
       </Suspense>
-    </>
+    </div>
   );
 }
 
@@ -57,30 +105,121 @@ async function CategoryRecord({ categoryId }: { readonly categoryId: string }) {
     notFound();
   }
 
+  const isEpochZero =
+    !detail.updatedAt ||
+    detail.updatedAt.startsWith("1970") ||
+    new Date(detail.updatedAt).getTime() === 0;
+
   return (
-    <div className="dk-detail">
-      <header className="dk-detail-header">
-        <div className="dk-detail-header-main">
-          <h1>{detail.name}</h1>
-          <StatusBadge
-            tone={detail.active ? "success" : "neutral"}
-            label={detail.active ? "Active" : "Inactive"}
-          />
+    <>
+      <nav className="dk-detail-nav" aria-label="Page navigation">
+        <Breadcrumbs
+          items={[
+            { label: "Dashboard", href: "/dashboard" },
+            { label: "Categories", href: "/categories" },
+            { label: detail.name },
+          ]}
+        />
+        <AppLink className="dk-back-btn" href="/categories">
+          <ArrowLeftIcon />
+          <span>Back to categories</span>
+        </AppLink>
+        <span className="dk-booking-ref-text" title={detail.id}>
+          Slug: <span className="dk-ref-code">{detail.slug}</span>
+        </span>
+      </nav>
+
+      {/* Hero Header Card */}
+      <header className="dk-booking-hero">
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            gap: 16,
+            flexWrap: "wrap",
+            marginBottom: 20,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: "var(--dk-radius-md)",
+                background: "rgba(110, 32, 223, 0.12)",
+                color: "var(--dk-primary)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}
+              aria-hidden="true"
+            >
+              <TagIcon width={22} height={22} />
+            </div>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                <h1
+                  className="dk-booking-hero-title"
+                  style={{ margin: 0, fontSize: "clamp(22px, 2.5vw, 28px)" }}
+                >
+                  {detail.name}
+                </h1>
+                <StatusBadge
+                  tone={detail.active ? "success" : "neutral"}
+                  label={detail.active ? "Active" : "Inactive"}
+                />
+              </div>
+              <p
+                className="dk-detail-header-meaning"
+                style={{ margin: "4px 0 0 0", color: "var(--dk-textSecondary)" }}
+              >
+                {detail.active
+                  ? "Clients can choose this category when posting a task."
+                  : "Hidden from new task creation. Existing tasks keep their category."}
+              </p>
+            </div>
+          </div>
         </div>
-        <p className="dk-detail-header-meaning">
-          {detail.active
-            ? "Clients can choose this category when posting a task."
-            : "Hidden from new task creation. Existing tasks keep their category."}
-        </p>
-        <dl className="dk-detail-header-meta">
+
+        {/* Hero Metrics Row */}
+        <dl className="dk-booking-metrics">
           <Fact label="Slug">
-            <code>{detail.slug}</code>
+            <span className="dk-ref-code" style={{ fontSize: 13.5 }}>
+              {detail.slug}
+            </span>
           </Fact>
-          <Fact label="Display order">{detail.displayOrder}</Fact>
-          <Fact label="Tasks referencing">{detail.taskCount}</Fact>
+          <Fact label="Display order">
+            <span style={{ fontSize: 18, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+              #{detail.displayOrder}
+            </span>
+          </Fact>
+          <Fact label="Tasks referencing">
+            <AppLink
+              href={`/tasks?q=${encodeURIComponent(detail.name)}`}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                color: detail.taskCount > 0 ? "var(--dk-primary)" : "var(--dk-textMuted)",
+                fontWeight: 700,
+                textDecoration: "none",
+              }}
+              title={detail.taskCount > 0 ? "View tasks under this category" : undefined}
+            >
+              <span>
+                {detail.taskCount} {detail.taskCount === 1 ? "task" : "tasks"}
+              </span>
+              {detail.taskCount > 0 ? <ExternalLinkIcon /> : null}
+            </AppLink>
+          </Fact>
           <Fact label="Last updated">
-            {detail.updatedAt && !detail.updatedAt.startsWith("1970") && new Date(detail.updatedAt).getTime() > 0 ? (
-              <time dateTime={detail.updatedAt}>{formatDateTime(detail.updatedAt)}</time>
+            {!isEpochZero ? (
+              <time dateTime={detail.updatedAt} className="dk-datetime-cell">
+                <span className="dk-datetime-date">{formatDate(detail.updatedAt)}</span>
+                <span className="dk-datetime-time">{formatTime(detail.updatedAt)}</span>
+              </time>
             ) : (
               <span className="dk-muted">Initial catalog</span>
             )}
@@ -88,58 +227,120 @@ async function CategoryRecord({ categoryId }: { readonly categoryId: string }) {
         </dl>
       </header>
 
-      <section className="dk-card" aria-labelledby="naming-heading">
-        <h2 id="naming-heading">Name and slug</h2>
-        <RenameCategoryForm categoryId={detail.id} name={detail.name} slug={detail.slug} />
-      </section>
+      {/* Two-Column Responsive Content Grid */}
+      <div className="dk-task-content-grid">
+        {/* Main Column */}
+        <div className="dk-task-main-col">
+          <section className="dk-card dk-task-card" aria-labelledby="naming-heading">
+            <div className="dk-card-header-flex" style={{ marginBottom: 4 }}>
+              <h2 id="naming-heading">Name and slug</h2>
+            </div>
+            <p className="dk-card-note">
+              Update the customer-facing category title and unique URL slug identifier.
+            </p>
+            <RenameCategoryForm categoryId={detail.id} name={detail.name} slug={detail.slug} />
+          </section>
 
-      <section className="dk-card" aria-labelledby="order-heading">
-        <h2 id="order-heading">Display order</h2>
-        <ReorderCategoryForm categoryId={detail.id} displayOrder={detail.displayOrder} />
-      </section>
+          <section className="dk-card dk-task-card" aria-labelledby="order-heading">
+            <div className="dk-card-header-flex" style={{ marginBottom: 4 }}>
+              <h2 id="order-heading">Marketplace display order</h2>
+            </div>
+            <p className="dk-card-note">
+              Controls the sorting position of this category in client app task selectors.
+            </p>
+            <ReorderCategoryForm categoryId={detail.id} displayOrder={detail.displayOrder} />
+          </section>
 
-      <section className="dk-card" aria-labelledby="state-heading">
-        <h2 id="state-heading">Availability</h2>
-        {detail.taskCount > 0 && detail.active ? (
-          <p className="dk-card-note">
-            {detail.taskCount} task{detail.taskCount === 1 ? "" : "s"} reference this category.
-            Deactivating hides it from new task creation without deleting it or those tasks.
-          </p>
-        ) : null}
-        <CategoryStateControls categoryId={detail.id} active={detail.active} />
-      </section>
+          <section className="dk-card dk-task-card" aria-labelledby="history-heading">
+            <div className="dk-card-header-flex" style={{ marginBottom: 8 }}>
+              <h2 id="history-heading">Audit history</h2>
+            </div>
+            {detail.history.length === 0 ? (
+              <p className="dk-muted" style={{ margin: "8px 0" }}>
+                No changes recorded for this category yet. Initial catalog entry.
+              </p>
+            ) : (
+              <ul className="dk-history">
+                {detail.history.map((event, index) => (
+                  <li key={`${event.type}-${event.at}-${index}`}>
+                    <div className="dk-history-head">
+                      <strong>{historyLabel(event.type)}</strong>
+                      <time className="dk-history-time" dateTime={event.at}>
+                        {formatDateTime(event.at)}
+                      </time>
+                    </div>
+                    <p className="dk-history-meta">
+                      {event.fromValue ? `${event.fromValue} → ${event.toValue}` : event.toValue} ·{" "}
+                      {event.actor}
+                      {event.capability ? ` · ${event.capability}` : ""}
+                    </p>
+                    {event.reason ? (
+                      <blockquote className="dk-quote" style={{ marginTop: 8 }}>
+                        {event.reason}
+                      </blockquote>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
 
-      <section className="dk-card" aria-labelledby="history-heading">
-        <h2 id="history-heading">History</h2>
-        {detail.history.length === 0 ? (
-          <p className="dk-muted">No change recorded for this category yet.</p>
-        ) : (
-          /*
-            A seven-column table for a change log forced horizontal scrolling and
-            put the reason — the part that explains the change — in the narrowest
-            cell. The same records read better as a list.
-          */
-          <ul className="dk-history">
-            {detail.history.map((event, index) => (
-              <li key={`${event.type}-${event.at}-${index}`}>
-                <div className="dk-history-head">
-                  <strong>{historyLabel(event.type)}</strong>
-                  <time className="dk-history-time" dateTime={event.at}>
-                    {formatDateTime(event.at)}
-                  </time>
-                </div>
-                <p className="dk-history-meta">
-                  {event.fromValue ? `${event.fromValue} → ${event.toValue}` : event.toValue} ·{" "}
-                  {event.actor}
-                  {event.capability ? ` · ${event.capability}` : ""}
-                </p>
-                {event.reason ? <blockquote className="dk-quote">{event.reason}</blockquote> : null}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
+        {/* Sidebar Column */}
+        <div className="dk-task-side-col">
+          <section className="dk-card dk-task-card" aria-labelledby="state-heading">
+            <div className="dk-card-header-flex" style={{ marginBottom: 12 }}>
+              <h2 id="state-heading" style={{ fontSize: 16 }}>
+                Availability
+              </h2>
+              <StatusBadge
+                tone={detail.active ? "success" : "neutral"}
+                label={detail.active ? "Active" : "Inactive"}
+              />
+            </div>
+
+            <p className="dk-card-note" style={{ marginBottom: 18 }}>
+              {detail.active ? (
+                detail.taskCount > 0 ? (
+                  <>
+                    <strong>{detail.taskCount}</strong> task{detail.taskCount === 1 ? "" : "s"}{" "}
+                    currently reference this category. Deactivating hides it from new task creation
+                    without deleting existing tasks or bookings.
+                  </>
+                ) : (
+                  "No tasks currently reference this category. Deactivating hides it from new task creation."
+                )
+              ) : (
+                "This category is currently hidden. Existing tasks retain their category, but clients cannot select it for new tasks."
+              )}
+            </p>
+
+            <CategoryStateControls categoryId={detail.id} active={detail.active} />
+          </section>
+
+          <section className="dk-card dk-task-card" aria-labelledby="quick-ref-heading">
+            <h2 id="quick-ref-heading" style={{ fontSize: 16, marginBottom: 12 }}>
+              Quick reference
+            </h2>
+            <dl className="dk-fact-grid" style={{ gridTemplateColumns: "1fr", gap: 12 }}>
+              <Fact label="Category ID">
+                <span className="dk-ref-code" style={{ wordBreak: "break-all", fontSize: 12 }}>
+                  {detail.id}
+                </span>
+              </Fact>
+              <Fact label="Catalog status">
+                <span style={{ fontWeight: 600 }}>
+                  {detail.active ? "Enabled for posting" : "Disabled for posting"}
+                </span>
+              </Fact>
+              <Fact label="Total tasks">
+                <span style={{ fontWeight: 600 }}>{detail.taskCount}</span>
+              </Fact>
+            </dl>
+          </section>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -171,4 +372,3 @@ function historyLabel(type: string): string {
       return type.replace(/[_-]+/g, " ").replace(/^\w/, (letter) => letter.toUpperCase());
   }
 }
-

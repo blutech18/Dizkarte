@@ -61,14 +61,18 @@ export function ReorderCategoryForm({
         </p>
       ) : null}
       {success ? (
-        <p role="status" className="dk-field-description">
+        <p role="status" className="dk-field-description" style={{ color: "var(--dk-success)" }}>
           {success}
         </p>
       ) : null}
-      <div className="dk-field">
+
+      <div className="dk-field" style={{ maxWidth: 220 }}>
         <label className="dk-label dk-required" htmlFor={orderId}>
           Display order
         </label>
+        <span className="dk-field-description">
+          Lower numbers appear first in the client app.
+        </span>
         <input
           id={orderId}
           className="dk-input"
@@ -79,6 +83,7 @@ export function ReorderCategoryForm({
           onChange={(event) => setOrder(event.target.value)}
         />
       </div>
+
       <div className="dk-field">
         <label className="dk-label dk-required" htmlFor={reasonId}>
           Reason
@@ -89,11 +94,15 @@ export function ReorderCategoryForm({
         <textarea
           id={reasonId}
           className="dk-textarea"
+          rows={2}
+          style={{ minHeight: 68 }}
+          placeholder="Reason for adjusting marketplace display order..."
           value={reason}
           onChange={(event) => setReason(event.target.value)}
         />
       </div>
-      <div>
+
+      <div style={{ display: "flex", justifyContent: "flex-start", marginTop: 4 }}>
         <Button type="submit" variant="primary" loading={pending} disabled={unchanged}>
           Save order
         </Button>

@@ -21,22 +21,22 @@ export function CategoryStateControls({
 
   return active ? (
     <ConfirmDialog
-      triggerLabel="Deactivate"
+      triggerLabel="Deactivate category"
       triggerVariant="destructive"
       variant="destructive"
       title="Deactivate category"
       description="Deactivating hides this category from new task creation. It is never deleted, and tasks that already reference it are unaffected."
-      confirmLabel="Deactivate"
+      confirmLabel="Deactivate category"
       requireReason
       onConfirm={(reason) => setActive(false, reason)}
     />
   ) : (
     <ConfirmDialog
-      triggerLabel="Activate"
+      triggerLabel="Activate category"
       triggerVariant="primary"
       title="Activate category"
       description="The category becomes available for new task creation again."
-      confirmLabel="Activate"
+      confirmLabel="Activate category"
       requireReason
       onConfirm={(reason) => setActive(true, reason)}
     />
