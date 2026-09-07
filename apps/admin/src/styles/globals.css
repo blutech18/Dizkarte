@@ -2090,8 +2090,7 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding-top: 12px;
-  border-top: 1px solid var(--dk-borderSubtle);
+  padding-top: 4px;
   margin-top: auto;
 }
 
