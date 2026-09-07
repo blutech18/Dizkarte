@@ -5519,8 +5519,8 @@ textarea {
 }
 
 .dk-discovery-action-footer {
-  padding-top: 14px;
-  border-top: 1px solid var(--dk-borderSubtle);
+  display: flex;
+  width: 100%;
 }
 
 .dk-discovery-actions {
