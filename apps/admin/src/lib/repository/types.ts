@@ -80,6 +80,7 @@ export type UserRow = {
 
 export type TaskRow = {
   readonly id: string;
+  readonly referenceId?: string | null;
   readonly title: string;
   readonly status: string;
   readonly budgetCentavos: number;

@@ -266,7 +266,7 @@ async function TaskRecord({ taskId }: { readonly taskId: string }) {
   const task = await getAdminRepository().getTask(taskId);
   if (!task) notFound();
 
-  const formattedRef = formatReferenceId(task.id, "TSK", task.createdAt);
+  const formattedRef = task.referenceId ?? formatReferenceId(task.id, "TSK", task.createdAt);
 
   return (
     <>
@@ -578,8 +578,8 @@ async function TaskRecord({ taskId }: { readonly taskId: string }) {
               </h2>
             </div>
             <dl className="dk-fact-grid" style={{ gridTemplateColumns: "1fr", gap: 12 }}>
-              <Fact label="Task Ref">
-                <span className="dk-ref-code" title={task.id} style={{ fontSize: 12, fontWeight: 650 }}>
+              <Fact label="Task ID">
+                <span className="dk-ref-code" title={`Database UUID: ${task.id}`} style={{ fontSize: 12, fontWeight: 650 }}>
                   {formattedRef}
                 </span>
               </Fact>

@@ -10,3 +10,4 @@ export * from "./schemas/index.js";
 export * from "./dto/index.js";
 export * from "./ports/index.js";
 export * from "./adapters/index.js";
+export * from "./reference-id.js";

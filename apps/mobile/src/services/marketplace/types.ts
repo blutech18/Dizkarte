@@ -137,6 +137,7 @@ export type VerificationDenialReason =
 /** Owner-only task record — never returned to any user other than the owning Client. */
 export type OwnedTaskRecord = {
   readonly id: TaskId;
+  readonly referenceId?: string | null;
   readonly clientId: UserId;
   readonly status: TaskStatus;
   readonly draft: DraftTaskInput;

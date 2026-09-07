@@ -64,7 +64,7 @@ export function TaskRowActions({
         <ConfirmDialog
           triggerLabel={triggerLabel ?? "Restore"}
           triggerVariant="secondary"
-          triggerClassName={triggerClassName}
+          {...(triggerClassName ? { triggerClassName } : {})}
           title="Restore task"
           description="The task becomes eligible for public discovery again, subject to its normal state rules."
           confirmLabel="Restore"
@@ -75,7 +75,7 @@ export function TaskRowActions({
         <ConfirmDialog
           triggerLabel={triggerLabel ?? "Remove"}
           triggerVariant="destructive"
-          triggerClassName={triggerClassName}
+          {...(triggerClassName ? { triggerClassName } : {})}
           variant="destructive"
           title="Remove task from discovery"
           description="The task will be excluded from public search/feed results immediately."

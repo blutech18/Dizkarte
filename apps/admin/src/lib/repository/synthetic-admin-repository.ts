@@ -1,5 +1,5 @@
 import "server-only";
-import { paginate, type AdminCapability, type Paginated } from "@dizkarte/domain";
+import { formatReferenceId, paginate, type AdminCapability, type Paginated } from "@dizkarte/domain";
 import type {
   AdminRepository,
   AuditLogRow,
@@ -1615,11 +1615,18 @@ export class SyntheticAdminRepository implements AdminRepository {
    * the task page and the media queue agree offline exactly as they do live.
    */
   async getTask(taskId: string): Promise<TaskDetail | null> {
-    const row = this.state.tasks.find((task) => task.id === taskId);
+    const clean = taskId.trim();
+    const row = this.state.tasks.find(
+      (task) =>
+        task.id === clean ||
+        task.referenceId === clean ||
+        formatReferenceId(task.id, "TSK", task.createdAt) === clean,
+    );
     if (!row) return null;
 
+    const actualTaskId = row.id;
     const attachments = this.state.taskMedia
-      .filter((media) => media.taskId === taskId)
+      .filter((media) => media.taskId === actualTaskId)
       .map((media) => ({
         id: media.id,
         kind: media.kind,
@@ -1630,7 +1637,7 @@ export class SyntheticAdminRepository implements AdminRepository {
     // Same projection the synthetic user detail uses: offline, the audit log is
     // the only record of a decision, keyed by the shortened resource label.
     const decisions = this.state.auditLogs
-      .filter((entry) => entry.resource === `task ${taskId.slice(0, 8)}`)
+      .filter((entry) => entry.resource === `task ${actualTaskId.slice(0, 8)}`)
       .map((entry) => ({
         id: entry.id,
         action: entry.action,
@@ -1643,6 +1650,7 @@ export class SyntheticAdminRepository implements AdminRepository {
 
     return {
       ...row,
+      referenceId: row.referenceId ?? formatReferenceId(row.id, "TSK", row.createdAt),
       description: `Synthetic task record for ${row.title}. Offline data set: the description is derived from the task title so the detail page has representative copy to lay out.`,
       currency: "PHP",
       clientDisplayName: "Development Client",

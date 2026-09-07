@@ -1,6 +1,7 @@
 import {
   acceptsOffers,
   canSubmitOffer,
+  formatReferenceId,
   isActiveBooking,
   isCommunicationUnlocked,
   paginate,
@@ -413,13 +414,15 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
     if (existing && existing.clientId !== clientId) {
       throw new Error("Forbidden: task belongs to a different Client.");
     }
+    const createdAt = existing?.createdAt ?? nowIso();
     const record: OwnedTaskRecord = {
       id: id as unknown as TaskId,
+      referenceId: existing?.referenceId ?? formatReferenceId(id, "TSK", createdAt),
       clientId: clientId as unknown as OwnedTaskRecord["clientId"],
       status: existing?.status ?? "DRAFT",
       draft,
       publishedAt: existing?.publishedAt ?? null,
-      createdAt: existing?.createdAt ?? nowIso(),
+      createdAt,
       updatedAt: nowIso(),
       questionCount: existing?.questionCount ?? 0,
       offerCount: existing?.offerCount ?? 0,
@@ -635,7 +638,7 @@ export class SyntheticMarketplaceRepository implements MobileMarketplacePort {
     const idx = list.findIndex((q) => q.id === questionId);
     const existing = idx === -1 ? undefined : list[idx];
     if (!existing) throw new Error("Question not found.");
-    const updated: TaskQuestionRecord = { ...existing, answer: undefined };
+    const updated: TaskQuestionRecord = { ...existing, answer: null };
     list[idx] = updated;
     this.questions.set(key, list);
     return updated;

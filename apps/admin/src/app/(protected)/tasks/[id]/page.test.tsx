@@ -165,5 +165,12 @@ describe("task record layout", () => {
     expect(html).toContain("Duplicate posting of the same job.");
     expect(html).toContain("support@dizkarte.test");
   });
+
+  it("renders formal Task ID in quick reference", async () => {
+    const html = await renderRecord();
+
+    expect(html).toContain("Task ID");
+    expect(html).toContain("TSK-20260829-2003");
+  });
 });
 

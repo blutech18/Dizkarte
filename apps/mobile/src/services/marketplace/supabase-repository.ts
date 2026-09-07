@@ -943,7 +943,7 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
       authorId: row.author_id as UserId,
       authorDisplayName: this.nameOf(names, row.author_id),
       body: row.body,
-      answer: row.answer ?? undefined,
+      answer: row.answer ?? null,
       createdAt: row.created_at,
     };
   }
@@ -2895,6 +2895,7 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
 
 type RawTaskRow = {
   readonly id: string;
+  readonly reference_id?: string | null;
   readonly client_id: string;
   readonly category_id: string;
   readonly title: string;
@@ -3008,6 +3009,7 @@ function assembleOwnedTask(
 
   return {
     id: row.id as TaskId,
+    referenceId: row.reference_id ?? null,
     clientId: row.client_id as UserId,
     status: toTaskStatus(row.status),
     draft,

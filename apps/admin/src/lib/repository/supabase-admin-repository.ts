@@ -837,7 +837,7 @@ export class SupabaseAdminRepository implements AdminRepository {
     const { from, to } = pageRange(input.page, input.pageSize);
     let query = db
       .from("tasks")
-      .select("id,title,status,budget_centavos,created_at,category_id", { count: "exact" });
+      .select("id,reference_id,title,status,budget_centavos,created_at,category_id", { count: "exact" });
     if (input.status) query = query.eq("status", input.status);
     if (input.categoryId) query = query.eq("category_id", input.categoryId);
     const keyword = input.query?.trim();
@@ -846,7 +846,9 @@ export class SupabaseAdminRepository implements AdminRepository {
       // cannot inject additional filter clauses.
       const safe = keyword.replace(/[,().*\\]/g, " ").trim();
       if (safe.length > 0) {
-        query = query.or(`title.ilike.*${safe}*,description.ilike.*${safe}*`);
+        query = query.or(
+          `title.ilike.*${safe}*,description.ilike.*${safe}*,reference_id.ilike.*${safe}*`,
+        );
       }
     }
     if (input.cityCode) {
@@ -869,6 +871,7 @@ export class SupabaseAdminRepository implements AdminRepository {
 
     const rows = (data ?? []) as ReadonlyArray<{
       id: string;
+      reference_id?: string | null;
       title: string;
       status: string;
       budget_centavos: number;
@@ -883,6 +886,7 @@ export class SupabaseAdminRepository implements AdminRepository {
     ]);
     const items = rows.map((row) => ({
       id: row.id,
+      referenceId: row.reference_id ?? null,
       title: row.title,
       status: row.status,
       budgetCentavos: Number(row.budget_centavos),
@@ -953,15 +957,21 @@ export class SupabaseAdminRepository implements AdminRepository {
    */
   async getTask(taskId: string): Promise<TaskDetail | null> {
     const db = await this.db();
-    const { data } = await db
+    const isRef = taskId.trim().toUpperCase().startsWith("TSK-");
+    let taskQuery = db
       .from("tasks")
       .select(
-        "id,client_id,category_id,title,description,budget_centavos,currency,scheduled_for,same_day,status,published_at,created_at,updated_at",
-      )
-      .eq("id", taskId)
-      .maybeSingle();
+        "id,reference_id,client_id,category_id,title,description,budget_centavos,currency,scheduled_for,same_day,status,published_at,created_at,updated_at",
+      );
+    if (isRef) {
+      taskQuery = taskQuery.eq("reference_id", taskId.trim().toUpperCase());
+    } else {
+      taskQuery = taskQuery.eq("id", taskId);
+    }
+    const { data } = await taskQuery.maybeSingle();
     const row = data as {
       id: string;
+      reference_id?: string | null;
       client_id: string;
       category_id: string;
       title: string;
@@ -977,25 +987,26 @@ export class SupabaseAdminRepository implements AdminRepository {
     } | null;
     if (!row) return null;
 
+    const actualTaskId = row.id;
     const [flagged, categories, names, locationRes, mediaRes, bookingRes, actionsRes] =
       await Promise.all([
-        this.flaggedTaskSet([taskId]),
+        this.flaggedTaskSet([actualTaskId]),
         this.categorySlugs([row.category_id]),
         this.displayNames([row.client_id]),
         db
           .from("task_public_locations")
           .select("city_code,barangay_code,landmark")
-          .eq("task_id", taskId)
+          .eq("task_id", actualTaskId)
           .maybeSingle(),
         db
           .from("admin_task_media_queue")
           .select("id,kind,moderation_status,created_at,sort_order")
-          .eq("task_id", taskId)
+          .eq("task_id", actualTaskId)
           .order("sort_order", { ascending: true }),
         db
           .from("bookings")
           .select("id")
-          .eq("task_id", taskId)
+          .eq("task_id", actualTaskId)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle(),
@@ -1003,7 +1014,7 @@ export class SupabaseAdminRepository implements AdminRepository {
           .from("moderation_actions")
           .select("id,action,reason,admin_id,created_at")
           .eq("resource_type", "task")
-          .eq("resource_id", taskId)
+          .eq("resource_id", actualTaskId)
           .order("created_at", { ascending: false }),
       ]);
 
@@ -1031,6 +1042,7 @@ export class SupabaseAdminRepository implements AdminRepository {
 
     return {
       id: row.id,
+      referenceId: row.reference_id ?? null,
       title: row.title,
       description: row.description,
       status: row.status,
@@ -1044,7 +1056,7 @@ export class SupabaseAdminRepository implements AdminRepository {
       scheduledFor: row.scheduled_for,
       sameDay: row.same_day,
       publishedAt: row.published_at,
-      flagged: flagged.has(taskId),
+      flagged: flagged.has(actualTaskId),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
       bookingId: (bookingRes.data as { id: string } | null)?.id ?? null,
