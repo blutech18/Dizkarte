@@ -8,6 +8,46 @@
  */
 
 :root {
+  --dk-background: #F8F7FC;
+  --dk-surface: #FFFFFF;
+  --dk-surfaceElevated: #FFFFFF;
+  --dk-surfaceSubtle: #F4F0FB;
+  --dk-surfaceBrand: #F7F2FF;
+  --dk-surfaceAccent: #FFF9E6;
+  --dk-logoSurface: #FFFFFF;
+  --dk-textPrimary: #030815;
+  --dk-textSecondary: #596274;
+  --dk-textInverse: #FFFFFF;
+  --dk-primary: #6E20DF;
+  --dk-primaryHover: #5B18C2;
+  --dk-primaryPressed: #42209D;
+  --dk-primarySoft: #EDE3FF;
+  --dk-onPrimary: #FFFFFF;
+  --dk-accent: #FDBE17;
+  --dk-accentHighlight: #FECE32;
+  --dk-accentSoft: #FFF1B8;
+  --dk-onAccent: #030815;
+  --dk-link: #5B18C2;
+  --dk-borderSubtle: #E5DEEF;
+  --dk-borderControl: #8B7C9E;
+  --dk-focusRing: #6E20DF;
+  --dk-disabledBackground: #ECEEF3;
+  --dk-disabledForeground: #8793A7;
+  --dk-overlay: rgba(3, 8, 21, 0.56);
+  --dk-shadow: rgba(3, 8, 21, 0.12);
+  --dk-successSolid: #137A50;
+  --dk-successSoft: #E9F8F1;
+  --dk-successOnSoft: #0F6B46;
+  --dk-warningSolid: #8A5A00;
+  --dk-warningSoft: #FFF5D6;
+  --dk-warningOnSoft: #6B4500;
+  --dk-errorSolid: #B4233B;
+  --dk-errorSoft: #FDECEF;
+  --dk-errorOnSoft: #9F1833;
+  --dk-infoSolid: #1D4ED8;
+  --dk-infoSoft: #EAF0FF;
+  --dk-infoOnSoft: #173EA6;
+
   --dk-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
   --dk-shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
   --dk-shadow-lg: 0 12px 28px -4px rgba(0, 0, 0, 0.12), 0 4px 12px -2px rgba(0, 0, 0, 0.06);

@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { themeCssVariables } from "@/lib/theme";
 import "../styles/globals.css";
 
 export const metadata: Metadata = {
@@ -22,11 +21,8 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { readonly children: ReactNode }) {
   return (
-    <html lang="en">
-      <head>
-        <style dangerouslySetInnerHTML={{ __html: themeCssVariables() }} />
-      </head>
-      <body>
+    <html lang="en" suppressHydrationWarning>
+      <body suppressHydrationWarning>
         <a href="#dk-main-content" className="dk-skip-link">
           Skip to main content
         </a>
