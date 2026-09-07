@@ -12,17 +12,15 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { CaseHistoryList } from "@/components/ui/CaseHistoryList";
 import { paymentStatusLabel } from "../../payments/status";
 import { EvidenceList } from "@/components/ui/EvidenceList";
-import { CaseActionsPanel } from "@/components/ui/CaseActionsPanel";
+import { DisputeActionsPanel } from "./DisputeActionsPanel";
 import { CaseSubjectCard } from "@/components/ui/CaseSubjectCard";
 import { PaymentActionsPanel } from "../../payments/PaymentActionsPanel";
 import { ConversationPanel } from "../ConversationPanel";
 import {
-  DISPUTE_STATUS_TRANSITIONS,
   disputeStatusLabel,
   disputeStatusMeaning,
   disputeStatusTone,
 } from "../status";
-import { assignDisputeAction, transitionDisputeStatusAction } from "../actions";
 
 export const metadata: Metadata = { title: "Dispute" };
 
@@ -86,7 +84,6 @@ async function DisputeCaseRecord({
 
   const linkedPaymentIntent = await repository.getPaymentIntentByBooking(detail.bookingId);
   const isAssignedToMe = detail.assignee === actor;
-  const allowedTransitions = DISPUTE_STATUS_TRANSITIONS[detail.status] ?? [];
 
   return (
     <div className="dk-detail">
@@ -128,20 +125,11 @@ async function DisputeCaseRecord({
           Freezing affected financial activity never rewrites ledger history. Amounts shown are
           booking totals, not raw provider payloads.
         </p>
-        <CaseActionsPanel
-          isAssignedToMe={isAssignedToMe}
-          isUnassigned={detail.assignee === null}
-          assignLabel="Assign to me"
-          onAssign={() => assignDisputeAction({ disputeId: detail.id })}
-          allowedTransitions={allowedTransitions}
-          transitionLabel={disputeStatusLabel}
-          onTransition={(toStatus, reason) =>
-            transitionDisputeStatusAction({
-              disputeId: detail.id,
-              toStatus: toStatus as "UNDER_REVIEW" | "RESOLVED" | "REJECTED" | "CANCELLED",
-              reason,
-            })
-          }
+        <DisputeActionsPanel
+          disputeId={detail.id}
+          status={detail.status}
+          assignee={detail.assignee}
+          actor={actor}
         />
       </div>
 

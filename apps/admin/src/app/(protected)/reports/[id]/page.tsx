@@ -10,10 +10,9 @@ import { DetailRegionSkeleton, RestrictedCaseNotice } from "@/components/ui/Asyn
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { CaseHistoryList } from "@/components/ui/CaseHistoryList";
 import { EvidenceList } from "@/components/ui/EvidenceList";
-import { CaseActionsPanel } from "@/components/ui/CaseActionsPanel";
+import { ReportActionsPanel } from "./ReportActionsPanel";
 import { CaseSubjectCard } from "@/components/ui/CaseSubjectCard";
-import { reportStatusLabel, reportStatusTone, REPORT_STATUS_TRANSITIONS } from "../status";
-import { assignReportAction, transitionReportStatusAction } from "../actions";
+import { reportStatusLabel, reportStatusTone } from "../status";
 
 /** `task`, `message` etc. are lowercase database values, not display labels. */
 function resourceTypeLabel(resourceType: string): string {
@@ -72,9 +71,6 @@ async function ReportCaseRecord({
     notFound();
   }
 
-  const isAssignedToMe = detail.assignee === actor;
-  const allowedTransitions = REPORT_STATUS_TRANSITIONS[detail.status] ?? [];
-
   return (
     <div className="dk-detail">
       <header className="dk-detail-header">
@@ -112,20 +108,11 @@ async function ReportCaseRecord({
         <p>
           <strong>Assignee:</strong> {detail.assignee ?? "Unassigned"}
         </p>
-        <CaseActionsPanel
-          isAssignedToMe={isAssignedToMe}
-          isUnassigned={detail.assignee === null}
-          assignLabel="Assign to me"
-          onAssign={() => assignReportAction({ reportId: detail.id })}
-          allowedTransitions={allowedTransitions}
-          transitionLabel={reportStatusLabel}
-          onTransition={(toStatus, reason) =>
-            transitionReportStatusAction({
-              reportId: detail.id,
-              toStatus: toStatus as "TRIAGED" | "ACTIONED" | "DISMISSED",
-              reason,
-            })
-          }
+        <ReportActionsPanel
+          reportId={detail.id}
+          status={detail.status}
+          assignee={detail.assignee}
+          actor={actor}
         />
       </div>
 

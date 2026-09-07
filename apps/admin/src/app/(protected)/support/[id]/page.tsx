@@ -10,9 +10,8 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 import { CaseHistoryList } from "@/components/ui/CaseHistoryList";
 import { EvidenceList } from "@/components/ui/EvidenceList";
 import { RestrictedCaseNotice, DetailRegionSkeleton } from "@/components/ui/AsyncState";
-import { CaseActionsPanel } from "@/components/ui/CaseActionsPanel";
-import { ticketStatusLabel, ticketStatusTone, TICKET_STATUS_TRANSITIONS } from "../status";
-import { assignTicketAction, transitionTicketStatusAction } from "../actions";
+import { SupportActionsPanel } from "./SupportActionsPanel";
+import { ticketStatusLabel, ticketStatusTone } from "../status";
 
 export const metadata: Metadata = { title: "Support ticket" };
 
@@ -67,9 +66,6 @@ async function SupportTicketRecord({
     notFound();
   }
 
-  const isAssignedToMe = detail.assignee === session.email;
-  const allowedTransitions = TICKET_STATUS_TRANSITIONS[detail.status] ?? [];
-
   return (
     <div className="dk-detail">
       <header className="dk-detail-header">
@@ -109,20 +105,11 @@ async function SupportTicketRecord({
         <p>
           <strong>Assignee:</strong> {detail.assignee ?? "Unassigned"}
         </p>
-        <CaseActionsPanel
-          isAssignedToMe={isAssignedToMe}
-          isUnassigned={detail.assignee === null}
-          assignLabel="Assign to me"
-          onAssign={() => assignTicketAction({ ticketId: detail.id })}
-          allowedTransitions={allowedTransitions}
-          transitionLabel={ticketStatusLabel}
-          onTransition={(toStatus, reason) =>
-            transitionTicketStatusAction({
-              ticketId: detail.id,
-              toStatus: toStatus as "OPEN" | "PENDING" | "RESOLVED" | "CLOSED",
-              reason,
-            })
-          }
+        <SupportActionsPanel
+          ticketId={detail.id}
+          status={detail.status}
+          assignee={detail.assignee}
+          actor={session.email}
         />
       </div>
 
