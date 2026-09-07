@@ -4,7 +4,8 @@ import { AppLink } from "@/components/ui/AppLink";
 import { formatPhp } from "@dizkarte/domain";
 import { requirePageCapability } from "@/lib/guard";
 import { getAdminRepository } from "@/lib/repository";
-import { formatDateTime } from "@/lib/datetime";
+import { formatDate, formatTime } from "@/lib/datetime";
+import { formatReferenceId } from "@/lib/format-id";
 import { Breadcrumbs } from "@/components/ui/Field";
 import { PageSection, Pagination } from "@/components/ui/Pagination";
 import { EmptyState, TableRegionSkeleton } from "@/components/ui/AsyncState";
@@ -22,33 +23,49 @@ export const metadata: Metadata = { title: "Bookings" };
 
 const PAGE_SIZE = 20;
 
+export const SORT_OPTIONS = [
+  { value: "oldest", label: "Oldest first" },
+  { value: "updated", label: "Recently updated" },
+  { value: "amount_high", label: "Highest agreed amount" },
+  { value: "amount_low", label: "Lowest agreed amount" },
+] as const;
+
 type BookingsQuery = {
   readonly page: number;
   readonly status: string | undefined;
+  readonly q: string | undefined;
+  readonly sort: string | undefined;
 };
 
 /**
  * Bookings queue.
  *
- * The shell — breadcrumbs, heading, and the status filter — depends on no query,
+ * The shell — breadcrumbs, heading, and the filter row — depends on no query,
  * so it is returned immediately and the results table streams in behind its own
- * Suspense boundary. Awaiting the query here would hold back controls the agent
+ * Suspense boundary. Awaiting the query here would hold back controls the operator
  * can already read and use.
  *
- * The boundary is keyed by the applied status and page so changing a filter
+ * The boundary is keyed by the applied filters and page so changing a filter
  * shows the skeleton again rather than leaving the previous result set on screen
  * looking like the answer to the new query.
  */
 export default async function BookingsPage({
   searchParams,
 }: {
-  readonly searchParams: Promise<{ status?: string; page?: string }>;
+  readonly searchParams: Promise<{
+    status?: string;
+    q?: string;
+    sort?: string;
+    page?: string;
+  }>;
 }) {
   await requirePageCapability(["ADMIN_SUPPORT"]);
-  const { status, page: pageParam } = await searchParams;
+  const { status, q, sort, page: pageParam } = await searchParams;
   const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
   const isValidStatus = status && (STATUS_OPTIONS as ReadonlyArray<string>).includes(status);
   const activeStatus = isValidStatus ? status : undefined;
+  const isValidSort = sort && SORT_OPTIONS.some((opt) => opt.value === sort);
+  const activeSort = isValidSort ? sort : undefined;
 
   return (
     <>
@@ -57,13 +74,13 @@ export default async function BookingsPage({
         title="Bookings"
         subtitle="Marketplace workflow oversight. Agreed amounts and participant names only — never contact details, the exact address, or chat contents."
       >
-        {/*
-          "Completed work" is this page filtered to COMPLETED rather than a
-          separate route. A second screen over the same table would duplicate the
-          columns and split the agent's attention for no gain.
-        */}
         <QueueFilters
           basePath="/bookings"
+          search={{
+            label: "Search bookings by reference, task, client, or tasker",
+            placeholder: "Search reference, task, client, or tasker...",
+            value: q?.trim() ?? "",
+          }}
           selects={[
             {
               name: "status",
@@ -75,40 +92,84 @@ export default async function BookingsPage({
                 label: bookingStatusLabel(option),
               })),
             },
+            {
+              name: "sort",
+              label: "Sort bookings",
+              allLabel: "Newest first",
+              value: activeSort,
+              options: SORT_OPTIONS,
+            },
           ]}
         />
 
         <Suspense
-          key={`${activeStatus ?? ""}|${page}`}
-          fallback={<TableRegionSkeleton columns={5} />}
+          key={`${activeStatus ?? ""}|${q?.trim() ?? ""}|${activeSort ?? ""}|${page}`}
+          fallback={<TableRegionSkeleton columns={6} />}
         >
-          <BookingsTable page={page} status={activeStatus} />
+          <BookingsTable
+            page={page}
+            status={activeStatus}
+            q={q?.trim() || undefined}
+            sort={activeSort}
+          />
         </Suspense>
       </PageSection>
     </>
   );
 }
 
-async function BookingsTable({ page, status }: BookingsQuery) {
+async function BookingsTable({ page, status, q, sort }: BookingsQuery) {
   const repository = getAdminRepository();
   const result = await repository.listBookings({
     page,
     pageSize: PAGE_SIZE,
     ...(status ? { status } : {}),
+    ...(q ? { query: q } : {}),
+    ...(sort ? { sort } : {}),
   });
 
   const columns: ReadonlyArray<ColumnDef<BookingRow>> = [
     {
       key: "task",
       header: "Task",
-      render: (row) => <AppLink href={`/bookings/${row.id}`}>{row.taskTitle}</AppLink>,
+      render: (row) => (
+        <div style={{ display: "flex", flexDirection: "column", gap: 3, textAlign: "left" }}>
+          <AppLink
+            href={`/bookings/${row.id}`}
+            style={{ fontWeight: 650, color: "var(--dk-textPrimary)" }}
+          >
+            {row.taskTitle}
+          </AppLink>
+          <span className="dk-ref-code" style={{ fontSize: 11 }} title={row.id}>
+            {formatReferenceId(row.id, "BK", row.createdAt)}
+          </span>
+        </div>
+      ),
     },
     {
       key: "participants",
       header: "Client / Tasker",
-      render: (row) => `${row.clientDisplayName} → ${row.taskerDisplayName}`,
+      render: (row) => (
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <span style={{ fontWeight: 500, color: "var(--dk-textPrimary)" }}>
+            {row.clientDisplayName}
+          </span>
+          <span style={{ color: "var(--dk-textMuted)", fontSize: 12 }} aria-hidden="true">
+            →
+          </span>
+          <span style={{ color: "var(--dk-textSecondary)" }}>{row.taskerDisplayName}</span>
+        </div>
+      ),
     },
-    { key: "amount", header: "Agreed", render: (row) => formatPhp(row.agreedCentavos) },
+    {
+      key: "amount",
+      header: "Agreed",
+      render: (row) => (
+        <span style={{ fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+          {formatPhp(row.agreedCentavos)}
+        </span>
+      ),
+    },
     {
       key: "status",
       header: "Status",
@@ -119,22 +180,54 @@ async function BookingsTable({ page, status }: BookingsQuery) {
     {
       key: "updated",
       header: "Updated",
-      render: (row) => <time dateTime={row.updatedAt}>{formatDateTime(row.updatedAt)}</time>,
+      render: (row) => (
+        <time dateTime={row.updatedAt} title={row.updatedAt} className="dk-datetime-cell">
+          <span className="dk-datetime-date">{formatDate(row.updatedAt)}</span>
+          <span className="dk-datetime-time">{formatTime(row.updatedAt)}</span>
+        </time>
+      ),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      showInCard: false,
+      render: (row) => (
+        <AppLink
+          href={`/bookings/${row.id}`}
+          className="dk-btn dk-btn-secondary"
+          style={{
+            padding: "4px 10px",
+            fontSize: 12,
+            height: "auto",
+            minHeight: 28,
+            textDecoration: "none",
+          }}
+        >
+          View
+        </AppLink>
+      ),
     },
   ];
 
   function hrefFor(nextPage: number): string {
     const params = new URLSearchParams();
     if (status) params.set("status", status);
+    if (q) params.set("q", q);
+    if (sort) params.set("sort", sort);
     params.set("page", String(nextPage));
     return `/bookings?${params.toString()}`;
   }
 
   if (result.items.length === 0) {
+    const hasFilters = Boolean(status || q || sort);
     return (
       <EmptyState
-        title="No bookings"
-        description="No booking matches this filter. A booking is created when a Client selects an offer."
+        title={hasFilters ? "No matching bookings" : "No bookings"}
+        description={
+          hasFilters
+            ? "No bookings match your active filters. Try clearing your search query or status filter."
+            : "No bookings recorded yet. A booking is created when a Client selects an offer."
+        }
       />
     );
   }

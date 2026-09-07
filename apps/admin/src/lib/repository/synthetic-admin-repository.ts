@@ -1566,7 +1566,9 @@ export class SyntheticAdminRepository implements AdminRepository {
    * intents), so the booking queue is projected from those to keep the shape
    * exercisable offline.
    */
-  async listBookings(input: PageInput & { status?: string }): Promise<Paginated<BookingRow>> {
+  async listBookings(
+    input: PageInput & { status?: string; query?: string; sort?: string },
+  ): Promise<Paginated<BookingRow>> {
     const rows: ReadonlyArray<BookingRow> = this.state.paymentIntents.map((intent) => ({
       id: intent.bookingId,
       taskId: intent.bookingId,
@@ -1578,15 +1580,58 @@ export class SyntheticAdminRepository implements AdminRepository {
       createdAt: intent.createdAt,
       updatedAt: intent.createdAt,
     }));
-    const filtered = input.status ? rows.filter((row) => row.status === input.status) : rows;
+
+    let filtered = rows;
+    if (input.status) {
+      filtered = filtered.filter((row) => row.status === input.status);
+    }
+    if (input.query) {
+      const q = input.query.trim().toLowerCase();
+      filtered = filtered.filter((row) => {
+        const titleMatch = row.taskTitle.toLowerCase().includes(q);
+        const clientMatch = row.clientDisplayName.toLowerCase().includes(q);
+        const taskerMatch = row.taskerDisplayName.toLowerCase().includes(q);
+        const idMatch = row.id.toLowerCase().includes(q);
+        const formalRef = formatReferenceId(row.id, "BK", row.createdAt).toLowerCase();
+        const shortRef = formatReferenceId(row.id, "BK").toLowerCase();
+        return (
+          titleMatch ||
+          clientMatch ||
+          taskerMatch ||
+          idMatch ||
+          formalRef.includes(q) ||
+          shortRef.includes(q)
+        );
+      });
+    }
+
+    if (input.sort === "oldest") {
+      filtered = [...filtered].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    } else if (input.sort === "updated") {
+      filtered = [...filtered].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    } else if (input.sort === "amount_high") {
+      filtered = [...filtered].sort((a, b) => b.agreedCentavos - a.agreedCentavos);
+    } else if (input.sort === "amount_low") {
+      filtered = [...filtered].sort((a, b) => a.agreedCentavos - b.agreedCentavos);
+    } else {
+      filtered = [...filtered].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    }
+
     return paged<BookingRow>(filtered, input);
   }
 
   async getBooking(bookingId: string): Promise<BookingDetail | null> {
     const page = await this.listBookings({ page: 1, pageSize: 100 });
-    const row = page.items.find((item) => item.id === bookingId);
+    const trimmed = bookingId.trim().toLowerCase();
+    const row = page.items.find((item) => {
+      if (item.id.toLowerCase() === trimmed) return true;
+      const formalRef = formatReferenceId(item.id, "BK", item.createdAt).toLowerCase();
+      const shortRef = formatReferenceId(item.id, "BK").toLowerCase();
+      return formalRef === trimmed || shortRef === trimmed;
+    });
     if (!row) return null;
-    const intent = this.state.paymentIntents.find((i) => i.bookingId === bookingId);
+    const resolvedBookingId = row.id;
+    const intent = this.state.paymentIntents.find((i) => i.bookingId === resolvedBookingId);
     return {
       ...row,
       currency: "PHP",
@@ -1595,11 +1640,11 @@ export class SyntheticAdminRepository implements AdminRepository {
       disputeId: null,
       timeline: [
         {
-          id: `${bookingId}-created`,
+          id: `${resolvedBookingId}-created`,
           fromStatus: null,
           toStatus: "PAYMENT_PENDING",
-          actor: "system",
-          source: "system",
+          actor: "client",
+          source: "client",
           at: row.createdAt,
         },
       ],

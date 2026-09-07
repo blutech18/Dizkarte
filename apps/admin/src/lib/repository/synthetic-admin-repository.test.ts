@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { formatReferenceId } from "@/lib/format-id";
 
 vi.mock("server-only", () => ({}));
 
@@ -1124,6 +1125,37 @@ describe("SyntheticAdminRepository", () => {
       expect(result.ok).toBe(false);
       const after = await repo.listReviews({ page: 1, pageSize: 50 });
       expect(after.items).toEqual(before.items);
+    });
+
+    it("filters and sorts bookings in synthetic repository", async () => {
+      const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
+      const repo = new SyntheticAdminRepository();
+
+      const all = await repo.listBookings({ page: 1, pageSize: 50 });
+      expect(all.items.length).toBeGreaterThan(0);
+
+      // Search by task title or booking id
+      const first = all.items[0]!;
+      const byId = await repo.listBookings({ page: 1, pageSize: 50, query: first.id });
+      expect(byId.items.some((b) => b.id === first.id)).toBe(true);
+
+      // Search by formal reference code
+      const formalRef = formatReferenceId(first.id, "BK", first.createdAt);
+      const byRef = await repo.listBookings({ page: 1, pageSize: 50, query: formalRef });
+      expect(byRef.items.some((b) => b.id === first.id)).toBe(true);
+
+      // Lookup by formal reference via getBooking
+      const detail = await repo.getBooking(formalRef);
+      expect(detail).not.toBeNull();
+      expect(detail!.id).toBe(first.id);
+
+      // Sort by amount descending
+      const sortedAmount = await repo.listBookings({ page: 1, pageSize: 50, sort: "amount_high" });
+      for (let i = 1; i < sortedAmount.items.length; i++) {
+        expect(sortedAmount.items[i - 1]!.agreedCentavos).toBeGreaterThanOrEqual(
+          sortedAmount.items[i]!.agreedCentavos,
+        );
+      }
     });
   });
 });

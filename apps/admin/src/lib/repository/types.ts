@@ -1032,7 +1032,9 @@ export interface AdminRepository {
    * `booking_events` already carry an `app.is_admin()` read policy, so this is a
    * capability-scoped read with no privileged escalation.
    */
-  listBookings(input: PageInput & { status?: string }): Promise<Paginated<BookingRow>>;
+  listBookings(
+    input: PageInput & { status?: string; query?: string; sort?: string },
+  ): Promise<Paginated<BookingRow>>;
   getBooking(bookingId: string): Promise<BookingDetail | null>;
 
   listAuditLogs(input: PageInput): Promise<Paginated<AuditLogRow>>;

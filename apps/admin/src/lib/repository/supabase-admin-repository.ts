@@ -2751,7 +2751,18 @@ export class SupabaseAdminRepository implements AdminRepository {
   // Bookings (marketplace workflow oversight)
   // =========================================================================
 
-  async listBookings(input: PageInput & { status?: string }): Promise<Paginated<BookingRow>> {
+  private extractBookingUuidPrefix(str: string): string | null {
+    const clean = str.trim().toUpperCase();
+    const bkMatch = clean.match(/^BK-(?:\d{8}-)?([0-9A-F]{4,8})$/);
+    if (bkMatch && bkMatch[1]) return bkMatch[1].toLowerCase();
+    const hexOnly = clean.replace(/[^0-9A-F]/g, "");
+    if (hexOnly.length >= 4 && hexOnly.length <= 8) return hexOnly.toLowerCase();
+    return null;
+  }
+
+  async listBookings(
+    input: PageInput & { status?: string; query?: string; sort?: string },
+  ): Promise<Paginated<BookingRow>> {
     const db = await this.db();
     const { from, to } = pageRange(input.page, input.pageSize);
     let query = db
@@ -2760,8 +2771,77 @@ export class SupabaseAdminRepository implements AdminRepository {
         count: "exact",
       });
     if (input.status) query = query.eq("status", input.status);
+
+    const keyword = input.query?.trim();
+    if (keyword) {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(keyword);
+      if (isUuid) {
+        query = query.eq("id", keyword);
+      } else {
+        const safe = keyword.replace(/[,().*\\]/g, " ").trim();
+        const hexPrefix = this.extractBookingUuidPrefix(keyword);
+
+        const [matchedTasks, userIds, candidateBookings] = await Promise.all([
+          safe.length > 0
+            ? db
+                .from("tasks")
+                .select("id")
+                .or(`title.ilike.*${safe}*,reference_id.ilike.*${safe}*`)
+                .limit(100)
+            : Promise.resolve({ data: [] }),
+          this.subjectIdsMatchingName(keyword),
+          hexPrefix
+            ? db
+                .from("bookings")
+                .select("id")
+                .gte("id", hexPrefix.padEnd(8, "0") + "-0000-0000-0000-000000000000")
+                .lte("id", hexPrefix.padEnd(8, "f") + "-ffff-ffff-ffff-ffffffffffff")
+                .limit(50)
+            : Promise.resolve({ data: [] }),
+        ]);
+
+        const taskIds = ((matchedTasks.data ?? []) as ReadonlyArray<{ id: string }>).map((t) => t.id);
+        const participantIds = userIds ?? [];
+        const bookingIds = ((candidateBookings.data ?? []) as ReadonlyArray<{ id: string }>).map((b) => b.id);
+
+        const orClauses: string[] = [];
+        if (bookingIds.length > 0) {
+          orClauses.push(`id.in.(${bookingIds.join(",")})`);
+        }
+        if (taskIds.length > 0) {
+          orClauses.push(`task_id.in.(${taskIds.join(",")})`);
+        }
+        if (participantIds.length > 0) {
+          orClauses.push(`client_id.in.(${participantIds.join(",")})`);
+          orClauses.push(`tasker_id.in.(${participantIds.join(",")})`);
+        }
+
+        if (orClauses.length > 0) {
+          query = query.or(orClauses.join(","));
+        } else {
+          return paginate<BookingRow>([], input.page, input.pageSize, 0);
+        }
+      }
+    }
+
+    let orderCol = "created_at";
+    let ascending = false;
+    if (input.sort === "oldest") {
+      orderCol = "created_at";
+      ascending = true;
+    } else if (input.sort === "updated") {
+      orderCol = "updated_at";
+      ascending = false;
+    } else if (input.sort === "amount_high") {
+      orderCol = "agreed_centavos";
+      ascending = false;
+    } else if (input.sort === "amount_low") {
+      orderCol = "agreed_centavos";
+      ascending = true;
+    }
+
     const { data, count, error } = await query
-      .order("created_at", { ascending: false })
+      .order(orderCol, { ascending })
       .range(from, to);
     if (error) return paginate<BookingRow>([], input.page, input.pageSize, 0);
 
@@ -2803,12 +2883,33 @@ export class SupabaseAdminRepository implements AdminRepository {
 
   async getBooking(bookingId: string): Promise<BookingDetail | null> {
     const db = await this.db();
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookingId.trim());
+    let resolvedId = bookingId;
+    if (!isUuid) {
+      const hexPrefix = this.extractBookingUuidPrefix(bookingId);
+      if (hexPrefix) {
+        const { data: candidates } = await db
+          .from("bookings")
+          .select("id")
+          .gte("id", hexPrefix.padEnd(8, "0") + "-0000-0000-0000-000000000000")
+          .lte("id", hexPrefix.padEnd(8, "f") + "-ffff-ffff-ffff-ffffffffffff")
+          .limit(2);
+        if (candidates && candidates.length === 1 && candidates[0]) {
+          resolvedId = candidates[0].id;
+        } else {
+          return null;
+        }
+      } else {
+        return null;
+      }
+    }
+
     const { data } = await db
       .from("bookings")
       .select(
         "id,task_id,client_id,tasker_id,agreed_centavos,currency,status,created_at,updated_at",
       )
-      .eq("id", bookingId)
+      .eq("id", resolvedId)
       .maybeSingle();
     const row = data as (RawAdminBookingRow & { currency: string }) | null;
     if (!row) return null;
@@ -2820,15 +2921,15 @@ export class SupabaseAdminRepository implements AdminRepository {
       db
         .from("payment_intents")
         .select("id,status")
-        .eq("booking_id", bookingId)
+        .eq("booking_id", resolvedId)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
-      db.from("disputes").select("id").eq("booking_id", bookingId).limit(1).maybeSingle(),
+      db.from("disputes").select("id").eq("booking_id", resolvedId).limit(1).maybeSingle(),
       db
         .from("booking_events")
         .select("id,from_status,to_status,actor_id,source,created_at")
-        .eq("booking_id", bookingId)
+        .eq("booking_id", resolvedId)
         .order("created_at", { ascending: true }),
     ]);
 
