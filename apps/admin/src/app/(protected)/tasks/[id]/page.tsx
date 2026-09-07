@@ -578,9 +578,9 @@ async function TaskRecord({ taskId }: { readonly taskId: string }) {
               </h2>
             </div>
             <dl className="dk-fact-grid" style={{ gridTemplateColumns: "1fr", gap: 12 }}>
-              <Fact label="Task ID">
-                <span className="dk-code-pill" style={{ fontSize: 11 }}>
-                  {task.id}
+              <Fact label="Task Ref">
+                <span className="dk-ref-code" title={task.id} style={{ fontSize: 12, fontWeight: 650 }}>
+                  {formattedRef}
                 </span>
               </Fact>
               {task.bookingId ? (
