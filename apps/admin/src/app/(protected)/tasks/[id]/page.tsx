@@ -544,23 +544,30 @@ async function TaskRecord({ taskId }: { readonly taskId: string }) {
         <aside className="dk-task-side-col">
           {/* Discovery Card */}
           <section className="dk-card dk-task-card" aria-labelledby="actions-heading">
-            <div className="dk-card-header-flex">
+            <div className="dk-card-header-flex" style={{ marginBottom: 12 }}>
               <h2 id="actions-heading">
                 <GlobeIcon />
                 <span>Discovery</span>
               </h2>
+              <StatusBadge
+                tone={task.status === "REMOVED" ? "error" : "success"}
+                label={task.status === "REMOVED" ? "Excluded" : "Eligible"}
+              />
             </div>
-            <div
-              className={`dk-discovery-notice ${task.status === "REMOVED" ? "dk-discovery-removed" : "dk-discovery-active"}`}
-            >
-              <span style={{ fontSize: 16 }}>{task.status === "REMOVED" ? "🚫" : "👁️"}</span>
-              <p className="dk-card-note" style={{ margin: 0, color: "inherit", fontWeight: 550 }}>
-                {task.status === "REMOVED"
-                  ? "This task is excluded from public discovery."
-                  : "This task can appear in public search and the task feed."}
-              </p>
+            <p className="dk-discovery-text">
+              {task.status === "REMOVED"
+                ? "This task is excluded from public discovery."
+                : "This task can appear in public search and the task feed."}
+            </p>
+            <div className="dk-discovery-action-footer">
+              <TaskRowActions
+                taskId={task.id}
+                status={task.status}
+                triggerLabel={task.status === "REMOVED" ? "Restore to discovery" : "Remove from discovery"}
+                triggerClassName="dk-discovery-btn"
+                className="dk-discovery-actions"
+              />
             </div>
-            <TaskRowActions taskId={task.id} status={task.status} />
           </section>
 
           {/* Quick Reference Card */}

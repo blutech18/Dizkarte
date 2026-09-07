@@ -28,11 +28,15 @@ export function TaskRowActions({
   status,
   className,
   showViewLink = false,
+  triggerLabel,
+  triggerClassName,
 }: {
   readonly taskId: string;
   readonly status: string;
   readonly className?: string;
   readonly showViewLink?: boolean;
+  readonly triggerLabel?: string;
+  readonly triggerClassName?: string;
 }) {
   const router = useRouter();
 
@@ -43,7 +47,7 @@ export function TaskRowActions({
   }
 
   return (
-    <div className={className ?? "dk-row"} style={{ gap: 8, justifyContent: "center" }}>
+    <div className={className ?? "dk-row"} style={className ? undefined : { gap: 8, justifyContent: "center" }}>
       {showViewLink ? (
         <LinkButton
           href={`/tasks/${taskId}`}
@@ -58,8 +62,9 @@ export function TaskRowActions({
       ) : null}
       {status === "REMOVED" ? (
         <ConfirmDialog
-          triggerLabel="Restore"
+          triggerLabel={triggerLabel ?? "Restore"}
           triggerVariant="secondary"
+          triggerClassName={triggerClassName}
           title="Restore task"
           description="The task becomes eligible for public discovery again, subject to its normal state rules."
           confirmLabel="Restore"
@@ -68,8 +73,9 @@ export function TaskRowActions({
         />
       ) : (
         <ConfirmDialog
-          triggerLabel="Remove"
+          triggerLabel={triggerLabel ?? "Remove"}
           triggerVariant="destructive"
+          triggerClassName={triggerClassName}
           variant="destructive"
           title="Remove task from discovery"
           description="The task will be excluded from public search/feed results immediately."

@@ -5339,28 +5339,29 @@ textarea {
 }
 
 .dk-task-card {
-  background: linear-gradient(135deg, rgba(110, 32, 223, 0.05) 0%, rgba(142, 68, 245, 0.02) 60%, rgba(255, 255, 255, 0) 100%), var(--dk-surface);
-  border: 1px solid rgba(110, 32, 223, 0.16);
+  background: var(--dk-surface);
+  border: 1px solid var(--dk-borderSubtle);
   border-radius: var(--dk-radius-md);
   box-shadow: var(--dk-shadow-sm);
   transition: box-shadow var(--dk-transition-fast), border-color var(--dk-transition-fast);
 }
 
 .dk-task-card:hover {
-  border-color: rgba(110, 32, 223, 0.28);
+  border-color: var(--dk-borderControl);
   box-shadow: var(--dk-shadow-md);
 }
 
 .dk-task-quote {
-  margin: 0 0 18px 0;
-  padding: 16px 20px;
-  background: rgba(110, 32, 223, 0.04);
-  border-left: 4px solid var(--dk-primary);
-  border-radius: 0 var(--dk-radius-md) var(--dk-radius-md) 0;
-  font-size: 15px;
+  margin: 0 0 20px 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  font-size: 14.5px;
   line-height: 1.6;
   color: var(--dk-textPrimary);
   font-style: normal;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .dk-task-highlight-box {
@@ -5463,34 +5464,35 @@ textarea {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
-  background: linear-gradient(135deg, rgba(110, 32, 223, 0.06) 0%, rgba(142, 68, 245, 0.03) 100%), var(--dk-surface);
-  border: 1px dashed rgba(110, 32, 223, 0.3);
+  background: var(--dk-surfaceSubtle);
+  border: 1px solid var(--dk-borderSubtle);
   border-radius: var(--dk-radius-md);
   padding: 14px 16px;
   margin-top: 8px;
 }
 
-.dk-discovery-notice {
+.dk-discovery-text {
+  margin: 0 0 16px 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--dk-textSecondary);
+}
+
+.dk-discovery-action-footer {
+  padding-top: 14px;
+  border-top: 1px solid var(--dk-borderSubtle);
+}
+
+.dk-discovery-actions {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  border-radius: var(--dk-radius-md);
+  width: 100%;
+}
+
+.dk-discovery-btn {
+  width: 100%;
+  justify-content: center;
+  font-weight: 600;
   font-size: 13px;
-  font-weight: 550;
-  line-height: 1.4;
-  margin-bottom: 16px;
-}
-
-.dk-discovery-active {
-  background: rgba(34, 197, 94, 0.08);
-  border: 1px solid rgba(34, 197, 94, 0.25);
-  color: #15803d;
-}
-
-.dk-discovery-removed {
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  color: #b91c1c;
+  min-height: 38px;
 }
 
