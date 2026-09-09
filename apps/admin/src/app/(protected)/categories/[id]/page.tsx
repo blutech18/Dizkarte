@@ -8,6 +8,7 @@ import { formatDate, formatDateTime, formatTime } from "@/lib/datetime";
 import { Breadcrumbs } from "@/components/ui/Field";
 import { DetailRegionSkeleton } from "@/components/ui/AsyncState";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { CopyButton } from "@/components/ui/CopyButton";
 import { RenameCategoryForm } from "./RenameCategoryForm";
 import { CategoryStateControls } from "./CategoryStateControls";
 import { ReorderCategoryForm } from "./ReorderCategoryForm";
@@ -124,9 +125,6 @@ async function CategoryRecord({ categoryId }: { readonly categoryId: string }) {
           <ArrowLeftIcon />
           <span>Back to categories</span>
         </AppLink>
-        <span className="dk-booking-ref-text" title={detail.id}>
-          Slug: <span className="dk-ref-code">{detail.slug}</span>
-        </span>
       </nav>
 
       {/* Hero Header Card */}
@@ -319,24 +317,149 @@ async function CategoryRecord({ categoryId }: { readonly categoryId: string }) {
           </section>
 
           <section className="dk-card dk-task-card" aria-labelledby="quick-ref-heading">
-            <h2 id="quick-ref-heading" style={{ fontSize: 16, marginBottom: 12 }}>
+            <h2 id="quick-ref-heading" style={{ fontSize: 16, marginBottom: 14 }}>
               Quick reference
             </h2>
-            <dl className="dk-fact-grid" style={{ gridTemplateColumns: "1fr", gap: 12 }}>
-              <Fact label="Category ID">
-                <span className="dk-ref-code" style={{ wordBreak: "break-all", fontSize: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div
+                style={{
+                  background: "var(--dk-bg-subtle, rgba(0, 0, 0, 0.02))",
+                  border: "1px solid var(--dk-border)",
+                  borderRadius: "var(--dk-radius-md)",
+                  padding: "10px 12px",
+                }}
+              >
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 8,
+                    marginBottom: 6,
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "var(--dk-textSecondary)",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}
+                  >
+                    Category ID
+                  </span>
+                  <CopyButton text={detail.id} label="Category ID" />
+                </div>
+                <code
+                  style={{
+                    display: "block",
+                    fontFamily: "var(--dk-font-mono, monospace)",
+                    fontSize: 12,
+                    wordBreak: "break-all",
+                    color: "var(--dk-text)",
+                  }}
+                >
                   {detail.id}
-                </span>
-              </Fact>
-              <Fact label="Catalog status">
-                <span style={{ fontWeight: 600 }}>
-                  {detail.active ? "Enabled for posting" : "Disabled for posting"}
-                </span>
-              </Fact>
-              <Fact label="Total tasks">
-                <span style={{ fontWeight: 600 }}>{detail.taskCount}</span>
-              </Fact>
-            </dl>
+                </code>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 10,
+                }}
+              >
+                <div
+                  style={{
+                    border: "1px solid var(--dk-border)",
+                    borderRadius: "var(--dk-radius-md)",
+                    padding: "10px 12px",
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "block",
+                      fontSize: 12,
+                      color: "var(--dk-textSecondary)",
+                      marginBottom: 6,
+                    }}
+                  >
+                    Catalog status
+                  </span>
+                  <StatusBadge
+                    tone={detail.active ? "success" : "neutral"}
+                    label={detail.active ? "Active" : "Inactive"}
+                  />
+                </div>
+
+                <div
+                  style={{
+                    border: "1px solid var(--dk-border)",
+                    borderRadius: "var(--dk-radius-md)",
+                    padding: "10px 12px",
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "block",
+                      fontSize: 12,
+                      color: "var(--dk-textSecondary)",
+                      marginBottom: 4,
+                    }}
+                  >
+                    Display rank
+                  </span>
+                  <span
+                    style={{
+                      fontSize: 15,
+                      fontWeight: 700,
+                      color: "var(--dk-text)",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
+                    #{detail.displayOrder}
+                  </span>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  padding: "10px 12px",
+                  border: "1px solid var(--dk-border)",
+                  borderRadius: "var(--dk-radius-md)",
+                }}
+              >
+                <div>
+                  <span
+                    style={{
+                      display: "block",
+                      fontSize: 12,
+                      color: "var(--dk-textSecondary)",
+                    }}
+                  >
+                    Referencing tasks
+                  </span>
+                  <span style={{ fontSize: 15, fontWeight: 700 }}>
+                    {detail.taskCount} {detail.taskCount === 1 ? "task" : "tasks"}
+                  </span>
+                </div>
+                {detail.taskCount > 0 ? (
+                  <AppLink
+                    href={`/tasks?q=${encodeURIComponent(detail.name)}`}
+                    className="dk-btn dk-btn-secondary dk-btn-sm"
+                    style={{ fontSize: 12, padding: "4px 8px" }}
+                  >
+                    <span>View</span>
+                    <ExternalLinkIcon />
+                  </AppLink>
+                ) : null}
+              </div>
+            </div>
           </section>
         </div>
       </div>

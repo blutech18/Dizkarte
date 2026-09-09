@@ -42,7 +42,7 @@ export function RenameCategoryForm({
         const result = await renameCategoryAction({ categoryId, name, slug, reason });
         setPending(false);
         if (result.ok) {
-          setSuccess("Category name and slug updated.");
+          setSuccess("Category name and slug updated successfully.");
           setReason("");
           router.refresh();
         } else {
@@ -65,7 +65,7 @@ export function RenameCategoryForm({
         style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-          gap: 14,
+          gap: 16,
         }}
       >
         <div className="dk-field">
@@ -103,23 +103,22 @@ export function RenameCategoryForm({
 
       <div className="dk-field">
         <label className="dk-label dk-required" htmlFor={reasonId}>
-          Reason
+          Reason for update
         </label>
-        <span className="dk-field-description">
-          Required for any material name or slug change; recorded in the audit log.
-        </span>
-        <textarea
+        <input
           id={reasonId}
-          className="dk-textarea"
-          rows={2}
-          style={{ minHeight: 68 }}
-          placeholder="Reason for changing category name or slug..."
+          className="dk-input"
+          type="text"
+          placeholder="e.g. Typo correction, rebranding, SEO update..."
           value={reason}
           onChange={(event) => setReason(event.target.value)}
         />
+        <span className="dk-field-description">
+          Required for any material name or slug change; recorded in the audit log.
+        </span>
       </div>
 
-      <div style={{ display: "flex", justifyContent: "flex-start", marginTop: 4 }}>
+      <div style={{ display: "flex", justifyContent: "flex-start", marginTop: 2 }}>
         <Button type="submit" variant="primary" loading={pending} disabled={unchanged}>
           Save changes
         </Button>

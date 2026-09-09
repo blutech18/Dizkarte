@@ -47,7 +47,7 @@ export function ReorderCategoryForm({
         });
         setPending(false);
         if (result.ok) {
-          setSuccess("Display order updated.");
+          setSuccess("Display order updated successfully.");
           setReason("");
           router.refresh();
         } else {
@@ -66,46 +66,83 @@ export function ReorderCategoryForm({
         </p>
       ) : null}
 
-      <div className="dk-field" style={{ maxWidth: 220 }}>
-        <label className="dk-label dk-required" htmlFor={orderId}>
-          Display order
-        </label>
-        <span className="dk-field-description">
-          Lower numbers appear first in the client app.
-        </span>
-        <input
-          id={orderId}
-          className="dk-input"
-          type="number"
-          min={1}
-          step={1}
-          value={order}
-          onChange={(event) => setOrder(event.target.value)}
-        />
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+          gap: 16,
+          alignItems: "start",
+        }}
+      >
+        <div className="dk-field">
+          <label className="dk-label dk-required" htmlFor={orderId}>
+            Sort position
+          </label>
+          <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+            <span
+              style={{
+                position: "absolute",
+                left: 12,
+                color: "var(--dk-textSecondary)",
+                fontWeight: 700,
+                fontSize: 14,
+                pointerEvents: "none",
+              }}
+            >
+              #
+            </span>
+            <input
+              id={orderId}
+              className="dk-input"
+              type="number"
+              min={1}
+              step={1}
+              value={order}
+              style={{ paddingLeft: 28, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}
+              onChange={(event) => setOrder(event.target.value)}
+            />
+          </div>
+          <span className="dk-field-description">
+            Lower numbers appear first in customer menus.
+          </span>
+        </div>
+
+        <div className="dk-field">
+          <label className="dk-label dk-required" htmlFor={reasonId}>
+            Reason for change
+          </label>
+          <input
+            id={reasonId}
+            className="dk-input"
+            type="text"
+            placeholder="e.g. Prioritizing seasonal category..."
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+          />
+          <span className="dk-field-description">
+            Recorded in moderation audit log.
+          </span>
+        </div>
       </div>
 
-      <div className="dk-field">
-        <label className="dk-label dk-required" htmlFor={reasonId}>
-          Reason
-        </label>
-        <span className="dk-field-description">
-          Required for any order change; recorded in the audit log.
-        </span>
-        <textarea
-          id={reasonId}
-          className="dk-textarea"
-          rows={2}
-          style={{ minHeight: 68 }}
-          placeholder="Reason for adjusting marketplace display order..."
-          value={reason}
-          onChange={(event) => setReason(event.target.value)}
-        />
-      </div>
-
-      <div style={{ display: "flex", justifyContent: "flex-start", marginTop: 4 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexWrap: "wrap",
+          gap: 12,
+          marginTop: 2,
+        }}
+      >
         <Button type="submit" variant="primary" loading={pending} disabled={unchanged}>
-          Save order
+          Update display order
         </Button>
+        <span style={{ fontSize: 13, color: "var(--dk-textSecondary)" }}>
+          {parsed === displayOrder
+            ? "Current position: #" + displayOrder
+            : "Will change position: #" + displayOrder + " → #" + parsed}
+        </span>
       </div>
     </form>
   );
