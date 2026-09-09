@@ -1861,10 +1861,44 @@ export class SyntheticAdminRepository implements AdminRepository {
     return this.applyCaseAccess(found, input.actor, "report");
   }
 
-  async listDisputes(input: PageInput & { status?: string }) {
-    const filtered = input.status
-      ? this.state.disputes.filter((d) => d.status === input.status)
-      : this.state.disputes;
+  async listDisputes(
+    input: PageInput & { status?: string; query?: string; sort?: string },
+  ) {
+    let filtered = this.state.disputes;
+    if (input.status) {
+      filtered = filtered.filter(
+        (d) => d.status.toUpperCase() === input.status?.toUpperCase(),
+      );
+    }
+    if (input.query) {
+      const q = input.query.trim().toLowerCase();
+      filtered = filtered.filter((d) => {
+        const formalRef = formatReferenceId(d.id, "DSP", d.openedAt).toLowerCase();
+        const shortRef = formatReferenceId(d.id, "DSP").toLowerCase();
+        const bookingRef = formatReferenceId(d.bookingId, "BK").toLowerCase();
+        return (
+          d.id.toLowerCase().includes(q) ||
+          formalRef.includes(q) ||
+          shortRef.includes(q) ||
+          d.bookingId.toLowerCase().includes(q) ||
+          bookingRef.includes(q) ||
+          (d.assignee && d.assignee.toLowerCase().includes(q))
+        );
+      });
+    }
+    if (input.sort === "oldest") {
+      filtered = [...filtered].sort(
+        (a, b) => new Date(a.openedAt).getTime() - new Date(b.openedAt).getTime(),
+      );
+    } else if (input.sort === "amount_desc") {
+      filtered = [...filtered].sort((a, b) => b.amountCentavos - a.amountCentavos);
+    } else if (input.sort === "amount_asc") {
+      filtered = [...filtered].sort((a, b) => a.amountCentavos - b.amountCentavos);
+    } else {
+      filtered = [...filtered].sort(
+        (a, b) => new Date(b.openedAt).getTime() - new Date(a.openedAt).getTime(),
+      );
+    }
     return paged<DisputeRow>(filtered, input);
   }
 

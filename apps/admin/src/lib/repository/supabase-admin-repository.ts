@@ -1350,15 +1350,27 @@ export class SupabaseAdminRepository implements AdminRepository {
     return paginate(items, input.page, input.pageSize, count ?? items.length);
   }
 
-  async listDisputes(input: PageInput & { status?: string }): Promise<Paginated<DisputeRow>> {
+  async listDisputes(
+    input: PageInput & { status?: string; query?: string; sort?: string },
+  ): Promise<Paginated<DisputeRow>> {
     const db = await this.db();
     const { from, to } = pageRange(input.page, input.pageSize);
     let query = db
       .from("admin_dispute_queue")
       .select("id,booking_id,status,assignee_id,created_at", { count: "exact" });
     if (input.status) query = query.eq("status", input.status);
+
+    const keyword = input.query?.trim();
+    if (keyword) {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(keyword);
+      if (isUuid) {
+        query = query.or(`id.eq.${keyword},booking_id.eq.${keyword}`);
+      }
+    }
+
+    const ascending = input.sort === "oldest";
     const { data, count, error } = await query
-      .order("created_at", { ascending: false })
+      .order("created_at", { ascending })
       .range(from, to);
     if (error) return paginate<DisputeRow>([], input.page, input.pageSize, 0);
 
@@ -1373,7 +1385,7 @@ export class SupabaseAdminRepository implements AdminRepository {
       this.displayNames(rows.map((row) => row.assignee_id)),
       this.bookingAmounts(rows.map((row) => row.booking_id)),
     ]);
-    const items = rows.map((row) => ({
+    let items = rows.map((row) => ({
       id: row.id,
       bookingId: row.booking_id,
       status: row.status as DisputeStatus,
@@ -1381,6 +1393,11 @@ export class SupabaseAdminRepository implements AdminRepository {
       openedAt: row.created_at,
       assignee: row.assignee_id ? displayNameFor(names, row.assignee_id) : null,
     }));
+    if (input.sort === "amount_desc") {
+      items = [...items].sort((a, b) => b.amountCentavos - a.amountCentavos);
+    } else if (input.sort === "amount_asc") {
+      items = [...items].sort((a, b) => a.amountCentavos - b.amountCentavos);
+    }
     return paginate(items, input.page, input.pageSize, count ?? items.length);
   }
 

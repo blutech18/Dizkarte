@@ -1203,5 +1203,43 @@ describe("SyntheticAdminRepository", () => {
         );
       }
     });
+
+    it("filters and sorts disputes in synthetic repository", async () => {
+      const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
+      const repo = new SyntheticAdminRepository();
+
+      const all = await repo.listDisputes({ page: 1, pageSize: 50 });
+      expect(all.items.length).toBeGreaterThan(0);
+
+      // Filter by status
+      const openDisputes = await repo.listDisputes({ page: 1, pageSize: 50, status: "OPEN" });
+      expect(openDisputes.items.every((d) => d.status === "OPEN")).toBe(true);
+
+      // Search by dispute ID
+      const first = all.items[0]!;
+      const byId = await repo.listDisputes({ page: 1, pageSize: 50, query: first.id });
+      expect(byId.items.some((d) => d.id === first.id)).toBe(true);
+
+      // Search by booking reference
+      const bookingRef = formatReferenceId(first.bookingId, "BK");
+      const byBookingRef = await repo.listDisputes({ page: 1, pageSize: 50, query: bookingRef });
+      expect(byBookingRef.items.some((d) => d.id === first.id)).toBe(true);
+
+      // Sort by amount descending
+      const byAmountDesc = await repo.listDisputes({ page: 1, pageSize: 50, sort: "amount_desc" });
+      for (let i = 1; i < byAmountDesc.items.length; i++) {
+        expect(byAmountDesc.items[i - 1]!.amountCentavos).toBeGreaterThanOrEqual(
+          byAmountDesc.items[i]!.amountCentavos,
+        );
+      }
+
+      // Sort by oldest
+      const byOldest = await repo.listDisputes({ page: 1, pageSize: 50, sort: "oldest" });
+      for (let i = 1; i < byOldest.items.length; i++) {
+        expect(new Date(byOldest.items[i - 1]!.openedAt).getTime()).toBeLessThanOrEqual(
+          new Date(byOldest.items[i]!.openedAt).getTime(),
+        );
+      }
+    });
   });
 });

@@ -881,7 +881,9 @@ export interface AdminRepository {
     input: PageInput & { status?: string; query?: string; resourceType?: string; sort?: string },
   ): Promise<Paginated<ReportRow>>;
   getReport(input: { reportId: string; actor: string }): Promise<ReportDetail | null>;
-  listDisputes(input: PageInput & { status?: string }): Promise<Paginated<DisputeRow>>;
+  listDisputes(
+    input: PageInput & { status?: string; query?: string; sort?: string },
+  ): Promise<Paginated<DisputeRow>>;
   getDispute(input: { disputeId: string; actor: string }): Promise<DisputeDetail | null>;
   /**
    * The booking conversation behind a dispute, for the assigned Admin only.
