@@ -3887,6 +3887,22 @@ textarea {
   margin-bottom: 14px;
 }
 
+.dk-card-title {
+  margin: 0 0 6px;
+  color: var(--dk-textPrimary);
+  font-size: 16.5px;
+  font-weight: 800;
+  letter-spacing: -0.015em;
+}
+
+.dk-card-description {
+  margin: 0 0 18px;
+  color: var(--dk-textSecondary);
+  font-size: 13px;
+  line-height: 1.5;
+  max-width: 70ch;
+}
+
 .dk-history {
   display: flex;
   flex-direction: column;

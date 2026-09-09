@@ -230,28 +230,30 @@ async function CategoryRecord({ categoryId }: { readonly categoryId: string }) {
         {/* Main Column */}
         <div className="dk-task-main-col">
           <section className="dk-card dk-task-card" aria-labelledby="naming-heading">
-            <div className="dk-card-header-flex" style={{ marginBottom: 4 }}>
-              <h2 id="naming-heading">Name and slug</h2>
-            </div>
-            <p className="dk-card-note">
+            <h2 id="naming-heading" className="dk-card-title">
+              Name and slug
+            </h2>
+            <p className="dk-card-description">
               Update the customer-facing category title and unique URL slug identifier.
             </p>
             <RenameCategoryForm categoryId={detail.id} name={detail.name} slug={detail.slug} />
           </section>
 
           <section className="dk-card dk-task-card" aria-labelledby="order-heading">
-            <div className="dk-card-header-flex" style={{ marginBottom: 4 }}>
-              <h2 id="order-heading">Marketplace display order</h2>
-            </div>
-            <p className="dk-card-note">
+            <h2 id="order-heading" className="dk-card-title">
+              Marketplace display order
+            </h2>
+            <p className="dk-card-description">
               Controls the sorting position of this category in client app task selectors.
             </p>
             <ReorderCategoryForm categoryId={detail.id} displayOrder={detail.displayOrder} />
           </section>
 
           <section className="dk-card dk-task-card" aria-labelledby="history-heading">
-            <div className="dk-card-header-flex" style={{ marginBottom: 8 }}>
-              <h2 id="history-heading">Audit history</h2>
+            <div className="dk-card-header-flex" style={{ marginBottom: 14 }}>
+              <h2 id="history-heading" className="dk-card-title" style={{ margin: 0 }}>
+                Audit history
+              </h2>
             </div>
             {detail.history.length === 0 ? (
               <p className="dk-muted" style={{ margin: "8px 0" }}>
@@ -287,8 +289,8 @@ async function CategoryRecord({ categoryId }: { readonly categoryId: string }) {
         {/* Sidebar Column */}
         <div className="dk-task-side-col">
           <section className="dk-card dk-task-card" aria-labelledby="state-heading">
-            <div className="dk-card-header-flex" style={{ marginBottom: 12 }}>
-              <h2 id="state-heading" style={{ fontSize: 16 }}>
+            <div className="dk-card-header-flex" style={{ marginBottom: 6 }}>
+              <h2 id="state-heading" className="dk-card-title" style={{ margin: 0, fontSize: 16 }}>
                 Availability
               </h2>
               <StatusBadge
@@ -297,7 +299,7 @@ async function CategoryRecord({ categoryId }: { readonly categoryId: string }) {
               />
             </div>
 
-            <p className="dk-card-note" style={{ marginBottom: 18 }}>
+            <p className="dk-card-description">
               {detail.active ? (
                 detail.taskCount > 0 ? (
                   <>
@@ -317,7 +319,7 @@ async function CategoryRecord({ categoryId }: { readonly categoryId: string }) {
           </section>
 
           <section className="dk-card dk-task-card" aria-labelledby="quick-ref-heading">
-            <h2 id="quick-ref-heading" style={{ fontSize: 16, marginBottom: 14 }}>
+            <h2 id="quick-ref-heading" className="dk-card-title" style={{ fontSize: 16, marginBottom: 14 }}>
               Quick reference
             </h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
