@@ -120,10 +120,12 @@ async function AuditLogTable({
       key: "actor",
       header: "Actor",
       render: (row) => (
-        <div className="flex flex-col">
-          <span className="font-medium text-dk-gray-900">{row.actor}</span>
+        <div style={{ display: "flex", flexDirection: "column", whiteSpace: "nowrap" }}>
+          <span style={{ fontWeight: 600, fontSize: 13 }}>{row.actor}</span>
           {row.capability ? (
-            <span className="text-xs text-dk-gray-500 font-mono">{row.capability}</span>
+            <span style={{ fontSize: 12, color: "var(--dk-textSecondary)", fontFamily: "ui-monospace, monospace" }}>
+              {row.capability}
+            </span>
           ) : null}
         </div>
       ),
@@ -132,7 +134,10 @@ async function AuditLogTable({
       key: "action",
       header: "Action",
       render: (row) => (
-        <span className="dk-badge dk-badge--neutral font-mono text-xs font-medium">
+        <span
+          className="dk-badge dk-badge--neutral"
+          style={{ fontFamily: "ui-monospace, monospace", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}
+        >
           {row.action}
         </span>
       ),
@@ -141,9 +146,9 @@ async function AuditLogTable({
       key: "resource",
       header: "Resource",
       render: (row) => (
-        <div className="inline-flex items-center gap-1.5 font-mono text-xs">
-          <span>{row.resource}</span>
-          <CopyButton text={row.resource} label="Copy resource reference" variant="icon" />
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
+          <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 12.5 }}>{row.resource}</span>
+          <CopyButton text={row.resource} label="resource" variant="icon" />
         </div>
       ),
     },
@@ -152,7 +157,7 @@ async function AuditLogTable({
       header: "Reason",
       render: (row) =>
         row.reason ? (
-          <span className="text-sm text-dk-gray-700">{row.reason}</span>
+          <span style={{ fontSize: 13 }}>{row.reason}</span>
         ) : (
           <NotApplicable />
         ),
@@ -161,9 +166,9 @@ async function AuditLogTable({
       key: "at",
       header: "Recorded",
       render: (row) => (
-        <time dateTime={row.at} className="text-sm text-dk-gray-600">
-          {formatDateTime(row.at)}
-        </time>
+        <span style={{ fontSize: 12.5, color: "var(--dk-textSecondary)", whiteSpace: "nowrap" }}>
+          <time dateTime={row.at}>{formatDateTime(row.at)}</time>
+        </span>
       ),
     },
   ];

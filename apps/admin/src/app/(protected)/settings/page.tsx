@@ -99,7 +99,7 @@ export default async function SettingsPage() {
                 <h2 id="security-heading">Security & audit policy</h2>
                 <span className="dk-badge dk-badge--neutral text-xs font-mono">ADMIN_SUPER</span>
               </div>
-              <p className="text-sm text-dk-gray-600 mb-4 leading-relaxed">
+              <p className="dk-card-note" style={{ margin: "0 0 16px 0", fontSize: 13.5, lineHeight: 1.5 }}>
                 All modifications to operational values are executed through capability-scoped RPCs
                 and logged with an immutable audit entry. Secrets and keys are never rendered in the console.
               </p>
@@ -126,7 +126,7 @@ async function ManagedSettings() {
           <h2 id="operational-heading">Operational values</h2>
           <span className="dk-badge dk-badge--neutral text-xs font-mono">ADMIN_SUPER</span>
         </div>
-        <p className="text-sm text-dk-gray-600 mb-4 leading-relaxed">
+        <p className="dk-card-note" style={{ margin: "0 0 16px 0", fontSize: 13.5, lineHeight: 1.5 }}>
           Only allow-listed operational settings can be modified by super administrators. Every update requires a recorded justification.
         </p>
         <div className="space-y-6">
@@ -141,7 +141,7 @@ async function ManagedSettings() {
           <h2 id="policy-heading">Money and release policy</h2>
           <span className="dk-badge dk-badge--neutral text-xs font-mono">Client-owned (D3/D5/D13)</span>
         </div>
-        <p className="text-sm text-dk-gray-600 mb-4 leading-relaxed">
+        <p className="dk-card-note" style={{ margin: "0 0 16px 0", fontSize: 13.5, lineHeight: 1.5 }}>
           Client-owned decisions shown for operational transparency. Locked from direct modification until an approved policy model is on file.
         </p>
         <dl className="dk-fact-grid">
@@ -149,8 +149,10 @@ async function ManagedSettings() {
             <div className="dk-fact" key={item.key}>
               <dt>{item.label}</dt>
               <dd>
-                <div className="font-semibold text-dk-gray-900">{item.value}</div>
-                <span className="dk-fact-aside text-xs text-dk-gray-500 mt-1">{item.note}</span>
+                <div style={{ fontWeight: 600, color: "var(--dk-textPrimary)" }}>{item.value}</div>
+                <span className="dk-fact-aside" style={{ fontSize: 12, color: "var(--dk-textSecondary)", marginTop: 4 }}>
+                  {item.note}
+                </span>
               </dd>
             </div>
           ))}

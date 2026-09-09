@@ -76,10 +76,11 @@ export function OperationalSettingForm({ setting }: { readonly setting: Editable
           {setting.label} ({setting.unit})
         </label>
         <span className="dk-field-description">{setting.description}</span>
-        <div className="flex items-center gap-3 mt-1">
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 4 }}>
           <input
             id={valueId}
-            className="dk-input max-w-[180px]"
+            className="dk-input"
+            style={{ maxWidth: 180 }}
             type="number"
             inputMode="numeric"
             value={value}
@@ -89,7 +90,7 @@ export function OperationalSettingForm({ setting }: { readonly setting: Editable
             step={1}
             onChange={(event) => setValue(event.target.value)}
           />
-          <span className="text-xs text-dk-gray-500 font-mono">
+          <span style={{ fontSize: 12, color: "var(--dk-textSecondary)", fontFamily: "ui-monospace, monospace" }}>
             Allowed: {setting.min} – {setting.max} {setting.unit}
           </span>
         </div>
