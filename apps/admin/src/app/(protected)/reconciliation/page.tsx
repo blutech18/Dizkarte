@@ -1,22 +1,23 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { AppLink } from "@/components/ui/AppLink";
-import { formatPhp, formatPhpSigned } from "@dizkarte/domain";
-import { requirePageCapability } from "@/lib/guard";
-import { getAdminRepository } from "@/lib/repository";
-import { formatDateTime } from "@/lib/datetime";
-import { formatReferenceId } from "@/lib/format-id";
+import { CopyButton } from "@/components/ui/CopyButton";
 import { Breadcrumbs } from "@/components/ui/Field";
 import { PageSection, Pagination } from "@/components/ui/Pagination";
 import { EmptyState, SkeletonCardGrid, TableRegionSkeleton } from "@/components/ui/AsyncState";
 import { RecordList, type ColumnDef } from "@/components/ui/RecordList";
 import { StatusBadge, type BadgeTone } from "@/components/ui/StatusBadge";
-import { CopyButton } from "@/components/ui/CopyButton";
 import { QueueFilters } from "@/components/ui/QueueFilters";
-import type { ReconciliationRow, ReconciliationStatus } from "@/lib/repository/types";
+import { requirePageCapability } from "@/lib/guard";
+import { getAdminRepository } from "@/lib/repository";
+import { formatDateTime } from "@/lib/datetime";
+import { formatReferenceId } from "@/lib/format-id";
 import { RerunReconciliationPanel } from "./RerunReconciliationPanel";
+import type { ReconciliationRow, ReconciliationStatus } from "@/lib/repository/types";
 
-export const metadata: Metadata = { title: "Reconciliation" };
+export const metadata: Metadata = {
+  title: "Reconciliation",
+};
 
 const PAGE_SIZE = 20;
 
@@ -32,7 +33,7 @@ const RECONCILIATION_SORT_OPTIONS = [
   { value: "newest", label: "Newest checked" },
   { value: "oldest", label: "Oldest checked" },
   { value: "diff_desc", label: "Largest discrepancy" },
-] as const;
+];
 
 function reconciliationStatusLabel(status: ReconciliationStatus): string {
   switch (status) {
@@ -53,22 +54,29 @@ function tone(status: ReconciliationStatus): BadgeTone {
   switch (status) {
     case "MATCHED":
       return "success";
-    case "MISMATCH":
-    case "QUARANTINED":
-      return "error";
     case "DUPLICATE":
       return "warning";
-    default:
+    case "QUARANTINED":
+    case "MISMATCH":
+      return "error";
+    case "UNMATCHED":
       return "info";
   }
 }
 
-/**
- * Reconciliation queue.
- *
- * Compares each payment intent against its provider event and ledger transaction.
- * Real-time summary counts and row listings stream independently under Suspense.
- */
+function formatPhp(centavos: number): string {
+  return new Intl.NumberFormat("en-PH", {
+    style: "currency",
+    currency: "PHP",
+    minimumFractionDigits: 2,
+  }).format(centavos / 100);
+}
+
+function formatPhpSigned(centavos: number): string {
+  const prefix = centavos > 0 ? "+" : "";
+  return `${prefix}${formatPhp(centavos)}`;
+}
+
 export default async function ReconciliationPage({
   searchParams,
 }: {
@@ -96,15 +104,14 @@ export default async function ReconciliationPage({
         title="Reconciliation"
         subtitle={
           repository.synthetic
-            ? "DEVELOPMENT SYNTHETIC reconciliation. Compares payment, provider-event, and ledger amounts. Makes no network or provider call."
-            : "Compares each payment intent against its provider event and ledger transaction. Classifications are derived on every read from the authoritative rows, so they cannot drift. Makes no network or provider call."
+            ? "Development synthetic reconciliation. Compares payment, provider-event, and ledger amounts. Makes no network or provider call."
+            : "Compares each payment intent against its provider event and ledger transaction. Classifications are derived on every read from authoritative records without external API calls."
         }
+        actions={<RerunReconciliationPanel synthetic={repository.synthetic} />}
       >
         <Suspense fallback={<SkeletonCardGrid count={6} />}>
           <ReconciliationSummary />
         </Suspense>
-
-        <RerunReconciliationPanel synthetic={repository.synthetic} />
 
         <QueueFilters
           basePath="/reconciliation"
@@ -159,17 +166,47 @@ async function ReconciliationSummary() {
       aria-label="Reconciliation summary"
       style={{
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+        gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
         gap: 12,
-        marginBottom: 16,
+        marginBottom: 20,
       }}
     >
-      <SummaryCard label="Matched" value={summary.matched} tone="success" />
-      <SummaryCard label="Duplicate" value={summary.duplicate} tone={summary.duplicate > 0 ? "warning" : undefined} />
-      <SummaryCard label="Quarantined" value={summary.quarantined} tone={summary.quarantined > 0 ? "error" : undefined} />
-      <SummaryCard label="Mismatch" value={summary.mismatch} tone={summary.mismatch > 0 ? "error" : undefined} />
-      <SummaryCard label="Unmatched" value={summary.unmatched} tone={summary.unmatched > 0 ? "info" : undefined} />
-      <SummaryCard label="Total" value={summary.total} />
+      <SummaryCard
+        label="Matched"
+        value={summary.matched}
+        subtext="Balanced across rows"
+        tone="success"
+      />
+      <SummaryCard
+        label="Duplicate"
+        value={summary.duplicate}
+        subtext="Multiple event records"
+        tone={summary.duplicate > 0 ? "warning" : undefined}
+      />
+      <SummaryCard
+        label="Quarantined"
+        value={summary.quarantined}
+        subtext="Signature/payload alert"
+        tone={summary.quarantined > 0 ? "error" : undefined}
+      />
+      <SummaryCard
+        label="Mismatch"
+        value={summary.mismatch}
+        subtext="Amount discrepancy"
+        tone={summary.mismatch > 0 ? "error" : undefined}
+      />
+      <SummaryCard
+        label="Unmatched"
+        value={summary.unmatched}
+        subtext="Awaiting ledger or event"
+        tone={summary.unmatched > 0 ? "info" : undefined}
+      />
+      <SummaryCard
+        label="Total"
+        value={summary.total}
+        subtext="Tracked audit rows"
+        tone="neutral"
+      />
     </div>
   );
 }
@@ -198,24 +235,27 @@ async function ReconciliationTable({
       key: "booking",
       header: "Booking",
       render: (row) => (
-        <AppLink
-          href={`/bookings/${row.bookingId}`}
-          style={{ fontFamily: "ui-monospace, monospace", fontSize: 12.5 }}
-          title={`Booking ${row.bookingId}`}
-        >
-          {formatReferenceId(row.bookingId, "BK")}
-        </AppLink>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <AppLink
+            href={`/bookings/${row.bookingId}`}
+            style={{ fontFamily: "ui-monospace, monospace", fontSize: 12.5, fontWeight: 500 }}
+            title={`Booking ${row.bookingId}`}
+          >
+            {formatReferenceId(row.bookingId, "BK")}
+          </AppLink>
+          <CopyButton text={row.bookingId} label="booking ID" variant="icon" />
+        </div>
       ),
     },
     {
       key: "paymentIntent",
-      header: "Payment",
+      header: "Payment Ref",
       render: (row) =>
         row.paymentIntentId ? (
           <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
             <AppLink
               href={`/payments/${row.paymentIntentId}`}
-              style={{ fontFamily: "ui-monospace, monospace", fontSize: 12.5 }}
+              style={{ fontFamily: "ui-monospace, monospace", fontSize: 12.5, fontWeight: 500 }}
             >
               {formatReferenceId(row.paymentIntentId, "PAY")}
             </AppLink>
@@ -234,43 +274,49 @@ async function ReconciliationTable({
     },
     {
       key: "payment",
-      header: "Payment",
+      header: "Payment Amount",
       render: (row) =>
         row.paymentAmountCentavos === null ? (
           <span className="dk-muted">—</span>
         ) : (
-          <span style={{ fontVariantNumeric: "tabular-nums" }}>{formatPhp(row.paymentAmountCentavos)}</span>
+          <span style={{ fontVariantNumeric: "tabular-nums", fontWeight: 500 }}>
+            {formatPhp(row.paymentAmountCentavos)}
+          </span>
         ),
     },
     {
       key: "provider",
-      header: "Provider event",
+      header: "Provider Event",
       render: (row) =>
         row.providerEventAmountCentavos === null ? (
           <span className="dk-muted">—</span>
         ) : (
-          <span style={{ fontVariantNumeric: "tabular-nums" }}>{formatPhp(row.providerEventAmountCentavos)}</span>
+          <span style={{ fontVariantNumeric: "tabular-nums" }}>
+            {formatPhp(row.providerEventAmountCentavos)}
+          </span>
         ),
     },
     {
       key: "ledger",
-      header: "Ledger",
+      header: "Ledger Amount",
       render: (row) =>
         row.ledgerAmountCentavos === null ? (
           <span className="dk-muted">—</span>
         ) : (
-          <span style={{ fontVariantNumeric: "tabular-nums" }}>{formatPhp(row.ledgerAmountCentavos)}</span>
+          <span style={{ fontVariantNumeric: "tabular-nums" }}>
+            {formatPhp(row.ledgerAmountCentavos)}
+          </span>
         ),
     },
     {
       key: "difference",
-      header: "Difference",
+      header: "Discrepancy",
       render: (row) => (
         <span
           style={{
             fontVariantNumeric: "tabular-nums",
             fontWeight: row.differenceCentavos !== 0 ? 700 : 400,
-            color: row.differenceCentavos !== 0 ? "var(--dk-error)" : "inherit",
+            color: row.differenceCentavos !== 0 ? "var(--dk-errorSolid)" : "var(--dk-textSecondary)",
           }}
         >
           {formatPhpSigned(row.differenceCentavos)}
@@ -333,41 +379,79 @@ async function ReconciliationTable({
 function SummaryCard({
   label,
   value,
+  subtext,
   tone: cardTone,
 }: {
   readonly label: string;
   readonly value: number;
-  readonly tone?: "success" | "warning" | "error" | "info" | undefined;
+  readonly subtext: string;
+  readonly tone?: "success" | "warning" | "error" | "info" | "neutral" | undefined;
 }) {
+  const hasValue = value > 0;
+
   return (
     <div
       className="dk-card"
       role="group"
       aria-label={label}
       style={{
-        padding: "14px 16px",
-        borderColor: cardTone === "error" ? "var(--dk-errorSoft)" : undefined,
+        padding: "16px 18px",
+        display: "flex",
+        flexDirection: "column",
+        justifyContent: "space-between",
+        borderRadius: "var(--dk-radius-md)",
+        border: "1px solid var(--dk-borderSubtle)",
+        background: "var(--dk-surface)",
       }}
     >
-      <p className="dk-muted" style={{ margin: 0, fontSize: 12 }}>
-        {label}
-      </p>
-      <p
+      <div
         style={{
-          margin: "4px 0 0 0",
-          fontSize: "1.35rem",
-          fontWeight: 700,
-          fontVariantNumeric: "tabular-nums",
-          color:
-            cardTone === "error"
-              ? "var(--dk-error)"
-              : cardTone === "warning"
-                ? "var(--dk-warning)"
-                : "inherit",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          marginBottom: 8,
         }}
       >
-        {value}
-      </p>
+        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--dk-textSecondary)" }}>
+          {label}
+        </span>
+        {cardTone && cardTone !== "neutral" && hasValue ? (
+          <StatusBadge tone={cardTone} label={cardTone === "success" ? "OK" : "Alert"} />
+        ) : null}
+      </div>
+      <div>
+        <p
+          style={{
+            margin: 0,
+            fontSize: "1.75rem",
+            fontWeight: 800,
+            letterSpacing: "-0.02em",
+            fontVariantNumeric: "tabular-nums",
+            lineHeight: 1.1,
+            color:
+              cardTone === "error" && hasValue
+                ? "var(--dk-errorSolid)"
+                : cardTone === "warning" && hasValue
+                  ? "var(--dk-warningSolid)"
+                  : cardTone === "success"
+                    ? "var(--dk-successSolid)"
+                    : "var(--dk-textPrimary)",
+          }}
+        >
+          {value}
+        </p>
+        <span
+          style={{
+            fontSize: 11.5,
+            color: "var(--dk-textSecondary)",
+            marginTop: 4,
+            display: "block",
+          }}
+        >
+          {subtext}
+        </span>
+      </div>
     </div>
   );
 }
