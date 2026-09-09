@@ -5,45 +5,58 @@ import { formatPhp, formatPhpSigned } from "@dizkarte/domain";
 import { requirePageCapability } from "@/lib/guard";
 import { getAdminRepository } from "@/lib/repository";
 import { formatDateTime } from "@/lib/datetime";
+import { formatReferenceId } from "@/lib/format-id";
 import {
   paymentStatusLabel,
   paymentStatusTone,
   providerEventStatusLabel,
   providerEventStatusTone,
+  PAYMENT_STATUS_OPTIONS,
 } from "./status";
 import { Breadcrumbs } from "@/components/ui/Field";
 import { PageSection, Pagination } from "@/components/ui/Pagination";
 import { EmptyState, TableRegionSkeleton, SkeletonBone } from "@/components/ui/AsyncState";
 import { RecordList, type ColumnDef } from "@/components/ui/RecordList";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import type { PaymentIntentRow, ProviderEventRow } from "@/lib/repository/types";
+import { QueueFilters } from "@/components/ui/QueueFilters";
+import type { PaymentIntentRow, ProviderEventRow, PaymentIntentStatus } from "@/lib/repository/types";
 
 export const metadata: Metadata = { title: "Payments & ledger" };
 
 const PAGE_SIZE = 20;
 
+const PAYMENT_SORT_OPTIONS = [
+  { value: "newest", label: "Newest first" },
+  { value: "oldest", label: "Oldest first" },
+  { value: "amount_desc", label: "Highest amount" },
+  { value: "amount_asc", label: "Lowest amount" },
+] as const;
+
 /**
  * Payments & ledger.
  *
- * Only the breadcrumb trail is data-free here — the PageSection subtitle itself
- * changes depending on whether the ledger is synthetic — so the shell that
- * paints immediately is deliberately small and everything below it streams. The
- * ledger overview (subtitle, provider-availability notice, and summary totals)
- * carries the PageSection, and the two independent tables each stream behind
- * their own boundary so a slow provider-events query never holds back the
- * payment records.
- *
- * The payment-records boundary is keyed by the page number so paging shows the
- * table skeleton again instead of leaving the previous page's rows on screen.
+ * The ledger overview provides real-time totals computed from immutable ledger transactions.
+ * Payment records and provider events stream under dedicated Suspense boundaries
+ * with multi-criteria search, status, and sorting filters.
  */
 export default async function PaymentsPage({
   searchParams,
 }: {
-  readonly searchParams: Promise<{ page?: string }>;
+  readonly searchParams: Promise<{
+    status?: string;
+    q?: string;
+    sort?: string;
+    page?: string;
+  }>;
 }) {
   await requirePageCapability(["ADMIN_FINANCE"]);
-  const { page: pageParam } = await searchParams;
+  const { status, q, sort, page: pageParam } = await searchParams;
   const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
+  const activeStatus = (PAYMENT_STATUS_OPTIONS as ReadonlyArray<string>).includes(status ?? "")
+    ? (status as PaymentIntentStatus)
+    : undefined;
+  const activeSort = sort && PAYMENT_SORT_OPTIONS.some((opt) => opt.value === sort) ? sort : undefined;
+  const cleanQ = q?.trim() || undefined;
 
   return (
     <>
@@ -51,13 +64,28 @@ export default async function PaymentsPage({
         items={[{ label: "Dashboard", href: "/dashboard" }, { label: "Payments & ledger" }]}
       />
       <Suspense fallback={<PaymentsLedgerFallback />}>
-        <PaymentsLedgerSection page={page} />
+        <PaymentsLedgerSection
+          page={page}
+          status={activeStatus}
+          q={cleanQ}
+          sort={activeSort}
+        />
       </Suspense>
     </>
   );
 }
 
-async function PaymentsLedgerSection({ page }: { readonly page: number }) {
+async function PaymentsLedgerSection({
+  page,
+  status,
+  q,
+  sort,
+}: {
+  readonly page: number;
+  readonly status: PaymentIntentStatus | undefined;
+  readonly q: string | undefined;
+  readonly sort: string | undefined;
+}) {
   const repository = getAdminRepository();
   const [summary, availability] = await Promise.all([
     repository.getFinanceSummary(),
@@ -119,8 +147,43 @@ async function PaymentsLedgerSection({ page }: { readonly page: number }) {
       </p>
 
       <h2>Payment records</h2>
-      <Suspense key={`${page}`} fallback={<TableRegionSkeleton columns={6} />}>
-        <PaymentIntentsTable page={page} />
+      <QueueFilters
+        basePath="/payments"
+        search={{
+          label: "Search payments by reference, booking, or amount",
+          placeholder: "Search payment ID, booking ID...",
+          value: q ?? "",
+        }}
+        selects={[
+          {
+            name: "status",
+            label: "Filter by payment status",
+            allLabel: "All statuses",
+            value: status,
+            options: PAYMENT_STATUS_OPTIONS.map((opt) => ({
+              value: opt,
+              label: paymentStatusLabel(opt),
+            })),
+          },
+          {
+            name: "sort",
+            label: "Sort payments",
+            allLabel: "Newest first",
+            value: sort,
+            options: PAYMENT_SORT_OPTIONS,
+          },
+        ]}
+      />
+      <Suspense
+        key={`${status ?? ""}|${q ?? ""}|${sort ?? ""}|${page}`}
+        fallback={<TableRegionSkeleton columns={7} />}
+      >
+        <PaymentIntentsTable
+          page={page}
+          status={status}
+          q={q}
+          sort={sort}
+        />
       </Suspense>
 
       <h2 style={{ marginTop: 32 }}>Provider events</h2>
@@ -134,11 +197,69 @@ async function PaymentsLedgerSection({ page }: { readonly page: number }) {
   );
 }
 
-async function PaymentIntentsTable({ page }: { readonly page: number }) {
-  const intentsPage = await getAdminRepository().listPaymentIntents({ page, pageSize: PAGE_SIZE });
+async function PaymentIntentsTable({
+  page,
+  status,
+  q,
+  sort,
+}: {
+  readonly page: number;
+  readonly status: PaymentIntentStatus | undefined;
+  readonly q: string | undefined;
+  readonly sort: string | undefined;
+}) {
+  const intentsPage = await getAdminRepository().listPaymentIntents({
+    page,
+    pageSize: PAGE_SIZE,
+    ...(status ? { status } : {}),
+    ...(q ? { query: q } : {}),
+    ...(sort ? { sort } : {}),
+  });
 
   const intentColumns: ReadonlyArray<ColumnDef<PaymentIntentRow>> = [
-    { key: "booking", header: "Booking", render: (row) => row.bookingId },
+    {
+      key: "reference",
+      header: "Payment",
+      render: (row) => (
+        <AppLink
+          href={`/payments/${row.id}`}
+          style={{ fontFamily: "ui-monospace, monospace", fontWeight: 600, fontSize: 13 }}
+        >
+          {formatReferenceId(row.id, "PAY", row.createdAt)}
+        </AppLink>
+      ),
+    },
+    {
+      key: "booking",
+      header: "Booking",
+      render: (row) => (
+        <AppLink
+          href={`/bookings/${row.bookingId}`}
+          style={{ fontFamily: "ui-monospace, monospace", fontSize: 12.5 }}
+          title={`Booking ${row.bookingId}`}
+        >
+          {formatReferenceId(row.bookingId, "BK")}
+        </AppLink>
+      ),
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      render: (row) => (
+        <span style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+          {formatPhp(row.amountCentavos)}
+        </span>
+      ),
+    },
+    {
+      key: "fee",
+      header: "Platform fee",
+      render: (row) => (
+        <span style={{ fontVariantNumeric: "tabular-nums" }}>
+          {formatPhp(row.platformFeeCentavos)}
+        </span>
+      ),
+    },
     {
       key: "status",
       header: "Status",
@@ -146,24 +267,26 @@ async function PaymentIntentsTable({ page }: { readonly page: number }) {
         <StatusBadge tone={paymentStatusTone(row.status)} label={paymentStatusLabel(row.status)} />
       ),
     },
-    { key: "amount", header: "Amount", render: (row) => formatPhp(row.amountCentavos) },
-    {
-      key: "fee",
-      header: "Platform fee",
-      render: (row) => formatPhp(row.platformFeeCentavos),
-    },
     {
       key: "createdAt",
       header: "Created",
-      render: (row) => <time dateTime={row.createdAt}>{formatDateTime(row.createdAt)}</time>,
+      render: (row) => (
+        <span style={{ fontSize: 12.5, color: "var(--dk-textSecondary)" }}>
+          <time dateTime={row.createdAt}>{formatDateTime(row.createdAt)}</time>
+        </span>
+      ),
     },
     {
       key: "actions",
       header: "Actions",
       showInCard: false,
       render: (row) => (
-        <AppLink className="dk-btn dk-btn-secondary dk-btn-sm" href={`/payments/${row.id}`}>
-          Details
+        <AppLink
+          className="dk-btn dk-btn-secondary dk-btn-sm"
+          href={`/payments/${row.id}`}
+          style={{ padding: "4px 10px", fontSize: 12 }}
+        >
+          Review
         </AppLink>
       ),
     },
@@ -171,13 +294,16 @@ async function PaymentIntentsTable({ page }: { readonly page: number }) {
 
   function hrefFor(nextPage: number): string {
     const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    if (q) params.set("q", q);
+    if (sort) params.set("sort", sort);
     params.set("page", String(nextPage));
     return `/payments?${params.toString()}`;
   }
 
   if (intentsPage.items.length === 0) {
     return (
-      <EmptyState title="No payment records" description="There are no payment intents to show." />
+      <EmptyState title="No payment records" description="There are no payment intents matching this filter." />
     );
   }
 
@@ -188,7 +314,11 @@ async function PaymentIntentsTable({ page }: { readonly page: number }) {
         columns={intentColumns}
         getRowKey={(row) => row.id}
         caption="Payment records"
-        cardTitle={(row) => row.bookingId}
+        cardTitle={(row) => (
+          <AppLink href={`/payments/${row.id}`}>
+            {formatReferenceId(row.id, "PAY", row.createdAt)} · {formatPhp(row.amountCentavos)}
+          </AppLink>
+        )}
       />
       <Pagination
         page={intentsPage.page}
@@ -208,9 +338,32 @@ async function ProviderEventsTable() {
   });
 
   const eventColumns: ReadonlyArray<ColumnDef<ProviderEventRow>> = [
-    { key: "booking", header: "Booking", render: (row) => row.bookingId },
-    { key: "type", header: "Event type", render: (row) => row.type },
-    { key: "amount", header: "Amount", render: (row) => formatPhp(row.amountCentavos) },
+    {
+      key: "booking",
+      header: "Booking",
+      render: (row) => (
+        <AppLink
+          href={`/bookings/${row.bookingId}`}
+          style={{ fontFamily: "ui-monospace, monospace", fontSize: 12.5 }}
+        >
+          {formatReferenceId(row.bookingId, "BK")}
+        </AppLink>
+      ),
+    },
+    {
+      key: "type",
+      header: "Event type",
+      render: (row) => <span className="dk-badge dk-badge-neutral">{row.type}</span>,
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      render: (row) => (
+        <span style={{ fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+          {formatPhp(row.amountCentavos)}
+        </span>
+      ),
+    },
     {
       key: "status",
       header: "Status",
@@ -224,12 +377,16 @@ async function ProviderEventsTable() {
     {
       key: "reference",
       header: "Reference",
-      render: (row) => <code>{row.providerReferenceLabel}</code>,
+      render: (row) => <code style={{ fontSize: 12 }}>{row.providerReferenceLabel}</code>,
     },
     {
       key: "receivedAt",
       header: "Received",
-      render: (row) => <time dateTime={row.receivedAt}>{formatDateTime(row.receivedAt)}</time>,
+      render: (row) => (
+        <span style={{ fontSize: 12.5, color: "var(--dk-textSecondary)" }}>
+          <time dateTime={row.receivedAt}>{formatDateTime(row.receivedAt)}</time>
+        </span>
+      ),
     },
   ];
 
@@ -245,7 +402,7 @@ async function ProviderEventsTable() {
       columns={eventColumns}
       getRowKey={(row) => row.id}
       caption="Payment provider events"
-      cardTitle={(row) => row.bookingId}
+      cardTitle={(row) => formatReferenceId(row.bookingId, "BK")}
     />
   );
 }
@@ -268,12 +425,6 @@ function SummaryCard({
   );
 }
 
-/*
-  Overview fallback: the PageSection header, the provider-availability notice,
-  and the summary-totals grid, reusing the same dk-page-header / dk-card / grid
-  markup so only real values fill in when the ledger query resolves. The two
-  tables below carry their own TableRegionSkeleton once this region streams in.
-*/
 function PaymentsLedgerFallback() {
   return (
     <section role="status" aria-live="polite">

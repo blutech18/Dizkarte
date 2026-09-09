@@ -5,11 +5,13 @@ import { formatPhp, formatPhpSigned } from "@dizkarte/domain";
 import { requirePageCapability } from "@/lib/guard";
 import { getAdminRepository } from "@/lib/repository";
 import { formatDateTime } from "@/lib/datetime";
+import { formatReferenceId } from "@/lib/format-id";
 import { Breadcrumbs } from "@/components/ui/Field";
 import { PageSection, Pagination } from "@/components/ui/Pagination";
 import { EmptyState, SkeletonCardGrid, TableRegionSkeleton } from "@/components/ui/AsyncState";
 import { RecordList, type ColumnDef } from "@/components/ui/RecordList";
 import { StatusBadge, type BadgeTone } from "@/components/ui/StatusBadge";
+import { CopyButton } from "@/components/ui/CopyButton";
 import { QueueFilters } from "@/components/ui/QueueFilters";
 import type { ReconciliationRow, ReconciliationStatus } from "@/lib/repository/types";
 import { RerunReconciliationPanel } from "./RerunReconciliationPanel";
@@ -26,7 +28,12 @@ const STATUS_OPTIONS: ReadonlyArray<ReconciliationStatus> = [
   "UNMATCHED",
 ];
 
-/** Plain-language labels; the raw enum is database vocabulary. */
+const RECONCILIATION_SORT_OPTIONS = [
+  { value: "newest", label: "Newest checked" },
+  { value: "oldest", label: "Oldest checked" },
+  { value: "diff_desc", label: "Largest discrepancy" },
+] as const;
+
 function reconciliationStatusLabel(status: ReconciliationStatus): string {
   switch (status) {
     case "MATCHED":
@@ -59,26 +66,25 @@ function tone(status: ReconciliationStatus): BadgeTone {
 /**
  * Reconciliation queue.
  *
- * The shell — breadcrumbs, heading, the re-run control, and the status filter —
- * needs no query, so it is returned immediately. The two reads behind this page
- * are independent (a set of summary counts and the row listing), so each gets
- * its own Suspense boundary and streams in parallel: a slow row listing never
- * holds back the summary, and neither holds back the controls above them.
- *
- * Only the row-listing boundary is keyed by the applied filter and page, so
- * changing the filter re-shows its skeleton rather than leaving the previous
- * rows on screen looking like the answer to the new query; the summary is
- * filter-independent and deliberately stays put.
+ * Compares each payment intent against its provider event and ledger transaction.
+ * Real-time summary counts and row listings stream independently under Suspense.
  */
 export default async function ReconciliationPage({
   searchParams,
 }: {
-  readonly searchParams: Promise<{ status?: string; page?: string }>;
+  readonly searchParams: Promise<{
+    status?: string;
+    q?: string;
+    sort?: string;
+    page?: string;
+  }>;
 }) {
   await requirePageCapability(["ADMIN_FINANCE"]);
-  const { status, page: pageParam } = await searchParams;
+  const { status, q, sort, page: pageParam } = await searchParams;
   const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
   const isValidStatus = status && (STATUS_OPTIONS as ReadonlyArray<string>).includes(status);
+  const activeSort = sort && RECONCILIATION_SORT_OPTIONS.some((opt) => opt.value === sort) ? sort : undefined;
+  const cleanQ = q?.trim() || undefined;
   const repository = getAdminRepository();
 
   return (
@@ -102,6 +108,11 @@ export default async function ReconciliationPage({
 
         <QueueFilters
           basePath="/reconciliation"
+          search={{
+            label: "Search reconciliation by booking or payment reference",
+            placeholder: "Search booking, payment reference...",
+            value: q?.trim() ?? "",
+          }}
           selects={[
             {
               name: "status",
@@ -113,14 +124,26 @@ export default async function ReconciliationPage({
                 label: reconciliationStatusLabel(option),
               })),
             },
+            {
+              name: "sort",
+              label: "Sort reconciliation",
+              allLabel: "Newest checked",
+              value: activeSort,
+              options: RECONCILIATION_SORT_OPTIONS,
+            },
           ]}
         />
 
         <Suspense
-          key={`${isValidStatus ? status : ""}|${page}`}
+          key={`${isValidStatus ? status : ""}|${cleanQ ?? ""}|${activeSort ?? ""}|${page}`}
           fallback={<TableRegionSkeleton columns={8} />}
         >
-          <ReconciliationTable page={page} status={status} />
+          <ReconciliationTable
+            page={page}
+            status={isValidStatus ? (status as ReconciliationStatus) : undefined}
+            q={cleanQ}
+            sort={activeSort}
+          />
         </Suspense>
       </PageSection>
     </>
@@ -141,11 +164,11 @@ async function ReconciliationSummary() {
         marginBottom: 16,
       }}
     >
-      <SummaryCard label="Matched" value={summary.matched} />
-      <SummaryCard label="Duplicate" value={summary.duplicate} />
-      <SummaryCard label="Quarantined" value={summary.quarantined} />
-      <SummaryCard label="Mismatch" value={summary.mismatch} />
-      <SummaryCard label="Unmatched" value={summary.unmatched} />
+      <SummaryCard label="Matched" value={summary.matched} tone="success" />
+      <SummaryCard label="Duplicate" value={summary.duplicate} tone={summary.duplicate > 0 ? "warning" : undefined} />
+      <SummaryCard label="Quarantined" value={summary.quarantined} tone={summary.quarantined > 0 ? "error" : undefined} />
+      <SummaryCard label="Mismatch" value={summary.mismatch} tone={summary.mismatch > 0 ? "error" : undefined} />
+      <SummaryCard label="Unmatched" value={summary.unmatched} tone={summary.unmatched > 0 ? "info" : undefined} />
       <SummaryCard label="Total" value={summary.total} />
     </div>
   );
@@ -154,19 +177,54 @@ async function ReconciliationSummary() {
 async function ReconciliationTable({
   page,
   status,
+  q,
+  sort,
 }: {
   readonly page: number;
-  readonly status: string | undefined;
+  readonly status: ReconciliationStatus | undefined;
+  readonly q: string | undefined;
+  readonly sort: string | undefined;
 }) {
-  const isValidStatus = status && (STATUS_OPTIONS as ReadonlyArray<string>).includes(status);
   const result = await getAdminRepository().listReconciliationRows({
     page,
     pageSize: PAGE_SIZE,
-    ...(isValidStatus ? { status: status as ReconciliationStatus } : {}),
+    ...(status ? { status } : {}),
+    ...(q ? { query: q } : {}),
+    ...(sort ? { sort } : {}),
   });
 
   const columns: ReadonlyArray<ColumnDef<ReconciliationRow>> = [
-    { key: "booking", header: "Booking", render: (row) => row.bookingId },
+    {
+      key: "booking",
+      header: "Booking",
+      render: (row) => (
+        <AppLink
+          href={`/bookings/${row.bookingId}`}
+          style={{ fontFamily: "ui-monospace, monospace", fontSize: 12.5 }}
+          title={`Booking ${row.bookingId}`}
+        >
+          {formatReferenceId(row.bookingId, "BK")}
+        </AppLink>
+      ),
+    },
+    {
+      key: "paymentIntent",
+      header: "Payment",
+      render: (row) =>
+        row.paymentIntentId ? (
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <AppLink
+              href={`/payments/${row.paymentIntentId}`}
+              style={{ fontFamily: "ui-monospace, monospace", fontSize: 12.5 }}
+            >
+              {formatReferenceId(row.paymentIntentId, "PAY")}
+            </AppLink>
+            <CopyButton text={row.paymentIntentId} label="payment ID" variant="icon" />
+          </div>
+        ) : (
+          <span className="dk-muted">—</span>
+        ),
+    },
     {
       key: "status",
       header: "Status",
@@ -176,47 +234,65 @@ async function ReconciliationTable({
     },
     {
       key: "payment",
-      header: "Payment amount",
+      header: "Payment",
       render: (row) =>
-        row.paymentAmountCentavos === null ? "—" : formatPhp(row.paymentAmountCentavos),
+        row.paymentAmountCentavos === null ? (
+          <span className="dk-muted">—</span>
+        ) : (
+          <span style={{ fontVariantNumeric: "tabular-nums" }}>{formatPhp(row.paymentAmountCentavos)}</span>
+        ),
     },
     {
       key: "provider",
-      header: "Provider event amount",
+      header: "Provider event",
       render: (row) =>
-        row.providerEventAmountCentavos === null ? "—" : formatPhp(row.providerEventAmountCentavos),
+        row.providerEventAmountCentavos === null ? (
+          <span className="dk-muted">—</span>
+        ) : (
+          <span style={{ fontVariantNumeric: "tabular-nums" }}>{formatPhp(row.providerEventAmountCentavos)}</span>
+        ),
     },
     {
       key: "ledger",
-      header: "Ledger amount",
+      header: "Ledger",
       render: (row) =>
-        row.ledgerAmountCentavos === null ? "—" : formatPhp(row.ledgerAmountCentavos),
+        row.ledgerAmountCentavos === null ? (
+          <span className="dk-muted">—</span>
+        ) : (
+          <span style={{ fontVariantNumeric: "tabular-nums" }}>{formatPhp(row.ledgerAmountCentavos)}</span>
+        ),
     },
     {
       key: "difference",
       header: "Difference",
-      render: (row) => formatPhpSigned(row.differenceCentavos),
-    },
-    {
-      key: "paymentIntent",
-      header: "Payment",
-      render: (row) =>
-        row.paymentIntentId ? (
-          <AppLink href={`/payments/${row.paymentIntentId}`}>{row.paymentIntentId}</AppLink>
-        ) : (
-          "—"
-        ),
+      render: (row) => (
+        <span
+          style={{
+            fontVariantNumeric: "tabular-nums",
+            fontWeight: row.differenceCentavos !== 0 ? 700 : 400,
+            color: row.differenceCentavos !== 0 ? "var(--dk-error)" : "inherit",
+          }}
+        >
+          {formatPhpSigned(row.differenceCentavos)}
+        </span>
+      ),
     },
     {
       key: "checkedAt",
       header: "Checked",
-      render: (row) => <time dateTime={row.checkedAt}>{formatDateTime(row.checkedAt)}</time>,
+      render: (row) => (
+        <span style={{ fontSize: 12.5, color: "var(--dk-textSecondary)" }}>
+          <time dateTime={row.checkedAt}>{formatDateTime(row.checkedAt)}</time>
+        </span>
+      ),
     },
   ];
 
   function hrefFor(nextPage: number): string {
     const params = new URLSearchParams();
-    if (isValidStatus) params.set("status", status!);
+    if (status) params.set("status", status);
+    if (q) params.set("q", q);
+    if (sort) params.set("sort", sort);
     params.set("page", String(nextPage));
     return `/reconciliation?${params.toString()}`;
   }
@@ -237,7 +313,11 @@ async function ReconciliationTable({
         columns={columns}
         getRowKey={(row) => row.id}
         caption="Reconciliation rows"
-        cardTitle={(row) => row.bookingId}
+        cardTitle={(row) => (
+          <span>
+            {formatReferenceId(row.bookingId, "BK")} · {reconciliationStatusLabel(row.status)}
+          </span>
+        )}
       />
       <Pagination
         page={result.page}
@@ -250,13 +330,44 @@ async function ReconciliationTable({
   );
 }
 
-function SummaryCard({ label, value }: { readonly label: string; readonly value: number }) {
+function SummaryCard({
+  label,
+  value,
+  tone: cardTone,
+}: {
+  readonly label: string;
+  readonly value: number;
+  readonly tone?: "success" | "warning" | "error" | "info" | undefined;
+}) {
   return (
-    <div className="dk-card" role="group" aria-label={label}>
-      <p className="dk-muted" style={{ margin: 0 }}>
+    <div
+      className="dk-card"
+      role="group"
+      aria-label={label}
+      style={{
+        padding: "14px 16px",
+        borderColor: cardTone === "error" ? "var(--dk-errorSoft)" : undefined,
+      }}
+    >
+      <p className="dk-muted" style={{ margin: 0, fontSize: 12 }}>
         {label}
       </p>
-      <p style={{ margin: 0, fontSize: "1.25rem", fontWeight: 600 }}>{value}</p>
+      <p
+        style={{
+          margin: "4px 0 0 0",
+          fontSize: "1.35rem",
+          fontWeight: 700,
+          fontVariantNumeric: "tabular-nums",
+          color:
+            cardTone === "error"
+              ? "var(--dk-error)"
+              : cardTone === "warning"
+                ? "var(--dk-warning)"
+                : "inherit",
+        }}
+      >
+        {value}
+      </p>
     </div>
   );
 }

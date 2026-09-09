@@ -45,7 +45,7 @@ export function OperationalSettingForm({ setting }: { readonly setting: Editable
         const result = await updateSettingAction({ key: setting.key, value: parsed, reason });
         setPending(false);
         if (result.ok) {
-          setSuccess("Setting updated.");
+          setSuccess("Setting updated successfully.");
           setReason("");
           router.refresh();
         } else {
@@ -54,43 +54,58 @@ export function OperationalSettingForm({ setting }: { readonly setting: Editable
       }}
     >
       {error ? (
-        <p role="alert" className="dk-field-error">
+        <div
+          role="alert"
+          className="dk-report-narrative-box mb-3 text-sm"
+          style={{ borderLeftColor: "var(--dk-errorSolid)" }}
+        >
           {error}
-        </p>
+        </div>
       ) : null}
       {success ? (
-        <p role="status" className="dk-field-description">
+        <div
+          role="status"
+          className="dk-report-narrative-box mb-3 text-sm"
+          style={{ borderLeftColor: "var(--dk-successSolid)" }}
+        >
           {success}
-        </p>
+        </div>
       ) : null}
       <div className="dk-field">
         <label className="dk-label dk-required" htmlFor={valueId}>
           {setting.label} ({setting.unit})
         </label>
         <span className="dk-field-description">{setting.description}</span>
-        <input
-          id={valueId}
-          className="dk-input"
-          type="number"
-          inputMode="numeric"
-          value={value}
-          required
-          min={setting.min}
-          max={setting.max}
-          step={1}
-          onChange={(event) => setValue(event.target.value)}
-        />
+        <div className="flex items-center gap-3 mt-1">
+          <input
+            id={valueId}
+            className="dk-input max-w-[180px]"
+            type="number"
+            inputMode="numeric"
+            value={value}
+            required
+            min={setting.min}
+            max={setting.max}
+            step={1}
+            onChange={(event) => setValue(event.target.value)}
+          />
+          <span className="text-xs text-dk-gray-500 font-mono">
+            Allowed: {setting.min} – {setting.max} {setting.unit}
+          </span>
+        </div>
       </div>
       <div className="dk-field">
         <label className="dk-label dk-required" htmlFor={reasonId}>
-          Reason
+          Audit justification
         </label>
         <span className="dk-field-description">
-          Required for any change; recorded in the audit log.
+          Required for any change; permanently recorded in the audit log.
         </span>
         <textarea
           id={reasonId}
           className="dk-textarea"
+          rows={3}
+          placeholder="Describe the operational reason for this threshold change..."
           value={reason}
           onChange={(event) => setReason(event.target.value)}
         />

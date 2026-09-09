@@ -4,6 +4,7 @@ import { formatPhp } from "@dizkarte/domain";
 import { requirePageCapability } from "@/lib/guard";
 import { getAdminRepository } from "@/lib/repository";
 import { formatDateTime } from "@/lib/datetime";
+import { formatReferenceId } from "@/lib/format-id";
 import { QueueFilters } from "@/components/ui/QueueFilters";
 import { WITHDRAWAL_STATUS_OPTIONS, withdrawalStatusLabel, withdrawalStatusTone } from "./status";
 import { Breadcrumbs } from "@/components/ui/Field";
@@ -11,6 +12,7 @@ import { PageSection, Pagination } from "@/components/ui/Pagination";
 import { EmptyState, TableRegionSkeleton } from "@/components/ui/AsyncState";
 import { RecordList, type ColumnDef } from "@/components/ui/RecordList";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { CopyButton } from "@/components/ui/CopyButton";
 import type { WithdrawalRow } from "@/lib/repository/types";
 import { WithdrawalRowActions } from "./WithdrawalRowActions";
 
@@ -18,27 +20,37 @@ export const metadata: Metadata = { title: "Withdrawals & payouts" };
 
 const PAGE_SIZE = 20;
 
+const WITHDRAWAL_SORT_OPTIONS = [
+  { value: "newest", label: "Newest first" },
+  { value: "oldest", label: "Oldest first" },
+  { value: "amount_desc", label: "Highest amount" },
+  { value: "amount_asc", label: "Lowest amount" },
+] as const;
+
 /**
- * Withdrawals & payouts.
+ * Withdrawals & payouts queue.
  *
- * Payout availability is a configuration fact rather than a query, so the
- * "actions unavailable" notice renders with the shell immediately. Only the
- * withdrawal listing has to be fetched, so it alone streams in behind a Suspense
- * boundary keyed by the applied status filter and page — changing the filter
- * re-shows the skeleton instead of leaving the previous rows on screen.
+ * Provides oversight into tasker withdrawal requests and disbursement states.
+ * Real-time filter controls with search and sorting stream behind Suspense.
  */
 export default async function WithdrawalsPage({
   searchParams,
 }: {
-  readonly searchParams: Promise<{ status?: string; page?: string }>;
+  readonly searchParams: Promise<{
+    status?: string;
+    q?: string;
+    sort?: string;
+    page?: string;
+  }>;
 }) {
   await requirePageCapability(["ADMIN_FINANCE"]);
-  const { status, page: pageParam } = await searchParams;
+  const { status, q, sort, page: pageParam } = await searchParams;
   const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
-  // An unrecognised value must not reach the query as a filter nobody can clear.
   const activeStatus = (WITHDRAWAL_STATUS_OPTIONS as ReadonlyArray<string>).includes(status ?? "")
     ? status
     : undefined;
+  const activeSort = sort && WITHDRAWAL_SORT_OPTIONS.some((opt) => opt.value === sort) ? sort : undefined;
+  const cleanQ = q?.trim() || undefined;
   const availability = getAdminRepository().getFinanceProviderAvailability();
 
   return (
@@ -58,6 +70,11 @@ export default async function WithdrawalsPage({
         </div>
         <QueueFilters
           basePath="/withdrawals"
+          search={{
+            label: "Search withdrawals by reference or tasker",
+            placeholder: "Search reference, tasker name...",
+            value: q?.trim() ?? "",
+          }}
           selects={[
             {
               name: "status",
@@ -69,13 +86,25 @@ export default async function WithdrawalsPage({
                 label: withdrawalStatusLabel(option),
               })),
             },
+            {
+              name: "sort",
+              label: "Sort withdrawals",
+              allLabel: "Newest first",
+              value: activeSort,
+              options: WITHDRAWAL_SORT_OPTIONS,
+            },
           ]}
         />
         <Suspense
-          key={`${activeStatus ?? ""}|${page}`}
-          fallback={<TableRegionSkeleton columns={4} />}
+          key={`${activeStatus ?? ""}|${cleanQ ?? ""}|${activeSort ?? ""}|${page}`}
+          fallback={<TableRegionSkeleton columns={6} />}
         >
-          <WithdrawalsTable page={page} status={activeStatus} />
+          <WithdrawalsTable
+            page={page}
+            status={activeStatus}
+            q={cleanQ}
+            sort={activeSort}
+          />
         </Suspense>
       </PageSection>
     </>
@@ -85,20 +114,50 @@ export default async function WithdrawalsPage({
 async function WithdrawalsTable({
   page,
   status,
+  q,
+  sort,
 }: {
   readonly page: number;
   readonly status: string | undefined;
+  readonly q: string | undefined;
+  readonly sort: string | undefined;
 }) {
   const availability = getAdminRepository().getFinanceProviderAvailability();
   const result = await getAdminRepository().listWithdrawals({
     page,
     pageSize: PAGE_SIZE,
     ...(status ? { status } : {}),
+    ...(q ? { query: q } : {}),
+    ...(sort ? { sort } : {}),
   });
 
   const columns: ReadonlyArray<ColumnDef<WithdrawalRow>> = [
-    { key: "tasker", header: "Tasker", render: (row) => row.taskerDisplayName },
-    { key: "amount", header: "Amount", render: (row) => formatPhp(row.amountCentavos) },
+    {
+      key: "reference",
+      header: "Withdrawal",
+      render: (row) => (
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <span style={{ fontFamily: "ui-monospace, monospace", fontWeight: 600, fontSize: 13 }}>
+            {formatReferenceId(row.id, "WTH", row.requestedAt)}
+          </span>
+          <CopyButton text={row.id} label="withdrawal ID" variant="icon" />
+        </div>
+      ),
+    },
+    {
+      key: "tasker",
+      header: "Tasker",
+      render: (row) => <span style={{ fontWeight: 600, fontSize: 13.5 }}>{row.taskerDisplayName}</span>,
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      render: (row) => (
+        <span style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+          {formatPhp(row.amountCentavos)}
+        </span>
+      ),
+    },
     {
       key: "status",
       header: "Status",
@@ -112,7 +171,11 @@ async function WithdrawalsTable({
     {
       key: "requestedAt",
       header: "Requested",
-      render: (row) => <time dateTime={row.requestedAt}>{formatDateTime(row.requestedAt)}</time>,
+      render: (row) => (
+        <span style={{ fontSize: 12.5, color: "var(--dk-textSecondary)" }}>
+          <time dateTime={row.requestedAt}>{formatDateTime(row.requestedAt)}</time>
+        </span>
+      ),
     },
     {
       key: "actions",
@@ -131,6 +194,8 @@ async function WithdrawalsTable({
   function hrefFor(nextPage: number): string {
     const params = new URLSearchParams();
     if (status) params.set("status", status);
+    if (q) params.set("q", q);
+    if (sort) params.set("sort", sort);
     params.set("page", String(nextPage));
     return `/withdrawals?${params.toString()}`;
   }
@@ -151,7 +216,7 @@ async function WithdrawalsTable({
         columns={columns}
         getRowKey={(row) => row.id}
         caption="Withdrawals"
-        cardTitle={(row) => row.taskerDisplayName}
+        cardTitle={(row) => `${row.taskerDisplayName} · ${formatPhp(row.amountCentavos)}`}
       />
       <Pagination
         page={result.page}

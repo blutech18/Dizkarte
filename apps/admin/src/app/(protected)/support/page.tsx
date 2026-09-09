@@ -4,6 +4,7 @@ import { AppLink } from "@/components/ui/AppLink";
 import { requirePageCapability } from "@/lib/guard";
 import { getAdminRepository } from "@/lib/repository";
 import { formatDateTime } from "@/lib/datetime";
+import { formatReferenceId } from "@/lib/format-id";
 import { QueueFilters } from "@/components/ui/QueueFilters";
 import { Breadcrumbs } from "@/components/ui/Field";
 import { PageSection, Pagination } from "@/components/ui/Pagination";
@@ -17,27 +18,36 @@ export const metadata: Metadata = { title: "Support tickets" };
 
 const PAGE_SIZE = 20;
 
+const TICKET_SORT_OPTIONS = [
+  { value: "newest", label: "Newest first" },
+  { value: "oldest", label: "Oldest first" },
+] as const;
+
 /**
  * Support ticket queue.
  *
- * The shell — breadcrumbs and heading — needs no query, so it paints immediately
- * and the results table streams in behind its own Suspense boundary. The boundary
- * is keyed by the applied status filter and page so changing either re-shows the
- * skeleton rather than leaving the previous result set on screen as if it answered
- * the new query.
+ * The shell — breadcrumbs and heading — paints immediately without waiting
+ * for database queries, while the results stream behind a Suspense boundary.
+ * The boundary key tracks status, search query, sort, and pagination state.
  */
 export default async function SupportTicketsPage({
   searchParams,
 }: {
-  readonly searchParams: Promise<{ status?: string; page?: string }>;
+  readonly searchParams: Promise<{
+    status?: string;
+    q?: string;
+    sort?: string;
+    page?: string;
+  }>;
 }) {
-  await requirePageCapability(["ADMIN_SUPPORT"]);
-  const { status, page: pageParam } = await searchParams;
+  const session = await requirePageCapability(["ADMIN_SUPPORT"]);
+  const { status, q, sort, page: pageParam } = await searchParams;
   const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
-  // An unrecognised value must not reach the query as a filter nobody can clear.
-  const active = (TICKET_STATUS_OPTIONS as ReadonlyArray<string>).includes(status ?? "")
-    ? status
+  const activeStatus = status
+    ? TICKET_STATUS_OPTIONS.find((s) => s.toLowerCase() === status.toLowerCase())
     : undefined;
+  const activeSort = sort && TICKET_SORT_OPTIONS.some((opt) => opt.value === sort) ? sort : undefined;
+  const cleanQ = q?.trim() || undefined;
 
   return (
     <>
@@ -46,26 +56,47 @@ export default async function SupportTicketsPage({
       />
       <PageSection
         title="Support tickets"
-        subtitle="Tickets preserve actor, subject/resource, assignee, status, narrative, and history."
+        subtitle="Tickets preserve actor, subject context, assignee, status, narrative, and history."
       >
         <QueueFilters
           basePath="/support"
+          search={{
+            label: "Search tickets by reference, subject, requester, or assignee",
+            placeholder: "Search reference, subject, requester, assignee...",
+            value: q?.trim() ?? "",
+          }}
           selects={[
             {
               name: "status",
               label: "Filter by ticket status",
               allLabel: "All tickets",
-              value: active,
+              value: activeStatus,
               options: TICKET_STATUS_OPTIONS.map((option) => ({
                 value: option,
                 label: ticketStatusLabel(option),
               })),
             },
+            {
+              name: "sort",
+              label: "Sort tickets",
+              allLabel: "Newest first",
+              value: activeSort,
+              options: TICKET_SORT_OPTIONS,
+            },
           ]}
         />
-        <Suspense key={`${active ?? ""}|${page}`} fallback={<TableRegionSkeleton columns={7} />}>
-          <SupportTicketsTable page={page} status={active} />
+        <Suspense
+          key={`${activeStatus ?? ""}|${cleanQ ?? ""}|${activeSort ?? ""}|${page}`}
+          fallback={<TableRegionSkeleton columns={7} />}
+        >
+          <SupportTicketsTable
+            page={page}
+            status={activeStatus}
+            q={cleanQ}
+            sort={activeSort}
+          />
         </Suspense>
+        <p className="dk-field-description">Signed in as {session.displayName}.</p>
       </PageSection>
     </>
   );
@@ -74,24 +105,57 @@ export default async function SupportTicketsPage({
 async function SupportTicketsTable({
   page,
   status,
+  q,
+  sort,
 }: {
   readonly page: number;
   readonly status: string | undefined;
+  readonly q: string | undefined;
+  readonly sort: string | undefined;
 }) {
-  const active = (TICKET_STATUS_OPTIONS as ReadonlyArray<string>).includes(status ?? "")
-    ? status
-    : undefined;
   const repository = getAdminRepository();
   const result = await repository.listTickets({
     page,
     pageSize: PAGE_SIZE,
-    ...(active ? { status: active } : {}),
+    ...(status ? { status } : {}),
+    ...(q ? { query: q } : {}),
+    ...(sort ? { sort } : {}),
   });
 
   const columns: ReadonlyArray<ColumnDef<TicketRow>> = [
-    { key: "subject", header: "Subject", render: (row) => row.subject },
-    { key: "requester", header: "Requester", render: (row) => row.requesterDisplayName },
-    { key: "category", header: "Category", render: (row) => row.category },
+    {
+      key: "reference",
+      header: "Ticket",
+      render: (row) => (
+        <AppLink
+          href={`/support/${row.id}`}
+          style={{ fontFamily: "ui-monospace, monospace", fontWeight: 600, fontSize: 13 }}
+        >
+          {formatReferenceId(row.id, "TCK", row.updatedAt)}
+        </AppLink>
+      ),
+    },
+    {
+      key: "subject",
+      header: "Subject",
+      render: (row) => (
+        <span style={{ fontWeight: 600, fontSize: 13.5 }}>{row.subject}</span>
+      ),
+    },
+    {
+      key: "requester",
+      header: "Requester",
+      render: (row) => (
+        <span style={{ fontSize: 13 }}>{row.requesterDisplayName}</span>
+      ),
+    },
+    {
+      key: "category",
+      header: "Category",
+      render: (row) => (
+        <span className="dk-badge dk-badge-neutral">{row.category}</span>
+      ),
+    },
     {
       key: "status",
       header: "Status",
@@ -99,19 +163,37 @@ async function SupportTicketsTable({
         <StatusBadge tone={ticketStatusTone(row.status)} label={ticketStatusLabel(row.status)} />
       ),
     },
-    { key: "assignee", header: "Assignee", render: (row) => row.assignee ?? "Unassigned" },
     {
       key: "updatedAt",
       header: "Updated",
-      render: (row) => <time dateTime={row.updatedAt}>{formatDateTime(row.updatedAt)}</time>,
+      render: (row) => (
+        <span style={{ fontSize: 12.5, color: "var(--dk-textSecondary)" }}>
+          <time dateTime={row.updatedAt}>{formatDateTime(row.updatedAt)}</time>
+        </span>
+      ),
+    },
+    {
+      key: "assignee",
+      header: "Assignee",
+      render: (row) => (
+        row.assignee ? (
+          <span style={{ fontSize: 13, fontWeight: 500 }}>{row.assignee}</span>
+        ) : (
+          <span className="dk-muted" style={{ fontSize: 12.5 }}>Unassigned</span>
+        )
+      ),
     },
     {
       key: "actions",
       header: "Actions",
       showInCard: false,
       render: (row) => (
-        <AppLink className="dk-btn dk-btn-secondary dk-btn-sm" href={`/support/${row.id}`}>
-          Details
+        <AppLink
+          className="dk-btn dk-btn-secondary dk-btn-sm"
+          href={`/support/${row.id}`}
+          style={{ padding: "4px 10px", fontSize: 12 }}
+        >
+          Review
         </AppLink>
       ),
     },
@@ -119,7 +201,9 @@ async function SupportTicketsTable({
 
   function hrefFor(nextPage: number): string {
     const params = new URLSearchParams();
-    if (active) params.set("status", active);
+    if (status) params.set("status", status);
+    if (q) params.set("q", q);
+    if (sort) params.set("sort", sort);
     params.set("page", String(nextPage));
     return `/support?${params.toString()}`;
   }
@@ -137,7 +221,11 @@ async function SupportTicketsTable({
         columns={columns}
         getRowKey={(row) => row.id}
         caption="Support tickets"
-        cardTitle={(row) => row.subject}
+        cardTitle={(row) => (
+          <AppLink href={`/support/${row.id}`}>
+            {formatReferenceId(row.id, "TCK", row.updatedAt)} · {row.subject}
+          </AppLink>
+        )}
       />
       <Pagination
         page={result.page}

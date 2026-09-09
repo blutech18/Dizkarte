@@ -1176,7 +1176,9 @@ export class SupabaseAdminRepository implements AdminRepository {
   // Refunds
   // =========================================================================
 
-  async listRefunds(input: PageInput & { status?: string }): Promise<Paginated<RefundRow>> {
+  async listRefunds(
+    input: PageInput & { status?: string; query?: string; sort?: string },
+  ): Promise<Paginated<RefundRow>> {
     const db = await this.db();
     const { from, to } = pageRange(input.page, input.pageSize);
     let query = db
@@ -1185,9 +1187,24 @@ export class SupabaseAdminRepository implements AdminRepository {
         count: "exact",
       });
     if (input.status) query = query.eq("status", input.status);
-    const { data, count, error } = await query
-      .order("created_at", { ascending: false })
-      .range(from, to);
+    const keyword = input.query?.trim();
+    if (keyword) {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(keyword);
+      if (isUuid) {
+        query = query.or(`id.eq.${keyword},payment_intent_id.eq.${keyword}`);
+      } else {
+        query = query.ilike("reason", `%${keyword}%`);
+      }
+    }
+    if (input.sort === "amount_desc") {
+      query = query.order("amount_centavos", { ascending: false });
+    } else if (input.sort === "amount_asc") {
+      query = query.order("amount_centavos", { ascending: true });
+    } else {
+      const ascending = input.sort === "oldest";
+      query = query.order("created_at", { ascending });
+    }
+    const { data, count, error } = await query.range(from, to);
     if (error) return paginate<RefundRow>([], input.page, input.pageSize, 0);
 
     const rows = (data ?? []) as ReadonlyArray<{
@@ -1233,7 +1250,9 @@ export class SupabaseAdminRepository implements AdminRepository {
   // Review moderation
   // =========================================================================
 
-  async listReviews(input: PageInput & { status?: string }): Promise<Paginated<ReviewRow>> {
+  async listReviews(
+    input: PageInput & { status?: string; query?: string; sort?: string },
+  ): Promise<Paginated<ReviewRow>> {
     const db = await this.db();
     const { from, to } = pageRange(input.page, input.pageSize);
     let query = db
@@ -1243,9 +1262,27 @@ export class SupabaseAdminRepository implements AdminRepository {
         { count: "exact" },
       );
     if (input.status) query = query.eq("status", input.status);
-    const { data, count, error } = await query
-      .order("submitted_at", { ascending: false })
-      .range(from, to);
+
+    const keyword = input.query?.trim();
+    if (keyword) {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(keyword);
+      if (isUuid) {
+        query = query.or(`id.eq.${keyword},booking_id.eq.${keyword},reviewer_id.eq.${keyword},reviewee_id.eq.${keyword}`);
+      } else {
+        query = query.or(`comment.ilike.%${keyword}%,task_title.ilike.%${keyword}%`);
+      }
+    }
+
+    if (input.sort === "score_high") {
+      query = query.order("score", { ascending: false });
+    } else if (input.sort === "score_low") {
+      query = query.order("score", { ascending: true });
+    } else {
+      const ascending = input.sort === "oldest";
+      query = query.order("submitted_at", { ascending });
+    }
+
+    const { data, count, error } = await query.range(from, to);
     if (error) return paginate<ReviewRow>([], input.page, input.pageSize, 0);
 
     const rows = (data ?? []) as ReadonlyArray<{
@@ -1415,15 +1452,30 @@ export class SupabaseAdminRepository implements AdminRepository {
     return map;
   }
 
-  async listTickets(input: PageInput & { status?: string }): Promise<Paginated<TicketRow>> {
+  async listTickets(
+    input: PageInput & { status?: string; query?: string; category?: string; sort?: string },
+  ): Promise<Paginated<TicketRow>> {
     const db = await this.db();
     const { from, to } = pageRange(input.page, input.pageSize);
     let query = db
       .from("admin_ticket_queue")
       .select("id,user_id,category,status,assignee_id,updated_at", { count: "exact" });
     if (input.status) query = query.eq("status", input.status);
+    if (input.category) query = query.eq("category", input.category);
+
+    const keyword = input.query?.trim();
+    if (keyword) {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(keyword);
+      if (isUuid) {
+        query = query.or(`id.eq.${keyword},user_id.eq.${keyword}`);
+      } else {
+        query = query.ilike("category", `%${keyword}%`);
+      }
+    }
+
+    const ascending = input.sort === "oldest";
     const { data, count, error } = await query
-      .order("updated_at", { ascending: false })
+      .order("updated_at", { ascending })
       .range(from, to);
     if (error) return paginate<TicketRow>([], input.page, input.pageSize, 0);
 
@@ -2018,15 +2070,32 @@ export class SupabaseAdminRepository implements AdminRepository {
   }
 
   async listPaymentIntents(
-    input: PageInput & { status?: PaymentIntentStatus },
+    input: PageInput & { status?: PaymentIntentStatus; query?: string; sort?: string },
   ): Promise<Paginated<PaymentIntentRow>> {
     const db = await this.db();
     const { from, to } = pageRange(input.page, input.pageSize);
-    const { data, count, error } = await db
+    let query = db
       .from("payment_intents")
-      .select("id,booking_id,amount_centavos,status,created_at", { count: "exact" })
-      .order("created_at", { ascending: false })
-      .range(from, to);
+      .select("id,booking_id,amount_centavos,status,created_at", { count: "exact" });
+    if (input.status) {
+      query = query.eq("status", input.status);
+    }
+    const keyword = input.query?.trim();
+    if (keyword) {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(keyword);
+      if (isUuid) {
+        query = query.or(`id.eq.${keyword},booking_id.eq.${keyword}`);
+      }
+    }
+    if (input.sort === "amount_desc") {
+      query = query.order("amount_centavos", { ascending: false });
+    } else if (input.sort === "amount_asc") {
+      query = query.order("amount_centavos", { ascending: true });
+    } else {
+      const ascending = input.sort === "oldest";
+      query = query.order("created_at", { ascending });
+    }
+    const { data, count, error } = await query.range(from, to);
     if (error) return paginate<PaymentIntentRow>([], input.page, input.pageSize, 0);
 
     const rows = (data ?? []) as ReadonlyArray<{
@@ -2505,10 +2574,25 @@ export class SupabaseAdminRepository implements AdminRepository {
   }
 
   async listReconciliationRows(
-    input: PageInput & { status?: ReconciliationStatus },
+    input: PageInput & { status?: ReconciliationStatus; query?: string; sort?: string },
   ): Promise<Paginated<ReconciliationRow>> {
     const all = await this.reconciliationRows();
-    const filtered = input.status ? all.filter((row) => row.status === input.status) : all;
+    let filtered = input.status ? all.filter((row) => row.status === input.status) : all;
+    if (input.query) {
+      const q = input.query.trim().toLowerCase();
+      filtered = filtered.filter(
+        (row) =>
+          row.bookingId.toLowerCase().includes(q) ||
+          (row.paymentIntentId && row.paymentIntentId.toLowerCase().includes(q)),
+      );
+    }
+    if (input.sort === "oldest") {
+      filtered = [...filtered].sort(
+        (a, b) => new Date(a.checkedAt).getTime() - new Date(b.checkedAt).getTime(),
+      );
+    } else if (input.sort === "diff_desc") {
+      filtered = [...filtered].sort((a, b) => Math.abs(b.differenceCentavos) - Math.abs(a.differenceCentavos));
+    }
     const { from, to } = pageRange(input.page, input.pageSize);
     return paginate(filtered.slice(from, to + 1), input.page, input.pageSize, filtered.length);
   }
@@ -2548,16 +2632,31 @@ export class SupabaseAdminRepository implements AdminRepository {
   // Withdrawals
   // =========================================================================
 
-  async listWithdrawals(input: PageInput & { status?: string }): Promise<Paginated<WithdrawalRow>> {
+  async listWithdrawals(
+    input: PageInput & { status?: string; query?: string; sort?: string },
+  ): Promise<Paginated<WithdrawalRow>> {
     const db = await this.db();
     const { from, to } = pageRange(input.page, input.pageSize);
     let query = db
       .from("withdrawals")
       .select("id,tasker_id,amount_centavos,status,created_at", { count: "exact" });
     if (input.status) query = query.eq("status", input.status);
-    const { data, count, error } = await query
-      .order("created_at", { ascending: false })
-      .range(from, to);
+    const keyword = input.query?.trim();
+    if (keyword) {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(keyword);
+      if (isUuid) {
+        query = query.or(`id.eq.${keyword},tasker_id.eq.${keyword}`);
+      }
+    }
+    if (input.sort === "amount_desc") {
+      query = query.order("amount_centavos", { ascending: false });
+    } else if (input.sort === "amount_asc") {
+      query = query.order("amount_centavos", { ascending: true });
+    } else {
+      const ascending = input.sort === "oldest";
+      query = query.order("created_at", { ascending });
+    }
+    const { data, count, error } = await query.range(from, to);
     if (error) return paginate<WithdrawalRow>([], input.page, input.pageSize, 0);
 
     const rows = (data ?? []) as ReadonlyArray<{
@@ -3027,7 +3126,12 @@ export class SupabaseAdminRepository implements AdminRepository {
   // =========================================================================
 
   async listAuditLogs(
-    input: PageInput & { action?: string; actor?: string },
+    input: PageInput & {
+      query?: string | undefined;
+      action?: string | undefined;
+      actor?: string | undefined;
+      sort?: string | undefined;
+    },
   ): Promise<Paginated<AuditLogRow>> {
     const db = await this.db();
     const { from, to } = pageRange(input.page, input.pageSize);
@@ -3036,9 +3140,10 @@ export class SupabaseAdminRepository implements AdminRepository {
       .select("id,actor_id,action,resource_type,resource_id,safe_metadata,created_at", {
         count: "exact",
       });
-    if (input.action) query = query.eq("action", input.action);
+    if (input.action && input.action !== "all") query = query.eq("action", input.action);
+    const ascending = input.sort === "oldest";
     const { data, count, error } = await query
-      .order("created_at", { ascending: false })
+      .order("created_at", { ascending })
       .range(from, to);
     if (error) return paginate<AuditLogRow>([], input.page, input.pageSize, 0);
 
@@ -3052,7 +3157,7 @@ export class SupabaseAdminRepository implements AdminRepository {
       created_at: string;
     }>;
     const names = await this.displayNames(rows.map((row) => row.actor_id));
-    const items = rows
+    let items = rows
       .map((row) => {
         const capability = row.safe_metadata?.["capability"];
         return {
@@ -3070,6 +3175,17 @@ export class SupabaseAdminRepository implements AdminRepository {
         };
       })
       .filter((row) => (input.actor ? row.actor === input.actor : true));
+
+    if (input.query) {
+      const q = input.query.toLowerCase().trim();
+      items = items.filter(
+        (row) =>
+          row.actor.toLowerCase().includes(q) ||
+          row.action.toLowerCase().includes(q) ||
+          row.resource.toLowerCase().includes(q),
+      );
+    }
+
     return paginate(items, input.page, input.pageSize, count ?? items.length);
   }
 

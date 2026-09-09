@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { AppLink } from "@/components/ui/AppLink";
 import { requirePageCapability } from "@/lib/guard";
 import { getAdminRepository } from "@/lib/repository";
+import { formatDateTime } from "@/lib/datetime";
+import { formatReferenceId } from "@/lib/format-id";
 import { Breadcrumbs } from "@/components/ui/Field";
 import { PageSection, Pagination } from "@/components/ui/Pagination";
 import { EmptyState, TableRegionSkeleton } from "@/components/ui/AsyncState";
@@ -16,32 +19,38 @@ export const metadata: Metadata = { title: "Reviews" };
 
 const PAGE_SIZE = 20;
 
+const REVIEW_SORT_OPTIONS = [
+  { value: "newest", label: "Newest first" },
+  { value: "oldest", label: "Oldest first" },
+  { value: "score_high", label: "Highest rating" },
+  { value: "score_low", label: "Lowest rating" },
+] as const;
+
 /**
  * Review moderation queue.
  *
- * Comment text is shown here, unlike the evidence and chat surfaces which are
- * metadata-only: deciding whether a review is abusive is impossible without
- * reading it. Hiding also corrects the reviewee's rating aggregate, so a
- * retracted review stops counting toward their average.
- *
- * The shell — breadcrumbs, heading, and who is signed in — needs no query, so it
- * returns immediately and the results table streams in behind its own Suspense
- * boundary. The boundary is keyed by the applied status filter and page so
- * changing either re-shows the skeleton rather than leaving the previous result
- * set on screen as if it answered the new query.
+ * Comment text is visible here to allow moderators to assess appropriateness,
+ * language, and compliance. Hiding also corrects the reviewee's rating aggregate.
+ * The boundary key tracks status, search query, sort, and pagination state.
  */
 export default async function ReviewsPage({
   searchParams,
 }: {
-  readonly searchParams: Promise<{ status?: string; page?: string }>;
+  readonly searchParams: Promise<{
+    status?: string;
+    q?: string;
+    sort?: string;
+    page?: string;
+  }>;
 }) {
   const session = await requirePageCapability(["ADMIN_SUPPORT", "ADMIN_SUPER"]);
-  const { status, page: pageParam } = await searchParams;
+  const { status, q, sort, page: pageParam } = await searchParams;
   const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
-  // An unrecognised value must not reach the query as a filter nobody can clear.
   const activeStatus = (REVIEW_STATUS_OPTIONS as ReadonlyArray<string>).includes(status ?? "")
     ? status
     : undefined;
+  const activeSort = sort && REVIEW_SORT_OPTIONS.some((opt) => opt.value === sort) ? sort : undefined;
+  const cleanQ = q?.trim() || undefined;
 
   return (
     <>
@@ -52,6 +61,11 @@ export default async function ReviewsPage({
       >
         <QueueFilters
           basePath="/reviews"
+          search={{
+            label: "Search reviews by comment, task, reviewer, or reviewee",
+            placeholder: "Search comment, task, parties, booking...",
+            value: q?.trim() ?? "",
+          }}
           selects={[
             {
               name: "status",
@@ -63,13 +77,25 @@ export default async function ReviewsPage({
                 label: reviewStatusLabel(option),
               })),
             },
+            {
+              name: "sort",
+              label: "Sort reviews",
+              allLabel: "Newest first",
+              value: activeSort,
+              options: REVIEW_SORT_OPTIONS,
+            },
           ]}
         />
         <Suspense
-          key={`${activeStatus ?? ""}|${page}`}
-          fallback={<TableRegionSkeleton columns={6} />}
+          key={`${activeStatus ?? ""}|${cleanQ ?? ""}|${activeSort ?? ""}|${page}`}
+          fallback={<TableRegionSkeleton columns={7} />}
         >
-          <ReviewsTable page={page} status={activeStatus} />
+          <ReviewsTable
+            page={page}
+            status={activeStatus}
+            q={cleanQ}
+            sort={activeSort}
+          />
         </Suspense>
         <p className="dk-field-description">Signed in as {session.displayName}.</p>
       </PageSection>
@@ -80,37 +106,81 @@ export default async function ReviewsPage({
 async function ReviewsTable({
   page,
   status,
+  q,
+  sort,
 }: {
   readonly page: number;
   readonly status: string | undefined;
+  readonly q: string | undefined;
+  readonly sort: string | undefined;
 }) {
-  const active = (REVIEW_STATUS_OPTIONS as ReadonlyArray<string>).includes(status ?? "")
-    ? status
-    : undefined;
   const repository = getAdminRepository();
   const result = await repository.listReviews({
     page,
     pageSize: PAGE_SIZE,
-    ...(active ? { status: active } : {}),
+    ...(status ? { status } : {}),
+    ...(q ? { query: q } : {}),
+    ...(sort ? { sort } : {}),
   });
 
   const columns: ReadonlyArray<ColumnDef<ReviewRow>> = [
-    { key: "task", header: "Task", render: (row) => row.taskTitle },
+    {
+      key: "task",
+      header: "Task / Booking",
+      render: (row) => (
+        <div>
+          <AppLink
+            href={`/bookings/${row.bookingId}`}
+            style={{ fontWeight: 600, fontSize: 13 }}
+          >
+            {row.taskTitle}
+          </AppLink>
+          <div style={{ fontSize: 12, color: "var(--dk-textSecondary)", fontFamily: "ui-monospace, monospace" }}>
+            {formatReferenceId(row.bookingId, "BK")}
+          </div>
+        </div>
+      ),
+    },
     {
       key: "parties",
-      header: "Reviewer to reviewee",
-      render: (row) => `${row.reviewerDisplayName} to ${row.revieweeDisplayName}`,
+      header: "Reviewer → Reviewee",
+      render: (row) => (
+        <div style={{ fontSize: 13 }}>
+          <span style={{ fontWeight: 500 }}>{row.reviewerDisplayName}</span>
+          <span style={{ color: "var(--dk-textSecondary)", margin: "0 6px" }}>→</span>
+          <span style={{ fontWeight: 500 }}>{row.revieweeDisplayName}</span>
+        </div>
+      ),
     },
-    { key: "score", header: "Score", render: (row) => `${row.score} of 5` },
+    {
+      key: "score",
+      header: "Rating",
+      render: (row) => (
+        <span style={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", fontSize: 13.5 }}>
+          ★ {row.score}.0
+        </span>
+      ),
+    },
     {
       key: "comment",
       header: "Comment",
       render: (row) =>
         row.comment ? (
-          <blockquote className="dk-quote">{row.comment}</blockquote>
+          <blockquote className="dk-quote" style={{ margin: 0, fontSize: 13 }}>
+            {row.comment}
+          </blockquote>
         ) : (
-          <span className="dk-muted">No comment</span>
+          <span className="dk-muted" style={{ fontSize: 12.5 }}>No comment</span>
         ),
+    },
+    {
+      key: "submittedAt",
+      header: "Submitted",
+      render: (row) => (
+        <span style={{ fontSize: 12.5, color: "var(--dk-textSecondary)" }}>
+          <time dateTime={row.submittedAt}>{formatDateTime(row.submittedAt)}</time>
+        </span>
+      ),
     },
     {
       key: "status",
@@ -129,7 +199,9 @@ async function ReviewsTable({
 
   function hrefFor(nextPage: number): string {
     const params = new URLSearchParams();
-    if (active) params.set("status", active);
+    if (status) params.set("status", status);
+    if (q) params.set("q", q);
+    if (sort) params.set("sort", sort);
     params.set("page", String(nextPage));
     return `/reviews?${params.toString()}`;
   }
@@ -147,7 +219,7 @@ async function ReviewsTable({
         columns={columns}
         getRowKey={(row) => row.id}
         caption="Reviews"
-        cardTitle={(row) => row.taskTitle}
+        cardTitle={(row) => `${row.taskTitle} (★ ${row.score}.0)`}
       />
       <Pagination
         page={result.page}

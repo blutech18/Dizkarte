@@ -26,3 +26,19 @@ export const TICKET_STATUS_TRANSITIONS: Record<string, ReadonlyArray<string>> = 
   RESOLVED: ["CLOSED"],
   CLOSED: [],
 };
+
+export function ticketStatusMeaning(status: string): string {
+  switch (status) {
+    case "OPEN":
+      return "New support request awaiting triage and assignment.";
+    case "PENDING":
+      return "Active investigation in progress; awaiting response or resolution.";
+    case "RESOLVED":
+      return "The issue has been resolved and feedback communicated.";
+    case "CLOSED":
+      return "Support ticket is formally completed and closed.";
+    default:
+      return "Support ticket is currently in handling.";
+  }
+}
+

@@ -7,6 +7,7 @@ import { Breadcrumbs } from "@/components/ui/Field";
 import { PageSection } from "@/components/ui/Pagination";
 import { DetailRegionSkeleton } from "@/components/ui/AsyncState";
 import { StatusBadge, type BadgeTone } from "@/components/ui/StatusBadge";
+import { AppLink } from "@/components/ui/AppLink";
 import { OperationalSettingForm } from "./OperationalSettingForm";
 
 export const metadata: Metadata = { title: "Settings" };
@@ -37,16 +38,11 @@ function adapterModeTone(mode: string): BadgeTone {
 }
 
 /**
- * Operational settings.
+ * Operational settings workstation.
  *
- * One page heading, with each concern as a section beneath it. The page
- * previously stacked three `PageSection`s, each of which renders an `h1`, so a
- * screen reader announced three page titles on one screen — and the environment
- * card repeated its own section heading immediately below it.
- *
- * The environment panel reads only synchronous server config, so it paints
- * immediately. The editable values and the money/release policy are two views of
- * one `getSettings()` read and share a single Suspense boundary.
+ * Provides a clean dual-column layout:
+ *  - Main: Editable operational values and client-owned policies (D3/D5/D13).
+ *  - Sidebar: Runtime environment, external provider adapters, and audit links.
  */
 export default async function SettingsPage() {
   await requirePageCapability(["ADMIN_SUPER"]);
@@ -65,33 +61,55 @@ export default async function SettingsPage() {
       <Breadcrumbs items={[{ label: "Dashboard", href: "/dashboard" }, { label: "Settings" }]} />
       <PageSection
         title="Settings"
-        subtitle="Editable operational values, the money and release policy, and safe deployment metadata. No secret is ever rendered here."
+        subtitle="Editable operational values, client-owned financial and release policies, and runtime deployment metadata."
       >
-        <div className="dk-detail">
-          <Suspense fallback={<DetailRegionSkeleton cards={2} lines={3} />}>
-            <ManagedSettings />
-          </Suspense>
+        <div className="dk-report-grid">
+          <div className="dk-report-main">
+            <Suspense fallback={<DetailRegionSkeleton cards={2} lines={3} />}>
+              <ManagedSettings />
+            </Suspense>
+          </div>
 
-          <section className="dk-card" aria-labelledby="environment-heading">
-            <h2 id="environment-heading">Environment</h2>
-            <dl className="dk-fact-grid">
-              <div className="dk-fact">
-                <dt>Deployment environment</dt>
-                <dd>{config.environment}</dd>
+          <div className="dk-report-sidebar">
+            <section className="dk-report-card" aria-labelledby="environment-heading">
+              <div className="dk-report-card-head">
+                <h2 id="environment-heading">Runtime environment</h2>
+                <StatusBadge
+                  tone={config.environment === "production" ? "success" : "info"}
+                  label={config.environment}
+                />
               </div>
-              {adapters.map((adapter) => (
-                <div className="dk-fact" key={adapter.label}>
-                  <dt>{adapter.label}</dt>
-                  <dd>
-                    <StatusBadge
-                      tone={adapterModeTone(adapter.mode)}
-                      label={adapterModeLabel(adapter.mode)}
-                    />
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          </section>
+              <dl className="dk-fact-grid">
+                {adapters.map((adapter) => (
+                  <div className="dk-fact" key={adapter.label}>
+                    <dt>{adapter.label}</dt>
+                    <dd>
+                      <StatusBadge
+                        tone={adapterModeTone(adapter.mode)}
+                        label={adapterModeLabel(adapter.mode)}
+                      />
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+
+            <section className="dk-report-card" aria-labelledby="security-heading">
+              <div className="dk-report-card-head">
+                <h2 id="security-heading">Security & audit policy</h2>
+                <span className="dk-badge dk-badge--neutral text-xs font-mono">ADMIN_SUPER</span>
+              </div>
+              <p className="text-sm text-dk-gray-600 mb-4 leading-relaxed">
+                All modifications to operational values are executed through capability-scoped RPCs
+                and logged with an immutable audit entry. Secrets and keys are never rendered in the console.
+              </p>
+              <div>
+                <AppLink href="/audit?action=setting.update" className="dk-btn dk-btn-secondary text-xs">
+                  View settings audit trail
+                </AppLink>
+              </div>
+            </section>
+          </div>
         </div>
       </PageSection>
     </>
@@ -103,27 +121,36 @@ async function ManagedSettings() {
 
   return (
     <>
-      <section className="dk-card" aria-labelledby="operational-heading">
-        <h2 id="operational-heading">Operational values</h2>
-        <p className="dk-card-note">Every change is recorded in the audit log.</p>
-        {settings.editable.map((setting) => (
-          <OperationalSettingForm key={setting.key} setting={setting} />
-        ))}
+      <section className="dk-report-card" aria-labelledby="operational-heading">
+        <div className="dk-report-card-head">
+          <h2 id="operational-heading">Operational values</h2>
+          <span className="dk-badge dk-badge--neutral text-xs font-mono">ADMIN_SUPER</span>
+        </div>
+        <p className="text-sm text-dk-gray-600 mb-4 leading-relaxed">
+          Only allow-listed operational settings can be modified by super administrators. Every update requires a recorded justification.
+        </p>
+        <div className="space-y-6">
+          {settings.editable.map((setting) => (
+            <OperationalSettingForm key={setting.key} setting={setting} />
+          ))}
+        </div>
       </section>
 
-      <section className="dk-card" aria-labelledby="policy-heading">
-        <h2 id="policy-heading">Money and release policy</h2>
-        <p className="dk-card-note">
-          Client-owned decisions, shown for transparency. Not editable from the console until an
-          approved policy is on file.
+      <section className="dk-report-card" aria-labelledby="policy-heading">
+        <div className="dk-report-card-head">
+          <h2 id="policy-heading">Money and release policy</h2>
+          <span className="dk-badge dk-badge--neutral text-xs font-mono">Client-owned (D3/D5/D13)</span>
+        </div>
+        <p className="text-sm text-dk-gray-600 mb-4 leading-relaxed">
+          Client-owned decisions shown for operational transparency. Locked from direct modification until an approved policy model is on file.
         </p>
         <dl className="dk-fact-grid">
           {settings.policy.map((item) => (
             <div className="dk-fact" key={item.key}>
               <dt>{item.label}</dt>
               <dd>
-                {item.value}
-                <span className="dk-fact-aside">{item.note}</span>
+                <div className="font-semibold text-dk-gray-900">{item.value}</div>
+                <span className="dk-fact-aside text-xs text-dk-gray-500 mt-1">{item.note}</span>
               </dd>
             </div>
           ))}

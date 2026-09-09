@@ -860,10 +860,14 @@ export interface AdminRepository {
   getMediaPreviewUrl(input: { storagePath: string; actor: string }): Promise<string | null>;
 
   /** Refund records across all payments, newest first. Filterable by status. */
-  listRefunds(input: PageInput & { status?: string }): Promise<Paginated<RefundRow>>;
+  listRefunds(
+    input: PageInput & { status?: string; query?: string; sort?: string },
+  ): Promise<Paginated<RefundRow>>;
 
   /** Reviews for moderation, newest first. Filterable by moderation status. */
-  listReviews(input: PageInput & { status?: string }): Promise<Paginated<ReviewRow>>;
+  listReviews(
+    input: PageInput & { status?: string; query?: string; sort?: string },
+  ): Promise<Paginated<ReviewRow>>;
   /**
    * Hide an abusive review, or restore one that was hidden in error.
    *
@@ -897,7 +901,9 @@ export interface AdminRepository {
     reason: string;
     actor: string;
   }): Promise<ConversationTranscript>;
-  listTickets(input: PageInput & { status?: string }): Promise<Paginated<TicketRow>>;
+  listTickets(
+    input: PageInput & { status?: string; query?: string; category?: string; sort?: string },
+  ): Promise<Paginated<TicketRow>>;
   getTicket(input: { ticketId: string; actor: string }): Promise<TicketDetail | null>;
 
   /**
@@ -934,7 +940,7 @@ export interface AdminRepository {
   getFinanceProviderAvailability(): FinanceProviderAvailability;
   getFinanceSummary(): Promise<FinanceSummary>;
   listPaymentIntents(
-    input: PageInput & { status?: PaymentIntentStatus },
+    input: PageInput & { status?: PaymentIntentStatus; query?: string; sort?: string },
   ): Promise<Paginated<PaymentIntentRow>>;
   getPaymentIntent(id: string): Promise<PaymentIntentDetail | null>;
   /** Look up the payment intent for a booking, used by dispute/payment detail cross-links. */
@@ -968,7 +974,7 @@ export interface AdminRepository {
   }): Promise<{ ok: boolean; message?: string; code?: string }>;
 
   listReconciliationRows(
-    input: PageInput & { status?: ReconciliationStatus },
+    input: PageInput & { status?: ReconciliationStatus; query?: string; sort?: string },
   ): Promise<Paginated<ReconciliationRow>>;
   getReconciliationSummary(): Promise<ReconciliationSummary>;
 
@@ -985,7 +991,9 @@ export interface AdminRepository {
     idempotencyKey: string;
   }): Promise<{ ok: boolean; message?: string; summary?: ReconciliationSummary }>;
 
-  listWithdrawals(input: PageInput & { status?: string }): Promise<Paginated<WithdrawalRow>>;
+  listWithdrawals(
+    input: PageInput & { status?: string; query?: string; sort?: string },
+  ): Promise<Paginated<WithdrawalRow>>;
 
   /**
    * Fail-closed payout approval. Must return `PROVIDER_UNAVAILABLE` before
@@ -1041,7 +1049,14 @@ export interface AdminRepository {
   ): Promise<Paginated<BookingRow>>;
   getBooking(bookingId: string): Promise<BookingDetail | null>;
 
-  listAuditLogs(input: PageInput): Promise<Paginated<AuditLogRow>>;
+  listAuditLogs(
+    input: PageInput & {
+      query?: string | undefined;
+      action?: string | undefined;
+      actor?: string | undefined;
+      sort?: string | undefined;
+    },
+  ): Promise<Paginated<AuditLogRow>>;
 
   /**
    * App settings for the console: the operator-editable operational settings and

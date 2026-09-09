@@ -12,6 +12,7 @@ import { CaseHistoryList } from "@/components/ui/CaseHistoryList";
 import { paymentStatusLabel, paymentStatusTone, reconciliationStatusLabel } from "../status";
 import { Breadcrumbs } from "@/components/ui/Field";
 import { StatusBadge, type BadgeTone } from "@/components/ui/StatusBadge";
+import { CopyButton } from "@/components/ui/CopyButton";
 import { PaymentActionsPanel } from "../PaymentActionsPanel";
 import { PaymentRecordSkeleton } from "./PaymentSkeleton";
 
@@ -152,8 +153,9 @@ export default async function PaymentDetailPage({
           <ArrowLeftIcon />
           <span>Back to payments</span>
         </AppLink>
-        <span className="dk-booking-ref-text" title={id}>
-          Payment Ref: {formatReferenceId(id, "PAY", detail.createdAt)}
+        <span className="dk-booking-ref-text" title={id} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <span>Payment Ref: {formatReferenceId(id, "PAY", detail.createdAt)}</span>
+          <CopyButton text={id} label="payment reference ID" variant="icon" />
         </span>
       </nav>
 
@@ -229,14 +231,17 @@ async function PaymentDetailRecord({
             <span className="dk-fact-fee">{formatPhp(detail.platformFeeCentavos)}</span>
           </Fact>
           <Fact label="Booking reference">
-            <AppLink
-              href={`/bookings/${detail.bookingId}`}
-              className="dk-ref-link"
-              title={detail.bookingId}
-            >
-              <span>{formattedBookingRef}</span>
-              <ExternalLinkIcon />
-            </AppLink>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <AppLink
+                href={`/bookings/${detail.bookingId}`}
+                className="dk-ref-link"
+                title={detail.bookingId}
+              >
+                <span>{formattedBookingRef}</span>
+                <ExternalLinkIcon />
+              </AppLink>
+              <CopyButton text={detail.bookingId} label="booking ID" variant="icon" />
+            </div>
           </Fact>
           <Fact label="Created">
             <span className="dk-metric-time-badge">

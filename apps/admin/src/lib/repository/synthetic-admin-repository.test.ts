@@ -1173,6 +1173,41 @@ describe("SyntheticAdminRepository", () => {
       expect(after.items).toEqual(before.items);
     });
 
+    it("filters and sorts reviews in synthetic repository", async () => {
+      const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
+      const repo = new SyntheticAdminRepository();
+
+      const all = await repo.listReviews({ page: 1, pageSize: 50 });
+      expect(all.items.length).toBeGreaterThan(0);
+
+      // Search by task title
+      const first = all.items[0]!;
+      const byTask = await repo.listReviews({ page: 1, pageSize: 50, query: first.taskTitle });
+      expect(byTask.items.some((r) => r.id === first.id)).toBe(true);
+
+      // Search by reviewer name
+      const byReviewer = await repo.listReviews({
+        page: 1,
+        pageSize: 50,
+        query: first.reviewerDisplayName,
+      });
+      expect(byReviewer.items.some((r) => r.id === first.id)).toBe(true);
+
+      // Sort by score descending
+      const byScoreHigh = await repo.listReviews({ page: 1, pageSize: 50, sort: "score_high" });
+      for (let i = 1; i < byScoreHigh.items.length; i++) {
+        expect(byScoreHigh.items[i - 1]!.score).toBeGreaterThanOrEqual(byScoreHigh.items[i]!.score);
+      }
+
+      // Sort by oldest
+      const byOldest = await repo.listReviews({ page: 1, pageSize: 50, sort: "oldest" });
+      for (let i = 1; i < byOldest.items.length; i++) {
+        expect(new Date(byOldest.items[i - 1]!.submittedAt).getTime()).toBeLessThanOrEqual(
+          new Date(byOldest.items[i]!.submittedAt).getTime(),
+        );
+      }
+    });
+
     it("filters and sorts bookings in synthetic repository", async () => {
       const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
       const repo = new SyntheticAdminRepository();
@@ -1238,6 +1273,36 @@ describe("SyntheticAdminRepository", () => {
       for (let i = 1; i < byOldest.items.length; i++) {
         expect(new Date(byOldest.items[i - 1]!.openedAt).getTime()).toBeLessThanOrEqual(
           new Date(byOldest.items[i]!.openedAt).getTime(),
+        );
+      }
+    });
+
+    it("filters and sorts support tickets in synthetic repository", async () => {
+      const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
+      const repo = new SyntheticAdminRepository();
+
+      const all = await repo.listTickets({ page: 1, pageSize: 50 });
+      expect(all.items.length).toBeGreaterThan(0);
+
+      // Filter by status
+      const openTickets = await repo.listTickets({ page: 1, pageSize: 50, status: "OPEN" });
+      expect(openTickets.items.every((t) => t.status === "OPEN")).toBe(true);
+
+      // Search by ticket ID
+      const first = all.items[0]!;
+      const byId = await repo.listTickets({ page: 1, pageSize: 50, query: first.id });
+      expect(byId.items.some((t) => t.id === first.id)).toBe(true);
+
+      // Search by formal reference
+      const formalRef = formatReferenceId(first.id, "TCK", first.updatedAt);
+      const byRef = await repo.listTickets({ page: 1, pageSize: 50, query: formalRef });
+      expect(byRef.items.some((t) => t.id === first.id)).toBe(true);
+
+      // Sort by oldest
+      const byOldest = await repo.listTickets({ page: 1, pageSize: 50, sort: "oldest" });
+      for (let i = 1; i < byOldest.items.length; i++) {
+        expect(new Date(byOldest.items[i - 1]!.updatedAt).getTime()).toBeLessThanOrEqual(
+          new Date(byOldest.items[i]!.updatedAt).getTime(),
         );
       }
     });
