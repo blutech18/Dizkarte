@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import type { AdminSession } from "@/lib/session";
 import { NAV_SECTIONS } from "@/lib/nav";
 import { SignOutButton } from "./SignOutButton";
-import { MenuIcon, ChevronRightIcon } from "./icons";
+import { MenuIcon, ChevronRightIcon, ChevronDownIcon } from "./icons";
 
 const CAPABILITY_LABEL: Record<string, string> = {
   ADMIN_SUPER: "Super Admin",
@@ -133,6 +133,12 @@ export function Topbar({
             {initialsFor(session.displayName)}
           </span>
           <span className="dk-avatar-name">{session.displayName}</span>
+          <ChevronDownIcon
+            width={14}
+            height={14}
+            className="dk-avatar-chevron"
+            aria-hidden="true"
+          />
         </button>
         {menuOpen ? (
           <div className="dk-user-menu-panel" role="menu">

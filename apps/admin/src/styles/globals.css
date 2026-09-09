@@ -1759,20 +1759,26 @@ textarea {
 .dk-avatar-btn {
   display: flex;
   align-items: center;
-  gap: 10px;
-  border: 1px solid var(--dk-borderSubtle);
-  background: var(--dk-surface);
-  border-radius: 999px;
-  padding: 5px 14px 5px 5px;
+  gap: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  border-radius: var(--dk-radius-md);
+  padding: 4px 6px;
   cursor: pointer;
   color: var(--dk-textPrimary);
-  box-shadow: var(--dk-shadow-sm);
-  transition: all var(--dk-transition-fast);
+  box-shadow: none;
+  transition: background var(--dk-transition-fast), color var(--dk-transition-fast);
 }
 
 .dk-avatar-btn:hover {
-  border-color: var(--dk-borderControl);
-  box-shadow: var(--dk-shadow-md);
+  background: var(--dk-surfaceSubtle);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.dk-avatar-btn:focus-visible {
+  outline: 2px solid var(--dk-primary);
+  outline-offset: 2px;
 }
 
 .dk-avatar-circle {
@@ -1787,6 +1793,7 @@ textarea {
   font-weight: 700;
   font-size: 13px;
   flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 .dk-avatar-name {
@@ -1796,6 +1803,24 @@ textarea {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.dk-avatar-chevron {
+  color: var(--dk-textSecondary);
+  opacity: 0.7;
+  flex-shrink: 0;
+  transition: transform 0.2s ease, opacity 0.15s ease, color 0.15s ease;
+}
+
+.dk-avatar-btn:hover .dk-avatar-chevron {
+  opacity: 1;
+  color: var(--dk-textPrimary);
+}
+
+.dk-avatar-btn[aria-expanded="true"] .dk-avatar-chevron {
+  transform: rotate(180deg);
+  opacity: 1;
+  color: var(--dk-primary);
 }
 
 .dk-user-menu-panel {
@@ -1956,7 +1981,8 @@ textarea {
     display: flex;
   }
 
-  .dk-avatar-name {
+  .dk-avatar-name,
+  .dk-avatar-chevron {
     display: none;
   }
 

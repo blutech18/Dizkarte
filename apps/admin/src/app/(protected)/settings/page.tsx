@@ -40,9 +40,9 @@ function adapterModeTone(mode: string): BadgeTone {
 /**
  * Operational settings workstation.
  *
- * Provides a clean dual-column layout:
- *  - Main: Editable operational values and client-owned policies (D3/D5/D13).
- *  - Sidebar: Runtime environment, external provider adapters, and audit links.
+ * Clean, balanced workstation layout:
+ *  - Column 1: Editable operational parameters and client-owned policies (D3/D5/D13).
+ *  - Column 2: Runtime deployment metadata, external service adapters, and audit trail links.
  */
 export default async function SettingsPage() {
   await requirePageCapability(["ADMIN_SUPER"]);
@@ -61,50 +61,106 @@ export default async function SettingsPage() {
       <Breadcrumbs items={[{ label: "Dashboard", href: "/dashboard" }, { label: "Settings" }]} />
       <PageSection
         title="Settings"
-        subtitle="Editable operational values, client-owned financial and release policies, and runtime deployment metadata."
+        subtitle="Platform configuration, operational parameters, governance policies, and deployment environment."
       >
-        <div className="dk-report-grid">
-          <div className="dk-report-main">
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))", gap: 20, alignItems: "start" }}>
+          {/* Column 1: Operational Settings & Governance Policies */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             <Suspense fallback={<DetailRegionSkeleton cards={2} lines={3} />}>
               <ManagedSettings />
             </Suspense>
           </div>
 
-          <div className="dk-report-sidebar">
-            <section className="dk-report-card" aria-labelledby="environment-heading">
-              <div className="dk-report-card-head">
-                <h2 id="environment-heading">Runtime environment</h2>
+          {/* Column 2: Runtime Environment & Security */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {/* Runtime Environment Card */}
+            <section
+              style={{
+                background: "var(--dk-surface)",
+                border: "1px solid var(--dk-borderSubtle)",
+                borderRadius: "var(--dk-radius-md)",
+                padding: "20px 22px",
+              }}
+              aria-labelledby="environment-heading"
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, paddingBottom: 12, borderBottom: "1px solid var(--dk-borderSubtle)" }}>
+                <div>
+                  <h2 id="environment-heading" style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--dk-textPrimary)" }}>
+                    Runtime environment
+                  </h2>
+                  <p style={{ margin: "3px 0 0 0", fontSize: 12.5, color: "var(--dk-textSecondary)" }}>
+                    Active deployment tier and external service adapters
+                  </p>
+                </div>
                 <StatusBadge
                   tone={config.environment === "production" ? "success" : "info"}
-                  label={config.environment}
+                  label={config.environment.toUpperCase()}
                 />
               </div>
-              <dl className="dk-fact-grid">
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {adapters.map((adapter) => (
-                  <div className="dk-fact" key={adapter.label}>
-                    <dt>{adapter.label}</dt>
-                    <dd>
-                      <StatusBadge
-                        tone={adapterModeTone(adapter.mode)}
-                        label={adapterModeLabel(adapter.mode)}
-                      />
-                    </dd>
+                  <div
+                    key={adapter.label}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "10px 12px",
+                      background: "var(--dk-surfaceSubtle)",
+                      borderRadius: "var(--dk-radius-sm)",
+                      border: "1px solid var(--dk-borderSubtle)",
+                    }}
+                  >
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--dk-textPrimary)" }}>
+                      {adapter.label}
+                    </span>
+                    <StatusBadge
+                      tone={adapterModeTone(adapter.mode)}
+                      label={adapterModeLabel(adapter.mode)}
+                    />
                   </div>
                 ))}
-              </dl>
+              </div>
             </section>
 
-            <section className="dk-report-card" aria-labelledby="security-heading">
-              <div className="dk-report-card-head">
-                <h2 id="security-heading">Security & audit policy</h2>
-                <span className="dk-badge dk-badge--neutral text-xs font-mono">ADMIN_SUPER</span>
+            {/* Security & Audit Policy Card */}
+            <section
+              style={{
+                background: "var(--dk-surface)",
+                border: "1px solid var(--dk-borderSubtle)",
+                borderRadius: "var(--dk-radius-md)",
+                padding: "20px 22px",
+              }}
+              aria-labelledby="security-heading"
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, paddingBottom: 12, borderBottom: "1px solid var(--dk-borderSubtle)" }}>
+                <div>
+                  <h2 id="security-heading" style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--dk-textPrimary)" }}>
+                    Security & audit policy
+                  </h2>
+                  <p style={{ margin: "3px 0 0 0", fontSize: 12.5, color: "var(--dk-textSecondary)" }}>
+                    Governance and compliance auditing rules
+                  </p>
+                </div>
+                <span
+                  className="dk-badge dk-badge--neutral"
+                  style={{ fontFamily: "ui-monospace, monospace", fontSize: 11.5, fontWeight: 600 }}
+                >
+                  ADMIN_SUPER
+                </span>
               </div>
-              <p className="dk-card-note" style={{ margin: "0 0 16px 0", fontSize: 13.5, lineHeight: 1.5 }}>
-                All modifications to operational values are executed through capability-scoped RPCs
-                and logged with an immutable audit entry. Secrets and keys are never rendered in the console.
+              <p style={{ margin: "0 0 16px 0", fontSize: 13, color: "var(--dk-textSecondary)", lineHeight: 1.55 }}>
+                Modifications to operational values require super-admin credentials and are executed through
+                capability-scoped RPCs. Every configuration mutation generates an immutable, timestamped audit log entry
+                with operator justification.
               </p>
               <div>
-                <AppLink href="/audit?action=setting.update" className="dk-btn dk-btn-secondary text-xs">
+                <AppLink
+                  href="/audit?action=setting.update"
+                  className="dk-btn dk-btn-secondary"
+                  style={{ fontSize: 12.5, padding: "7px 14px" }}
+                >
                   View settings audit trail
                 </AppLink>
               </div>
@@ -121,42 +177,106 @@ async function ManagedSettings() {
 
   return (
     <>
-      <section className="dk-report-card" aria-labelledby="operational-heading">
-        <div className="dk-report-card-head">
-          <h2 id="operational-heading">Operational values</h2>
-          <span className="dk-badge dk-badge--neutral text-xs font-mono">ADMIN_SUPER</span>
+      {/* Operational Settings Card */}
+      <section
+        style={{
+          background: "var(--dk-surface)",
+          border: "1px solid var(--dk-borderSubtle)",
+          borderRadius: "var(--dk-radius-md)",
+          padding: "20px 22px",
+        }}
+        aria-labelledby="operational-heading"
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, paddingBottom: 12, borderBottom: "1px solid var(--dk-borderSubtle)" }}>
+          <div>
+            <h2 id="operational-heading" style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--dk-textPrimary)" }}>
+              Operational values
+            </h2>
+            <p style={{ margin: "3px 0 0 0", fontSize: 12.5, color: "var(--dk-textSecondary)" }}>
+              Dynamic platform thresholds editable by super administrators
+            </p>
+          </div>
+          <span
+            className="dk-badge dk-badge--neutral"
+            style={{ fontFamily: "ui-monospace, monospace", fontSize: 11.5, fontWeight: 600 }}
+          >
+            ADMIN_SUPER
+          </span>
         </div>
-        <p className="dk-card-note" style={{ margin: "0 0 16px 0", fontSize: 13.5, lineHeight: 1.5 }}>
-          Only allow-listed operational settings can be modified by super administrators. Every update requires a recorded justification.
-        </p>
-        <div className="space-y-6">
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {settings.editable.map((setting) => (
             <OperationalSettingForm key={setting.key} setting={setting} />
           ))}
         </div>
       </section>
 
-      <section className="dk-report-card" aria-labelledby="policy-heading">
-        <div className="dk-report-card-head">
-          <h2 id="policy-heading">Money and release policy</h2>
-          <span className="dk-badge dk-badge--neutral text-xs font-mono">Client-owned (D3/D5/D13)</span>
+      {/* Policy Card */}
+      <section
+        style={{
+          background: "var(--dk-surface)",
+          border: "1px solid var(--dk-borderSubtle)",
+          borderRadius: "var(--dk-radius-md)",
+          padding: "20px 22px",
+        }}
+        aria-labelledby="policy-heading"
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, paddingBottom: 12, borderBottom: "1px solid var(--dk-borderSubtle)" }}>
+          <div>
+            <h2 id="policy-heading" style={{ margin: 0, fontSize: 15, fontWeight: 700, color: "var(--dk-textPrimary)" }}>
+              Money and release policy
+            </h2>
+            <p style={{ margin: "3px 0 0 0", fontSize: 12.5, color: "var(--dk-textSecondary)" }}>
+              Client-owned marketplace rules governed by off-chain legal contracts
+            </p>
+          </div>
+          <span
+            className="dk-badge dk-badge--neutral"
+            style={{ fontFamily: "ui-monospace, monospace", fontSize: 11.5, fontWeight: 600 }}
+          >
+            Client-owned (D3/D5/D13)
+          </span>
         </div>
-        <p className="dk-card-note" style={{ margin: "0 0 16px 0", fontSize: 13.5, lineHeight: 1.5 }}>
-          Client-owned decisions shown for operational transparency. Locked from direct modification until an approved policy model is on file.
-        </p>
-        <dl className="dk-fact-grid">
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {settings.policy.map((item) => (
-            <div className="dk-fact" key={item.key}>
-              <dt>{item.label}</dt>
-              <dd>
-                <div style={{ fontWeight: 600, color: "var(--dk-textPrimary)" }}>{item.value}</div>
-                <span className="dk-fact-aside" style={{ fontSize: 12, color: "var(--dk-textSecondary)", marginTop: 4 }}>
-                  {item.note}
+            <div
+              key={item.key}
+              style={{
+                background: "var(--dk-surfaceSubtle)",
+                border: "1px solid var(--dk-borderSubtle)",
+                borderRadius: "var(--dk-radius-sm)",
+                padding: "12px 14px",
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "var(--dk-textPrimary)" }}>
+                  {item.label}
                 </span>
-              </dd>
+                <span
+                  style={{
+                    fontFamily: "ui-monospace, monospace",
+                    fontSize: 12.5,
+                    fontWeight: 700,
+                    color: "var(--dk-textPrimary)",
+                    background: "var(--dk-surface)",
+                    padding: "2px 8px",
+                    borderRadius: "var(--dk-radius-sm)",
+                    border: "1px solid var(--dk-borderSubtle)",
+                  }}
+                >
+                  {item.value}
+                </span>
+              </div>
+              <span style={{ fontSize: 12, color: "var(--dk-textSecondary)", lineHeight: 1.45 }}>
+                {item.note}
+              </span>
             </div>
           ))}
-        </dl>
+        </div>
       </section>
     </>
   );

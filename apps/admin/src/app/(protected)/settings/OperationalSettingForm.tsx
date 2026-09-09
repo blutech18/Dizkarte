@@ -28,7 +28,6 @@ export function OperationalSettingForm({ setting }: { readonly setting: Editable
 
   return (
     <form
-      className="dk-stack"
       onSubmit={async (event) => {
         event.preventDefault();
         if (reason.trim().length === 0) {
@@ -52,12 +51,27 @@ export function OperationalSettingForm({ setting }: { readonly setting: Editable
           setError(result.message ?? "Could not update this setting. Please try again.");
         }
       }}
+      style={{
+        background: "var(--dk-surfaceSubtle)",
+        border: "1px solid var(--dk-borderSubtle)",
+        borderRadius: "var(--dk-radius-sm)",
+        padding: "16px 18px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 14,
+      }}
     >
       {error ? (
         <div
           role="alert"
-          className="dk-report-narrative-box mb-3 text-sm"
-          style={{ borderLeftColor: "var(--dk-errorSolid)" }}
+          style={{
+            background: "var(--dk-errorSoft)",
+            border: "1px solid var(--dk-errorSolid)",
+            color: "var(--dk-errorOnSoft, #9F1833)",
+            borderRadius: "var(--dk-radius-sm)",
+            padding: "10px 14px",
+            fontSize: 13,
+          }}
         >
           {error}
         </div>
@@ -65,54 +79,130 @@ export function OperationalSettingForm({ setting }: { readonly setting: Editable
       {success ? (
         <div
           role="status"
-          className="dk-report-narrative-box mb-3 text-sm"
-          style={{ borderLeftColor: "var(--dk-successSolid)" }}
+          style={{
+            background: "var(--dk-successSoft)",
+            border: "1px solid var(--dk-successSolid)",
+            color: "var(--dk-successOnSoft, #0F6B46)",
+            borderRadius: "var(--dk-radius-sm)",
+            padding: "10px 14px",
+            fontSize: 13,
+          }}
         >
           {success}
         </div>
       ) : null}
-      <div className="dk-field">
-        <label className="dk-label dk-required" htmlFor={valueId}>
-          {setting.label} ({setting.unit})
-        </label>
-        <span className="dk-field-description">{setting.description}</span>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 4 }}>
-          <input
-            id={valueId}
-            className="dk-input"
-            style={{ maxWidth: 180 }}
-            type="number"
-            inputMode="numeric"
-            value={value}
-            required
-            min={setting.min}
-            max={setting.max}
-            step={1}
-            onChange={(event) => setValue(event.target.value)}
-          />
+
+      <div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+          <label
+            htmlFor={valueId}
+            style={{ fontSize: 13.5, fontWeight: 700, color: "var(--dk-textPrimary)" }}
+          >
+            {setting.label}
+          </label>
+          <span
+            style={{
+              fontSize: 12,
+              fontFamily: "ui-monospace, monospace",
+              fontWeight: 600,
+              color: "var(--dk-textSecondary)",
+              background: "var(--dk-surface)",
+              padding: "2px 8px",
+              borderRadius: "var(--dk-radius-sm)",
+              border: "1px solid var(--dk-borderSubtle)",
+            }}
+          >
+            Current: {setting.value} {setting.unit}
+          </span>
+        </div>
+        <p style={{ margin: "0 0 12px 0", fontSize: 12.5, color: "var(--dk-textSecondary)", lineHeight: 1.45 }}>
+          {setting.description}
+        </p>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <input
+              id={valueId}
+              className="dk-input"
+              style={{
+                width: 90,
+                padding: "6px 10px",
+                fontWeight: 600,
+                fontVariantNumeric: "tabular-nums",
+                textAlign: "center",
+              }}
+              type="number"
+              inputMode="numeric"
+              value={value}
+              required
+              min={setting.min}
+              max={setting.max}
+              step={1}
+              onChange={(event) => setValue(event.target.value)}
+            />
+            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--dk-textSecondary)" }}>
+              {setting.unit}
+            </span>
+          </div>
+
           <span style={{ fontSize: 12, color: "var(--dk-textSecondary)", fontFamily: "ui-monospace, monospace" }}>
-            Allowed: {setting.min} – {setting.max} {setting.unit}
+            (Allowed range: {setting.min} – {setting.max} {setting.unit})
           </span>
         </div>
       </div>
-      <div className="dk-field">
-        <label className="dk-label dk-required" htmlFor={reasonId}>
-          Audit justification
-        </label>
-        <span className="dk-field-description">
-          Required for any change; permanently recorded in the audit log.
-        </span>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <label
+            htmlFor={reasonId}
+            style={{ fontSize: 12.5, fontWeight: 600, color: "var(--dk-textPrimary)" }}
+          >
+            Audit justification {!unchanged ? <span style={{ color: "var(--dk-errorSolid, #B4233B)" }}>*</span> : null}
+          </label>
+          <span style={{ fontSize: 11.5, color: "var(--dk-textSecondary)" }}>
+            Permanently logged
+          </span>
+        </div>
         <textarea
           id={reasonId}
           className="dk-textarea"
-          rows={3}
-          placeholder="Describe the operational reason for this threshold change..."
+          rows={2}
+          placeholder={unchanged ? "Change value above to submit an audited threshold update..." : "Describe the operational reason for this threshold change..."}
           value={reason}
+          disabled={unchanged}
           onChange={(event) => setReason(event.target.value)}
+          style={{
+            fontSize: 13,
+            resize: "vertical",
+            minHeight: 52,
+            background: unchanged ? "var(--dk-surface)" : "var(--dk-surface)",
+            opacity: unchanged ? 0.7 : 1,
+          }}
         />
       </div>
-      <div>
-        <Button type="submit" variant="primary" loading={pending} disabled={unchanged || invalid}>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
+        {!unchanged ? (
+          <button
+            type="button"
+            className="dk-btn dk-btn-secondary"
+            style={{ fontSize: 12.5, padding: "6px 14px" }}
+            onClick={() => {
+              setValue(String(setting.value));
+              setReason("");
+              setError(null);
+            }}
+          >
+            Reset
+          </button>
+        ) : null}
+        <Button
+          type="submit"
+          variant="primary"
+          loading={pending}
+          disabled={unchanged || invalid}
+          style={{ fontSize: 12.5, padding: "6px 16px" }}
+        >
           Save changes
         </Button>
       </div>
