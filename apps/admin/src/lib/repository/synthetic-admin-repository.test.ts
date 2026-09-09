@@ -536,6 +536,52 @@ describe("SyntheticAdminRepository", () => {
     });
   });
 
+  describe("listReports filtering, search, and sorting", () => {
+    it("filters reports by status", async () => {
+      const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
+      const repo = new SyntheticAdminRepository();
+      const openReports = await repo.listReports({ page: 1, pageSize: 50, status: "OPEN" });
+      expect(openReports.items.length).toBeGreaterThan(0);
+      for (const item of openReports.items) {
+        expect(item.status).toBe("OPEN");
+      }
+    });
+
+    it("filters reports by target resourceType", async () => {
+      const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
+      const repo = new SyntheticAdminRepository();
+      const taskReports = await repo.listReports({ page: 1, pageSize: 50, resourceType: "task" });
+      expect(taskReports.items.length).toBeGreaterThan(0);
+      for (const item of taskReports.items) {
+        expect(item.resourceType).toBe("task");
+      }
+    });
+
+    it("searches reports by query across category, assignee, and references", async () => {
+      const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
+      const repo = new SyntheticAdminRepository();
+      const spamReports = await repo.listReports({ page: 1, pageSize: 50, query: "spam" });
+      expect(spamReports.items.length).toBeGreaterThan(0);
+      for (const item of spamReports.items) {
+        expect(item.category.toLowerCase()).toContain("spam");
+      }
+    });
+
+    it("sorts reports by oldest or newest first", async () => {
+      const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");
+      const repo = new SyntheticAdminRepository();
+      const asc = await repo.listReports({ page: 1, pageSize: 50, sort: "oldest" });
+      const desc = await repo.listReports({ page: 1, pageSize: 50, sort: "newest" });
+      expect(asc.items.length).toBeGreaterThanOrEqual(2);
+      expect(new Date(asc.items[0]!.createdAt).getTime()).toBeLessThanOrEqual(
+        new Date(asc.items.at(-1)!.createdAt).getTime(),
+      );
+      expect(new Date(desc.items[0]!.createdAt).getTime()).toBeGreaterThanOrEqual(
+        new Date(desc.items.at(-1)!.createdAt).getTime(),
+      );
+    });
+  });
+
   describe("finance: balanced synthetic ledger derivation", () => {
     it("labels the finance summary as a synthetic development projection", async () => {
       const { SyntheticAdminRepository } = await import("./synthetic-admin-repository");

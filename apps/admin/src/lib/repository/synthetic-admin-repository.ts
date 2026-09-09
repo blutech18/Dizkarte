@@ -1813,10 +1813,45 @@ export class SyntheticAdminRepository implements AdminRepository {
     return { ok: true };
   }
 
-  async listReports(input: PageInput & { status?: string }) {
-    const filtered = input.status
-      ? this.state.reports.filter((r) => r.status === input.status)
-      : this.state.reports;
+  async listReports(
+    input: PageInput & { status?: string; query?: string; resourceType?: string; sort?: string },
+  ) {
+    let filtered = this.state.reports;
+    if (input.status) {
+      filtered = filtered.filter(
+        (r) => r.status.toUpperCase() === input.status?.toUpperCase(),
+      );
+    }
+    if (input.resourceType) {
+      filtered = filtered.filter(
+        (r) => r.resourceType.toLowerCase() === input.resourceType?.toLowerCase(),
+      );
+    }
+    if (input.query) {
+      const q = input.query.trim().toLowerCase();
+      filtered = filtered.filter((r) => {
+        const formalRef = formatReferenceId(r.id, "RPT", r.createdAt).toLowerCase();
+        const shortRef = formatReferenceId(r.id, "RPT").toLowerCase();
+        return (
+          r.id.toLowerCase().includes(q) ||
+          formalRef.includes(q) ||
+          shortRef.includes(q) ||
+          r.category.toLowerCase().includes(q) ||
+          r.resourceType.toLowerCase().includes(q) ||
+          (r.assignee && r.assignee.toLowerCase().includes(q)) ||
+          r.reporterDisplayName.toLowerCase().includes(q)
+        );
+      });
+    }
+    if (input.sort === "oldest") {
+      filtered = [...filtered].sort(
+        (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+      );
+    } else {
+      filtered = [...filtered].sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+    }
     return paged<ReportRow>(filtered, input);
   }
 

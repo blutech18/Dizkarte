@@ -1295,7 +1295,9 @@ export class SupabaseAdminRepository implements AdminRepository {
   // Cases: reports, disputes, tickets
   // =========================================================================
 
-  async listReports(input: PageInput & { status?: string }): Promise<Paginated<ReportRow>> {
+  async listReports(
+    input: PageInput & { status?: string; query?: string; resourceType?: string; sort?: string },
+  ): Promise<Paginated<ReportRow>> {
     const db = await this.db();
     const { from, to } = pageRange(input.page, input.pageSize);
     let query = db
@@ -1304,8 +1306,24 @@ export class SupabaseAdminRepository implements AdminRepository {
         count: "exact",
       });
     if (input.status) query = query.eq("status", input.status);
+    if (input.resourceType) query = query.eq("resource_type", input.resourceType.toLowerCase());
+
+    const keyword = input.query?.trim();
+    if (keyword) {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(keyword);
+      if (isUuid) {
+        query = query.eq("id", keyword);
+      } else {
+        const safe = keyword.replace(/[,().*\\]/g, " ").trim();
+        if (safe.length > 0) {
+          query = query.or(`category.ilike.*${safe}*,resource_type.ilike.*${safe}*`);
+        }
+      }
+    }
+
+    const ascending = input.sort === "oldest";
     const { data, count, error } = await query
-      .order("created_at", { ascending: false })
+      .order("created_at", { ascending })
       .range(from, to);
     if (error) return paginate<ReportRow>([], input.page, input.pageSize, 0);
 

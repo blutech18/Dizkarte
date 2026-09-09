@@ -57,4 +57,41 @@ describe("reports page streaming shell and filters", () => {
     expect(tableBoundary).toBeDefined();
     expect((tableBoundary as any).props.fallback).toBeTruthy();
   });
+
+  it("binds search and multi-filter criteria to QueueFilters and Suspense key", async () => {
+    const shell = (await ReportsPage({
+      searchParams: Promise.resolve({
+        status: "open",
+        type: "task",
+        q: "fraud",
+        sort: "oldest",
+        page: "2",
+      }),
+    })) as ReactElement;
+
+    const elements = walk(shell);
+    const filtersElement = elements.find((el) => (el.props as any)?.basePath === "/reports");
+    expect(filtersElement).toBeDefined();
+
+    const props = (filtersElement as any).props;
+    expect(props.search).toEqual({
+      label: "Search reports by reference, category, or assignee",
+      placeholder: "Search reference, category, assignee...",
+      value: "fraud",
+    });
+
+    expect(props.selects).toHaveLength(3);
+    expect(props.selects[0].name).toBe("status");
+    expect(props.selects[0].value).toBe("OPEN");
+    expect(props.selects[1].name).toBe("type");
+    expect(props.selects[1].value).toBe("task");
+    expect(props.selects[2].name).toBe("sort");
+    expect(props.selects[2].value).toBe("oldest");
+
+    const boundary = elements.find(
+      (el) => el.type === Suspense && (el.key as string) === "OPEN|task|fraud|oldest|2",
+    );
+    expect(boundary).toBeDefined();
+  });
 });
+

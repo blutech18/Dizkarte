@@ -168,6 +168,19 @@ function resourceTypeFriendlyName(resourceType: string): string {
   }
 }
 
+export const RESOURCE_TYPE_OPTIONS = [
+  { value: "user", label: "User accounts" },
+  { value: "task", label: "Task postings" },
+  { value: "message", label: "Chat messages" },
+  { value: "booking", label: "Booking cases" },
+  { value: "offer", label: "Tasker offers" },
+] as const;
+
+export const SORT_OPTIONS = [
+  { value: "newest", label: "Newest first" },
+  { value: "oldest", label: "Oldest first" },
+] as const;
+
 /**
  * Reports queue.
  *
@@ -176,22 +189,30 @@ function resourceTypeFriendlyName(resourceType: string): string {
  * Awaiting the list here instead would hold back chrome the operator can already
  * read while the slowest query runs.
  *
- * The boundary is keyed by the status filter and page number so navigating
+ * The boundary is keyed by the filter parameters and page number so navigating
  * re-shows the skeleton rather than leaving the previous result set on screen
  * looking like the answer to the new query.
  */
 export default async function ReportsPage({
   searchParams,
 }: {
-  readonly searchParams: Promise<{ status?: string; page?: string }>;
+  readonly searchParams: Promise<{
+    status?: string;
+    type?: string;
+    q?: string;
+    sort?: string;
+    page?: string;
+  }>;
 }) {
   await requirePageCapability(["ADMIN_SUPPORT"]);
-  const { status, page: pageParam } = await searchParams;
+  const { status, type, q, sort, page: pageParam } = await searchParams;
   const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
-  // An unrecognised value must not reach the query as a filter nobody can clear.
-  const active = (REPORT_STATUS_OPTIONS as ReadonlyArray<string>).includes(status ?? "")
-    ? status
+  const activeStatus = status
+    ? REPORT_STATUS_OPTIONS.find((opt) => opt.toLowerCase() === status.toLowerCase())
     : undefined;
+  const activeType = RESOURCE_TYPE_OPTIONS.some((opt) => opt.value === type) ? type : undefined;
+  const activeSort = sort && SORT_OPTIONS.some((opt) => opt.value === sort) ? sort : undefined;
+  const cleanQ = q?.trim() || undefined;
 
   return (
     <>
@@ -202,21 +223,49 @@ export default async function ReportsPage({
       >
         <QueueFilters
           basePath="/reports"
+          search={{
+            label: "Search reports by reference, category, or assignee",
+            placeholder: "Search reference, category, assignee...",
+            value: q?.trim() ?? "",
+          }}
           selects={[
             {
               name: "status",
               label: "Filter by report status",
-              allLabel: "All reports",
-              value: active,
+              allLabel: "All statuses",
+              value: activeStatus,
               options: REPORT_STATUS_OPTIONS.map((option) => ({
                 value: option,
                 label: reportStatusLabel(option),
               })),
             },
+            {
+              name: "type",
+              label: "Filter by target entity",
+              allLabel: "All targets",
+              value: activeType,
+              options: RESOURCE_TYPE_OPTIONS,
+            },
+            {
+              name: "sort",
+              label: "Sort reports",
+              allLabel: "Newest first",
+              value: activeSort,
+              options: SORT_OPTIONS,
+            },
           ]}
         />
-        <Suspense key={`${active ?? ""}|${page}`} fallback={<TableRegionSkeleton columns={7} />}>
-          <ReportsTable page={page} status={active} />
+        <Suspense
+          key={`${activeStatus ?? ""}|${activeType ?? ""}|${cleanQ ?? ""}|${activeSort ?? ""}|${page}`}
+          fallback={<TableRegionSkeleton columns={7} />}
+        >
+          <ReportsTable
+            page={page}
+            status={activeStatus}
+            type={activeType}
+            q={cleanQ}
+            sort={activeSort}
+          />
         </Suspense>
       </PageSection>
     </>
@@ -226,18 +275,24 @@ export default async function ReportsPage({
 async function ReportsTable({
   page,
   status,
+  type,
+  q,
+  sort,
 }: {
   readonly page: number;
   readonly status: string | undefined;
+  readonly type: string | undefined;
+  readonly q: string | undefined;
+  readonly sort: string | undefined;
 }) {
-  const active = (REPORT_STATUS_OPTIONS as ReadonlyArray<string>).includes(status ?? "")
-    ? status
-    : undefined;
   const repository = getAdminRepository();
   const result = await repository.listReports({
     page,
     pageSize: PAGE_SIZE,
-    ...(active ? { status: active } : {}),
+    ...(status ? { status } : {}),
+    ...(type ? { resourceType: type } : {}),
+    ...(q ? { query: q } : {}),
+    ...(sort ? { sort } : {}),
   });
 
   const columns: ReadonlyArray<ColumnDef<ReportRow>> = [
@@ -406,7 +461,10 @@ async function ReportsTable({
 
   function hrefFor(nextPage: number): string {
     const params = new URLSearchParams();
-    if (active) params.set("status", active);
+    if (status) params.set("status", status);
+    if (type) params.set("type", type);
+    if (q) params.set("q", q);
+    if (sort) params.set("sort", sort);
     params.set("page", String(nextPage));
     return `/reports?${params.toString()}`;
   }
