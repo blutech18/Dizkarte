@@ -17,7 +17,7 @@ export const metadata: Metadata = { title: "Revenue" };
  * Zero mutable balances exist in the architecture.
  */
 export default async function RevenuePage() {
-  const session = await requirePageCapability(["ADMIN_FINANCE"]);
+  await requirePageCapability(["ADMIN_FINANCE"]);
 
   return (
     <>
@@ -31,8 +31,6 @@ export default async function RevenuePage() {
             <RevenueSummary />
           </Suspense>
         </div>
-
-        <p className="dk-field-description">Signed in as {session.displayName}.</p>
       </PageSection>
     </>
   );

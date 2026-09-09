@@ -72,7 +72,7 @@ export default async function RefundsPage({
     page?: string;
   }>;
 }) {
-  const session = await requirePageCapability(["ADMIN_FINANCE"]);
+  await requirePageCapability(["ADMIN_FINANCE"]);
   const { status, q, sort, page: pageParam } = await searchParams;
   const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
   const active = (STATUS_OPTIONS as ReadonlyArray<string>).includes(status ?? "")
@@ -130,7 +130,6 @@ export default async function RefundsPage({
             sort={activeSort}
           />
         </Suspense>
-        <p className="dk-field-description">Signed in as {session.displayName}.</p>
       </PageSection>
     </>
   );

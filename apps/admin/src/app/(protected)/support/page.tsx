@@ -40,7 +40,7 @@ export default async function SupportTicketsPage({
     page?: string;
   }>;
 }) {
-  const session = await requirePageCapability(["ADMIN_SUPPORT"]);
+  await requirePageCapability(["ADMIN_SUPPORT"]);
   const { status, q, sort, page: pageParam } = await searchParams;
   const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
   const activeStatus = status
@@ -96,7 +96,6 @@ export default async function SupportTicketsPage({
             sort={activeSort}
           />
         </Suspense>
-        <p className="dk-field-description">Signed in as {session.displayName}.</p>
       </PageSection>
     </>
   );

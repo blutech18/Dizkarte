@@ -48,7 +48,7 @@ export default async function DisputesPage({
     page?: string;
   }>;
 }) {
-  const session = await requirePageCapability(["ADMIN_FINANCE"]);
+  await requirePageCapability(["ADMIN_FINANCE"]);
   const { status, q, sort, page: pageParam } = await searchParams;
   const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
   const activeStatus = status
@@ -102,7 +102,6 @@ export default async function DisputesPage({
             sort={activeSort}
           />
         </Suspense>
-        <p className="dk-field-description">Signed in as {session.displayName}.</p>
       </PageSection>
     </>
   );
