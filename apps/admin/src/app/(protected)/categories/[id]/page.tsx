@@ -133,42 +133,25 @@ async function CategoryRecord({ categoryId }: { readonly categoryId: string }) {
           style={{
             display: "flex",
             justifyContent: "space-between",
-            alignItems: "flex-start",
+            alignItems: "center",
             gap: 16,
             flexWrap: "wrap",
             marginBottom: 20,
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-            <div
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: "var(--dk-radius-md)",
-                background: "rgba(110, 32, 223, 0.12)",
-                color: "var(--dk-primary)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-              }}
-              aria-hidden="true"
-            >
-              <TagIcon width={22} height={22} />
-            </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
+            <TagIcon
+              width={34}
+              height={34}
+              style={{ color: "var(--dk-primary)", flexShrink: 0 }}
+            />
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <h1
-                  className="dk-booking-hero-title"
-                  style={{ margin: 0, fontSize: "clamp(22px, 2.5vw, 28px)" }}
-                >
-                  {detail.name}
-                </h1>
-                <StatusBadge
-                  tone={detail.active ? "success" : "neutral"}
-                  label={detail.active ? "Active" : "Inactive"}
-                />
-              </div>
+              <h1
+                className="dk-booking-hero-title"
+                style={{ margin: 0, fontSize: "clamp(22px, 2.5vw, 28px)" }}
+              >
+                {detail.name}
+              </h1>
               <p
                 className="dk-detail-header-meaning"
                 style={{ margin: "4px 0 0 0", color: "var(--dk-textSecondary)" }}
@@ -178,6 +161,13 @@ async function CategoryRecord({ categoryId }: { readonly categoryId: string }) {
                   : "Hidden from new task creation. Existing tasks keep their category."}
               </p>
             </div>
+          </div>
+
+          <div style={{ flexShrink: 0 }}>
+            <StatusBadge
+              tone={detail.active ? "success" : "neutral"}
+              label={detail.active ? "Active" : "Inactive"}
+            />
           </div>
         </div>
 
