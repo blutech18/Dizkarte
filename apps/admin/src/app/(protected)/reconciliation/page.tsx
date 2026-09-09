@@ -161,16 +161,7 @@ async function ReconciliationSummary() {
   const summary = await getAdminRepository().getReconciliationSummary();
 
   return (
-    <div
-      role="group"
-      aria-label="Reconciliation summary"
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-        gap: 12,
-        marginBottom: 20,
-      }}
-    >
+    <div role="group" aria-label="Reconciliation summary" className="dk-kpi-grid">
       <SummaryCard
         label="Matched"
         value={summary.matched}
@@ -390,45 +381,17 @@ function SummaryCard({
   const hasValue = value > 0;
 
   return (
-    <div
-      className="dk-card"
-      role="group"
-      aria-label={label}
-      style={{
-        padding: "16px 18px",
-        display: "flex",
-        flexDirection: "column",
-        justifyContent: "space-between",
-        borderRadius: "var(--dk-radius-md)",
-        border: "1px solid var(--dk-borderSubtle)",
-        background: "var(--dk-surface)",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 8,
-          marginBottom: 8,
-        }}
-      >
-        <span style={{ fontSize: 13, fontWeight: 600, color: "var(--dk-textSecondary)" }}>
-          {label}
-        </span>
+    <div className="dk-kpi-card" role="group" aria-label={label}>
+      <div className="dk-kpi-header">
+        <span className="dk-kpi-label">{label}</span>
         {cardTone && cardTone !== "neutral" && hasValue ? (
           <StatusBadge tone={cardTone} label={cardTone === "success" ? "OK" : "Alert"} />
         ) : null}
       </div>
       <div>
         <p
+          className="dk-kpi-value"
           style={{
-            margin: 0,
-            fontSize: "1.75rem",
-            fontWeight: 800,
-            letterSpacing: "-0.02em",
-            fontVariantNumeric: "tabular-nums",
-            lineHeight: 1.1,
             color:
               cardTone === "error" && hasValue
                 ? "var(--dk-errorSolid)"
@@ -441,16 +404,7 @@ function SummaryCard({
         >
           {value}
         </p>
-        <span
-          style={{
-            fontSize: 11.5,
-            color: "var(--dk-textSecondary)",
-            marginTop: 4,
-            display: "block",
-          }}
-        >
-          {subtext}
-        </span>
+        <span className="dk-kpi-subtext">{subtext}</span>
       </div>
     </div>
   );
