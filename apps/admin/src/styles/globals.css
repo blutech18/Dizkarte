@@ -5637,8 +5637,35 @@ textarea {
   color: var(--dk-textPrimary);
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: nowrap;
+}
+
+.dk-copy-icon-btn {
+  background: transparent;
+  border: none;
+  padding: 2px 4px;
+  margin: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dk-textSecondary);
+  border-radius: var(--dk-radius-sm);
+  transition: color var(--dk-transition-fast), background var(--dk-transition-fast);
+  flex-shrink: 0;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.dk-copy-icon-btn:hover {
+  color: var(--dk-primary);
+  background: rgba(110, 32, 223, 0.08);
+}
+
+.dk-copy-icon-btn:focus-visible {
+  outline: 2px solid var(--dk-primary);
+  outline-offset: 1px;
 }
 
 .dk-report-grid {

@@ -140,7 +140,7 @@ async function ReportCaseRecord({
             <span className="dk-ref-code" style={{ fontSize: 13, whiteSpace: "nowrap" }}>
               {formatReferenceId(detail.id, "RPT", detail.createdAt)}
             </span>
-            <CopyButton text={detail.id} label="report reference ID" />
+            <CopyButton text={detail.id} label="report reference ID" variant="icon" />
           </Fact>
           <Fact label="Target entity">
             <span>{resourceTypeLabel(detail.resourceType)}</span>
