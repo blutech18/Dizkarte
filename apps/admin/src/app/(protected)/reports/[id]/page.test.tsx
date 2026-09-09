@@ -95,4 +95,37 @@ describe("report detail page", () => {
     expect(html).toContain("fc4fd239-a274-43b6-8685-9605594544da");
     expect(html).toContain("Assign to me");
   });
+
+  it("renders the unified privacy lock banner when case is unassigned and restricted", async () => {
+    getReport.mockResolvedValueOnce({
+      ...report,
+      reporterDisplayName: "(protected)",
+      access: { restricted: true, reason: "unassigned" },
+      assignee: null,
+      narrative: null,
+      subject: null,
+    } as any);
+
+    const shell = (await ReportDetailPage({
+      params: Promise.resolve({ id: report.id }),
+    })) as ReactElement;
+
+    const recordElement = walk(shell).find(
+      (element) =>
+        typeof element.type === "function" &&
+        element.type.constructor.name === "AsyncFunction" &&
+        element.type.name === "ReportCaseRecord",
+    );
+    expect(recordElement).toBeDefined();
+
+    const resolved = await (recordElement!.type as (props: unknown) => Promise<ReactElement>)(
+      recordElement!.props,
+    );
+    const html = renderToStaticMarkup(resolved);
+
+    expect(html).toContain("Case Assignment Required");
+    expect(html).toContain("Protected Information in this Case");
+    expect(html).toContain("Assign to me");
+  });
 });
+
