@@ -13,17 +13,25 @@ import { approveWithdrawalAction } from "./actions";
  */
 export function WithdrawalRowActions({
   withdrawalId,
+  status,
   disabled,
   disabledReason,
+  disabledReasonPresentation = "text",
 }: {
   readonly withdrawalId: string;
+  readonly status?: string | undefined;
   readonly disabled: boolean;
   readonly disabledReason: string;
+  readonly disabledReasonPresentation?: "text" | "tooltip" | undefined;
 }) {
   const router = useRouter();
 
+  if (status === "PAID" || status === "CANCELLED") {
+    return <span className="dk-muted">—</span>;
+  }
+
   return (
-    <div className="dk-row">
+    <div className="dk-row" style={{ flexWrap: "nowrap", gap: 6 }}>
       <ConfirmDialog
         triggerLabel="Approve"
         triggerVariant="primary"
@@ -33,6 +41,7 @@ export function WithdrawalRowActions({
         requireReason
         disabled={disabled}
         disabledReason={disabledReason}
+        disabledReasonPresentation={disabledReasonPresentation}
         onConfirm={async (reason) => {
           const result = await approveWithdrawalAction({ withdrawalId, reason });
           if (result.ok) router.refresh();
@@ -48,6 +57,7 @@ export function WithdrawalRowActions({
         requireReason
         disabled={disabled}
         disabledReason={disabledReason}
+        disabledReasonPresentation={disabledReasonPresentation}
         onConfirm={async (reason) => {
           const result = await approveWithdrawalAction({ withdrawalId, reason });
           if (result.ok) router.refresh();
@@ -63,6 +73,7 @@ export function WithdrawalRowActions({
         requireReason
         disabled={disabled}
         disabledReason={disabledReason}
+        disabledReasonPresentation={disabledReasonPresentation}
         onConfirm={async (reason) => {
           const result = await approveWithdrawalAction({ withdrawalId, reason });
           if (result.ok) router.refresh();

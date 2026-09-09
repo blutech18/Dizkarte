@@ -136,8 +136,8 @@ async function WithdrawalsTable({
       key: "reference",
       header: "Withdrawal",
       render: (row) => (
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-          <span style={{ fontFamily: "ui-monospace, monospace", fontWeight: 600, fontSize: 13 }}>
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
+          <span style={{ fontFamily: "ui-monospace, monospace", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap" }}>
             {formatReferenceId(row.id, "WTH", row.requestedAt)}
           </span>
           <CopyButton text={row.id} label="withdrawal ID" variant="icon" />
@@ -184,8 +184,10 @@ async function WithdrawalsTable({
       render: (row) => (
         <WithdrawalRowActions
           withdrawalId={row.id}
+          status={row.status}
           disabled={!availability.payoutProviderAvailable}
           disabledReason={availability.reason}
+          disabledReasonPresentation="tooltip"
         />
       ),
     },
