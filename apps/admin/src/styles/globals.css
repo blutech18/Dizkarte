@@ -5605,8 +5605,8 @@ textarea {
 
 .dk-report-metrics {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
   margin: 0;
   padding: 0;
 }
@@ -5615,10 +5615,10 @@ textarea {
   background: var(--dk-surfaceSubtle);
   border: 1px solid var(--dk-borderSubtle);
   border-radius: var(--dk-radius-sm);
-  padding: 11px 14px;
+  padding: 12px 14px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .dk-report-metrics .dk-fact > dt {
@@ -5637,8 +5637,8 @@ textarea {
   color: var(--dk-textPrimary);
   display: flex;
   align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
+  gap: 8px;
+  flex-wrap: nowrap;
 }
 
 .dk-report-grid {

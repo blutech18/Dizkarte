@@ -137,7 +137,7 @@ async function ReportCaseRecord({
         {/* Key Metrics */}
         <dl className="dk-report-metrics">
           <Fact label="Report reference">
-            <span className="dk-ref-code" style={{ fontSize: 13 }}>
+            <span className="dk-ref-code" style={{ fontSize: 13, whiteSpace: "nowrap" }}>
               {formatReferenceId(detail.id, "RPT", detail.createdAt)}
             </span>
             <CopyButton text={detail.id} label="report reference ID" />
