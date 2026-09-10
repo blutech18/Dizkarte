@@ -161,7 +161,7 @@ async function ReconciliationSummary() {
   const summary = await getAdminRepository().getReconciliationSummary();
 
   return (
-    <div role="group" aria-label="Reconciliation summary" className="dk-kpi-grid">
+    <div role="group" aria-label="Reconciliation summary" className="dk-kpi-grid dk-reconciliation-grid">
       <SummaryCard
         label="Matched"
         value={summary.matched}

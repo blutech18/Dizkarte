@@ -9,8 +9,7 @@ import { updateSettingAction } from "./actions";
 /**
  * Operational setting editor (super Admin only).
  *
- * Only allow-listed operational settings are editable; the server RPC re-checks
- * the key, the ADMIN_SUPER capability, bounds, and audits the change.
+ * Built with standard design system tokens (.dk-stack, .dk-field, .dk-label, .dk-input, .dk-textarea, .dk-btn).
  */
 export function OperationalSettingForm({ setting }: { readonly setting: EditableSetting }) {
   const router = useRouter();
@@ -23,19 +22,31 @@ export function OperationalSettingForm({ setting }: { readonly setting: Editable
   const [success, setSuccess] = useState<string | null>(null);
 
   const parsed = Number(value);
-  const invalid = !Number.isInteger(parsed) || parsed < setting.min || parsed > setting.max;
+  const isNumber = !Number.isNaN(parsed) && Number.isInteger(parsed);
+  const invalid = !isNumber || parsed < setting.min || parsed > setting.max;
   const unchanged = parsed === setting.value;
+
+  const handleReset = () => {
+    setValue(String(setting.value));
+    setReason("");
+    setError(null);
+    setSuccess(null);
+  };
 
   return (
     <form
+      noValidate
+      className="dk-stack"
       onSubmit={async (event) => {
         event.preventDefault();
         if (reason.trim().length === 0) {
-          setError("A reason is required; it is recorded in the audit log.");
+          setError(
+            "An audit justification is required. It will be permanently recorded in the audit log.",
+          );
           return;
         }
         if (invalid) {
-          setError(`Enter a whole number between ${setting.min} and ${setting.max}.`);
+          setError(`Please enter a whole number between ${setting.min} and ${setting.max}.`);
           return;
         }
         setPending(true);
@@ -44,165 +55,165 @@ export function OperationalSettingForm({ setting }: { readonly setting: Editable
         const result = await updateSettingAction({ key: setting.key, value: parsed, reason });
         setPending(false);
         if (result.ok) {
-          setSuccess("Setting updated successfully.");
+          setSuccess("Setting updated and committed to the audit trail.");
           setReason("");
           router.refresh();
         } else {
-          setError(result.message ?? "Could not update this setting. Please try again.");
+          setError(result.message ?? "Failed to update operational setting.");
         }
       }}
-      style={{
-        background: "var(--dk-surfaceSubtle)",
-        border: "1px solid var(--dk-borderSubtle)",
-        borderRadius: "var(--dk-radius-sm)",
-        padding: "16px 18px",
-        display: "flex",
-        flexDirection: "column",
-        gap: 14,
-      }}
     >
+      {/* Alert notifications */}
       {error ? (
         <div
           role="alert"
           style={{
+            padding: "10px 14px",
             background: "var(--dk-errorSoft)",
             border: "1px solid var(--dk-errorSolid)",
             color: "var(--dk-errorOnSoft, #9F1833)",
             borderRadius: "var(--dk-radius-sm)",
-            padding: "10px 14px",
             fontSize: 13,
+            marginBottom: 16,
           }}
         >
           {error}
         </div>
       ) : null}
+
       {success ? (
         <div
           role="status"
           style={{
+            padding: "10px 14px",
             background: "var(--dk-successSoft)",
             border: "1px solid var(--dk-successSolid)",
             color: "var(--dk-successOnSoft, #0F6B46)",
             borderRadius: "var(--dk-radius-sm)",
-            padding: "10px 14px",
             fontSize: 13,
+            marginBottom: 16,
           }}
         >
           {success}
         </div>
       ) : null}
 
-      <div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-          <label
-            htmlFor={valueId}
-            style={{ fontSize: 13.5, fontWeight: 700, color: "var(--dk-textPrimary)" }}
-          >
+      {/* Field: Setting Value */}
+      <div className="dk-field">
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 6,
+          }}
+        >
+          <label htmlFor={valueId} className="dk-label" style={{ fontWeight: 600, fontSize: 13.5 }}>
             {setting.label}
           </label>
           <span
             style={{
               fontSize: 12,
-              fontFamily: "ui-monospace, monospace",
-              fontWeight: 600,
               color: "var(--dk-textSecondary)",
-              background: "var(--dk-surface)",
-              padding: "2px 8px",
-              borderRadius: "var(--dk-radius-sm)",
-              border: "1px solid var(--dk-borderSubtle)",
+              fontFamily: "ui-monospace, monospace",
             }}
           >
             Current: {setting.value} {setting.unit}
           </span>
         </div>
-        <p style={{ margin: "0 0 12px 0", fontSize: 12.5, color: "var(--dk-textSecondary)", lineHeight: 1.45 }}>
+        <p className="dk-field-description" style={{ margin: "0 0 10px 0" }}>
           {setting.description}
         </p>
-
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <input
-              id={valueId}
-              className="dk-input"
-              style={{
-                width: 90,
-                padding: "6px 10px",
-                fontWeight: 600,
-                fontVariantNumeric: "tabular-nums",
-                textAlign: "center",
-              }}
-              type="number"
-              inputMode="numeric"
-              value={value}
-              required
-              min={setting.min}
-              max={setting.max}
-              step={1}
-              onChange={(event) => setValue(event.target.value)}
-            />
-            <span style={{ fontSize: 13, fontWeight: 600, color: "var(--dk-textSecondary)" }}>
-              {setting.unit}
-            </span>
-          </div>
-
-          <span style={{ fontSize: 12, color: "var(--dk-textSecondary)", fontFamily: "ui-monospace, monospace" }}>
-            (Allowed range: {setting.min} – {setting.max} {setting.unit})
+          <input
+            id={valueId}
+            className="dk-input"
+            type="number"
+            inputMode="numeric"
+            value={value}
+            required
+            min={setting.min}
+            max={setting.max}
+            step={1}
+            disabled={pending}
+            onChange={(event) => {
+              setValue(event.target.value);
+              setError(null);
+            }}
+            style={{ width: 110, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}
+            aria-describedby={`${valueId}-hint`}
+          />
+          <span style={{ fontSize: 13.5, fontWeight: 500, color: "var(--dk-textPrimary)" }}>
+            {setting.unit}
+          </span>
+          <span id={`${valueId}-hint`} style={{ fontSize: 12, color: "var(--dk-textSecondary)" }}>
+            (Allowed range: {setting.min} to {setting.max} {setting.unit})
           </span>
         </div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      {/* Field: Audit Justification */}
+      <div className="dk-field">
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 6,
+          }}
+        >
           <label
             htmlFor={reasonId}
-            style={{ fontSize: 12.5, fontWeight: 600, color: "var(--dk-textPrimary)" }}
+            className="dk-label"
+            style={{ fontWeight: 600, fontSize: 13.5 }}
           >
-            Audit justification {!unchanged ? <span style={{ color: "var(--dk-errorSolid, #B4233B)" }}>*</span> : null}
+            Audit justification{" "}
+            {!unchanged ? <span style={{ color: "var(--dk-errorSolid)" }}>*</span> : null}
           </label>
           <span style={{ fontSize: 11.5, color: "var(--dk-textSecondary)" }}>
-            Permanently logged
+            Immutable audit record
           </span>
         </div>
+        <p className="dk-field-description" style={{ margin: "0 0 8px 0" }}>
+          Provide an operational justification explaining the business rationale for modifying this
+          threshold.
+        </p>
         <textarea
           id={reasonId}
           className="dk-textarea"
-          rows={2}
-          placeholder={unchanged ? "Change value above to submit an audited threshold update..." : "Describe the operational reason for this threshold change..."}
+          rows={3}
+          placeholder={
+            unchanged
+              ? "Modify the threshold above to submit an audited change..."
+              : "Enter the operational justification for this change..."
+          }
           value={reason}
-          disabled={unchanged}
+          disabled={unchanged || pending}
           onChange={(event) => setReason(event.target.value)}
-          style={{
-            fontSize: 13,
-            resize: "vertical",
-            minHeight: 52,
-            background: unchanged ? "var(--dk-surface)" : "var(--dk-surface)",
-            opacity: unchanged ? 0.7 : 1,
-          }}
+          style={{ fontSize: 13, resize: "vertical", minHeight: 68 }}
         />
       </div>
 
-      <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
+      {/* Action Row */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "flex-end",
+          gap: 10,
+        }}
+      >
         {!unchanged ? (
           <button
             type="button"
             className="dk-btn dk-btn-secondary"
-            style={{ fontSize: 12.5, padding: "6px 14px" }}
-            onClick={() => {
-              setValue(String(setting.value));
-              setReason("");
-              setError(null);
-            }}
+            onClick={handleReset}
+            disabled={pending}
           >
             Reset
           </button>
         ) : null}
-        <Button
-          type="submit"
-          variant="primary"
-          loading={pending}
-          disabled={unchanged || invalid}
-          style={{ fontSize: 12.5, padding: "6px 16px" }}
-        >
+        <Button type="submit" variant="primary" loading={pending} disabled={unchanged || pending}>
           Save changes
         </Button>
       </div>

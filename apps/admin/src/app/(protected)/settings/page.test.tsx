@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { Suspense, type ReactElement } from "react";
 
 const { getSettings, loadServerConfig } = vi.hoisted(() => ({
-  getSettings: vi.fn((): Promise<any> => new Promise<never>(() => {})),
+  getSettings: vi.fn((): Promise<unknown> => new Promise<never>(() => {})),
   loadServerConfig: vi.fn(() => ({
     environment: "development",
     adapterModes: {
@@ -69,7 +69,7 @@ describe("settings page streaming shell and workstation layout", () => {
     const boundaries = walk(shell).filter((element) => element.type === Suspense);
 
     expect(boundaries.length).toBeGreaterThanOrEqual(1);
-    expect((boundaries[0] as any).props.fallback).toBeTruthy();
+    expect((boundaries[0] as ReactElement<{ fallback?: unknown }>).props.fallback).toBeTruthy();
   });
 
   it("renders runtime environment and adapter facts in the shell", async () => {
@@ -77,12 +77,12 @@ describe("settings page streaming shell and workstation layout", () => {
     const elements = walk(shell);
 
     const envHeading = elements.find(
-      (el) => (el.props as any)?.id === "environment-heading",
+      (el) => (el.props as Record<string, unknown>)?.id === "environment-heading",
     );
     expect(envHeading).toBeDefined();
 
     const securityHeading = elements.find(
-      (el) => (el.props as any)?.id === "security-heading",
+      (el) => (el.props as Record<string, unknown>)?.id === "security-heading",
     );
     expect(securityHeading).toBeDefined();
   });

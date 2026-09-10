@@ -8,45 +8,45 @@
  */
 
 :root {
-  --dk-background: #F8F7FC;
-  --dk-surface: #FFFFFF;
-  --dk-surfaceElevated: #FFFFFF;
-  --dk-surfaceSubtle: #F4F0FB;
-  --dk-surfaceBrand: #F7F2FF;
-  --dk-surfaceAccent: #FFF9E6;
-  --dk-logoSurface: #FFFFFF;
+  --dk-background: #f8f7fc;
+  --dk-surface: #ffffff;
+  --dk-surfaceElevated: #ffffff;
+  --dk-surfaceSubtle: #f4f0fb;
+  --dk-surfaceBrand: #f7f2ff;
+  --dk-surfaceAccent: #fff9e6;
+  --dk-logoSurface: #ffffff;
   --dk-textPrimary: #030815;
   --dk-textSecondary: #596274;
-  --dk-textInverse: #FFFFFF;
-  --dk-primary: #6E20DF;
-  --dk-primaryHover: #5B18C2;
-  --dk-primaryPressed: #42209D;
-  --dk-primarySoft: #EDE3FF;
-  --dk-onPrimary: #FFFFFF;
-  --dk-accent: #FDBE17;
-  --dk-accentHighlight: #FECE32;
-  --dk-accentSoft: #FFF1B8;
+  --dk-textInverse: #ffffff;
+  --dk-primary: #6e20df;
+  --dk-primaryHover: #5b18c2;
+  --dk-primaryPressed: #42209d;
+  --dk-primarySoft: #ede3ff;
+  --dk-onPrimary: #ffffff;
+  --dk-accent: #fdbe17;
+  --dk-accentHighlight: #fece32;
+  --dk-accentSoft: #fff1b8;
   --dk-onAccent: #030815;
-  --dk-link: #5B18C2;
-  --dk-borderSubtle: #E5DEEF;
-  --dk-borderControl: #8B7C9E;
-  --dk-focusRing: #6E20DF;
-  --dk-disabledBackground: #ECEEF3;
-  --dk-disabledForeground: #8793A7;
+  --dk-link: #5b18c2;
+  --dk-borderSubtle: #e5deef;
+  --dk-borderControl: #8b7c9e;
+  --dk-focusRing: #6e20df;
+  --dk-disabledBackground: #eceef3;
+  --dk-disabledForeground: #8793a7;
   --dk-overlay: rgba(3, 8, 21, 0.56);
   --dk-shadow: rgba(3, 8, 21, 0.12);
-  --dk-successSolid: #137A50;
-  --dk-successSoft: #E9F8F1;
-  --dk-successOnSoft: #0F6B46;
-  --dk-warningSolid: #8A5A00;
-  --dk-warningSoft: #FFF5D6;
-  --dk-warningOnSoft: #6B4500;
-  --dk-errorSolid: #B4233B;
-  --dk-errorSoft: #FDECEF;
-  --dk-errorOnSoft: #9F1833;
-  --dk-infoSolid: #1D4ED8;
-  --dk-infoSoft: #EAF0FF;
-  --dk-infoOnSoft: #173EA6;
+  --dk-successSolid: #137a50;
+  --dk-successSoft: #e9f8f1;
+  --dk-successOnSoft: #0f6b46;
+  --dk-warningSolid: #8a5a00;
+  --dk-warningSoft: #fff5d6;
+  --dk-warningOnSoft: #6b4500;
+  --dk-errorSolid: #b4233b;
+  --dk-errorSoft: #fdecef;
+  --dk-errorOnSoft: #9f1833;
+  --dk-infoSolid: #1d4ed8;
+  --dk-infoSoft: #eaf0ff;
+  --dk-infoOnSoft: #173ea6;
 
   --dk-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
   --dk-shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
@@ -1767,7 +1767,9 @@ textarea {
   cursor: pointer;
   color: var(--dk-textPrimary);
   box-shadow: none;
-  transition: background var(--dk-transition-fast), color var(--dk-transition-fast);
+  transition:
+    background var(--dk-transition-fast),
+    color var(--dk-transition-fast);
 }
 
 .dk-avatar-btn:hover {
@@ -1809,7 +1811,10 @@ textarea {
   color: var(--dk-textSecondary);
   opacity: 0.7;
   flex-shrink: 0;
-  transition: transform 0.2s ease, opacity 0.15s ease, color 0.15s ease;
+  transition:
+    transform 0.2s ease,
+    opacity 0.15s ease,
+    color 0.15s ease;
 }
 
 .dk-avatar-btn:hover .dk-avatar-chevron {
@@ -2026,7 +2031,9 @@ textarea {
   border: 1px solid var(--dk-borderSubtle);
   border-radius: var(--dk-radius-md);
   box-shadow: var(--dk-shadow-sm);
-  transition: box-shadow var(--dk-transition-fast), border-color var(--dk-transition-fast);
+  transition:
+    box-shadow var(--dk-transition-fast),
+    border-color var(--dk-transition-fast);
 }
 
 .dk-media-card:hover {
@@ -2177,7 +2184,6 @@ textarea {
   gap: 6px;
 }
 
-
 /* Verbatim user content under moderation review. Visually separated so a
    moderator never mistakes a reported message for Admin copy. */
 .dk-quote {
@@ -2282,7 +2288,9 @@ textarea {
   border: 1px solid rgba(110, 32, 223, 0.12);
   border-radius: var(--dk-radius-sm);
   padding: 16px;
-  transition: border-color var(--dk-transition-fast), box-shadow var(--dk-transition-fast);
+  transition:
+    border-color var(--dk-transition-fast),
+    box-shadow var(--dk-transition-fast);
 }
 
 .dk-verification-doc-item:hover {
@@ -3207,8 +3215,26 @@ textarea {
 
 .dk-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: 1fr;
   gap: 14px;
+  margin-bottom: 20px;
+  align-items: stretch;
+}
+
+@media (min-width: 640px) {
+  .dk-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .dk-kpi-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .dk-kpi-grid:has(> :last-child:nth-child(3)) {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 .dk-kpi {
@@ -3216,13 +3242,21 @@ textarea {
   min-width: 0;
   min-height: 124px;
   padding: 18px 20px;
-  background: linear-gradient(135deg, rgba(110, 32, 223, 0.05) 0%, rgba(142, 68, 245, 0.02) 60%, rgba(255, 255, 255, 0) 100%), var(--dk-surface);
+  background: linear-gradient(
+      135deg,
+      rgba(110, 32, 223, 0.05) 0%,
+      rgba(142, 68, 245, 0.02) 60%,
+      rgba(255, 255, 255, 0) 100%
+    ),
+    var(--dk-surface);
   border: 1px solid rgba(110, 32, 223, 0.16);
   border-radius: var(--dk-radius-md);
   box-shadow: var(--dk-shadow-sm);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
+  height: 100%;
+  box-sizing: border-box;
   overflow: hidden;
   transition:
     box-shadow var(--dk-transition-fast),
@@ -3259,24 +3293,30 @@ textarea {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--dk-textSecondary);
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dk-kpi-value {
   display: block;
-  margin-top: 6px;
+  margin-top: 8px;
   overflow-wrap: anywhere;
   color: var(--dk-textPrimary);
-  font-size: clamp(22px, 2.2vw, 28px);
+  font-size: clamp(22px, 2vw, 28px);
   font-weight: 800;
   letter-spacing: -0.025em;
   line-height: 1.15;
+  font-variant-numeric: tabular-nums;
 }
 
 .dk-kpi-delta {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-top: 8px;
+  margin-top: auto;
+  padding-top: 10px;
   font-size: 12px;
   font-weight: 600;
   line-height: 1.35;
@@ -3306,7 +3346,13 @@ textarea {
   min-width: 0;
   margin: 0;
   padding: 22px;
-  background: linear-gradient(135deg, rgba(110, 32, 223, 0.04) 0%, rgba(142, 68, 245, 0.015) 60%, rgba(255, 255, 255, 0) 100%), var(--dk-surface);
+  background: linear-gradient(
+      135deg,
+      rgba(110, 32, 223, 0.04) 0%,
+      rgba(142, 68, 245, 0.015) 60%,
+      rgba(255, 255, 255, 0) 100%
+    ),
+    var(--dk-surface);
   border: 1px solid rgba(110, 32, 223, 0.16);
   border-radius: var(--dk-radius-md);
   box-shadow: var(--dk-shadow-sm);
@@ -3500,7 +3546,13 @@ textarea {
   justify-content: space-between;
   gap: 14px;
   padding: 14px 18px;
-  background: linear-gradient(135deg, rgba(110, 32, 223, 0.04) 0%, rgba(142, 68, 245, 0.015) 60%, rgba(255, 255, 255, 0) 100%), var(--dk-surface);
+  background: linear-gradient(
+      135deg,
+      rgba(110, 32, 223, 0.04) 0%,
+      rgba(142, 68, 245, 0.015) 60%,
+      rgba(255, 255, 255, 0) 100%
+    ),
+    var(--dk-surface);
   border: 1px solid rgba(110, 32, 223, 0.16);
   border-radius: var(--dk-radius-md);
   color: var(--dk-textPrimary);
@@ -3596,7 +3648,6 @@ textarea {
   margin-bottom: 18px;
   position: relative;
 }
-
 
 .dk-filter-bar-field {
   display: flex;
@@ -4215,13 +4266,21 @@ textarea {
 /* Hero Header Card */
 .dk-booking-hero {
   position: relative;
-  background: linear-gradient(135deg, rgba(110, 32, 223, 0.05) 0%, rgba(142, 68, 245, 0.02) 60%, rgba(255, 255, 255, 0) 100%), var(--dk-surface);
+  background: linear-gradient(
+      135deg,
+      rgba(110, 32, 223, 0.05) 0%,
+      rgba(142, 68, 245, 0.02) 60%,
+      rgba(255, 255, 255, 0) 100%
+    ),
+    var(--dk-surface);
   border: 1px solid rgba(110, 32, 223, 0.16);
   border-radius: var(--dk-radius-lg);
   padding: 24px 28px;
   box-shadow: var(--dk-shadow-sm);
   overflow: hidden;
-  transition: box-shadow var(--dk-transition-fast), border-color var(--dk-transition-fast);
+  transition:
+    box-shadow var(--dk-transition-fast),
+    border-color var(--dk-transition-fast);
 }
 
 .dk-booking-hero:hover {
@@ -4309,7 +4368,9 @@ textarea {
   flex-direction: column;
   justify-content: space-between;
   gap: 8px;
-  transition: border-color var(--dk-transition-fast), box-shadow var(--dk-transition-fast);
+  transition:
+    border-color var(--dk-transition-fast),
+    box-shadow var(--dk-transition-fast);
 }
 
 .dk-booking-metrics .dk-fact:hover {
@@ -4378,11 +4439,19 @@ textarea {
 /* Stepper Card Enhancements */
 .dk-flow-card {
   padding: 22px 26px;
-  background: linear-gradient(135deg, rgba(110, 32, 223, 0.05) 0%, rgba(142, 68, 245, 0.02) 60%, rgba(255, 255, 255, 0) 100%), var(--dk-surface);
+  background: linear-gradient(
+      135deg,
+      rgba(110, 32, 223, 0.05) 0%,
+      rgba(142, 68, 245, 0.02) 60%,
+      rgba(255, 255, 255, 0) 100%
+    ),
+    var(--dk-surface);
   border: 1px solid rgba(110, 32, 223, 0.16);
   border-radius: var(--dk-radius-md);
   box-shadow: var(--dk-shadow-sm);
-  transition: box-shadow var(--dk-transition-fast), border-color var(--dk-transition-fast);
+  transition:
+    box-shadow var(--dk-transition-fast),
+    border-color var(--dk-transition-fast);
 }
 
 .dk-flow-card:hover {
@@ -4525,11 +4594,19 @@ textarea {
 }
 
 .dk-booking-grid .dk-card {
-  background: linear-gradient(135deg, rgba(110, 32, 223, 0.05) 0%, rgba(142, 68, 245, 0.02) 60%, rgba(255, 255, 255, 0) 100%), var(--dk-surface);
+  background: linear-gradient(
+      135deg,
+      rgba(110, 32, 223, 0.05) 0%,
+      rgba(142, 68, 245, 0.02) 60%,
+      rgba(255, 255, 255, 0) 100%
+    ),
+    var(--dk-surface);
   border: 1px solid rgba(110, 32, 223, 0.16);
   border-radius: var(--dk-radius-md);
   box-shadow: var(--dk-shadow-sm);
-  transition: box-shadow var(--dk-transition-fast), border-color var(--dk-transition-fast);
+  transition:
+    box-shadow var(--dk-transition-fast),
+    border-color var(--dk-transition-fast);
 }
 
 .dk-booking-grid .dk-card:hover {
@@ -4669,7 +4746,8 @@ textarea {
 
 .dk-finance-callout,
 .dk-escrow-box {
-  background: linear-gradient(135deg, rgba(110, 32, 223, 0.08) 0%, rgba(142, 68, 245, 0.03) 100%), var(--dk-surface);
+  background: linear-gradient(135deg, rgba(110, 32, 223, 0.08) 0%, rgba(142, 68, 245, 0.03) 100%),
+    var(--dk-surface);
   border: 1px solid var(--dk-primarySoft);
   border-radius: var(--dk-radius-md);
   padding: 16px 18px;
@@ -4720,7 +4798,9 @@ textarea {
   background: var(--dk-surface);
   border: 1px solid rgba(110, 32, 223, 0.12);
   border-radius: var(--dk-radius-sm);
-  transition: border-color var(--dk-transition-fast), box-shadow var(--dk-transition-fast);
+  transition:
+    border-color var(--dk-transition-fast),
+    box-shadow var(--dk-transition-fast);
 }
 
 .dk-payment-action-item:hover {
@@ -4770,7 +4850,13 @@ textarea {
 
 .dk-summary-card {
   position: relative;
-  background: linear-gradient(135deg, rgba(110, 32, 223, 0.05) 0%, rgba(142, 68, 245, 0.02) 60%, rgba(255, 255, 255, 0) 100%), var(--dk-surface);
+  background: linear-gradient(
+      135deg,
+      rgba(110, 32, 223, 0.05) 0%,
+      rgba(142, 68, 245, 0.02) 60%,
+      rgba(255, 255, 255, 0) 100%
+    ),
+    var(--dk-surface);
   border: 1px solid rgba(110, 32, 223, 0.16);
   border-radius: var(--dk-radius-md);
   padding: 18px 20px;
@@ -5060,7 +5146,9 @@ textarea {
   color: var(--dk-primary);
   text-decoration: none;
   background: transparent;
-  transition: background var(--dk-transition-fast), color var(--dk-transition-fast);
+  transition:
+    background var(--dk-transition-fast),
+    color var(--dk-transition-fast);
   white-space: nowrap;
 }
 
@@ -5128,7 +5216,11 @@ textarea {
   color: var(--dk-textPrimary);
   cursor: pointer;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  transition: background var(--dk-transition-fast), border-color var(--dk-transition-fast), color var(--dk-transition-fast), box-shadow var(--dk-transition-fast);
+  transition:
+    background var(--dk-transition-fast),
+    border-color var(--dk-transition-fast),
+    color var(--dk-transition-fast),
+    box-shadow var(--dk-transition-fast);
   white-space: nowrap;
 }
 
@@ -5172,7 +5264,9 @@ textarea {
   font-size: 16px;
   line-height: 1;
   border-radius: 4px;
-  transition: background var(--dk-transition-fast), color var(--dk-transition-fast);
+  transition:
+    background var(--dk-transition-fast),
+    color var(--dk-transition-fast);
 }
 
 .dk-dialog-close-icon-btn:hover {
@@ -5279,13 +5373,21 @@ textarea {
 
 .dk-task-hero {
   position: relative;
-  background: linear-gradient(135deg, rgba(110, 32, 223, 0.05) 0%, rgba(142, 68, 245, 0.02) 60%, rgba(255, 255, 255, 0) 100%), var(--dk-surface);
+  background: linear-gradient(
+      135deg,
+      rgba(110, 32, 223, 0.05) 0%,
+      rgba(142, 68, 245, 0.02) 60%,
+      rgba(255, 255, 255, 0) 100%
+    ),
+    var(--dk-surface);
   border: 1px solid rgba(110, 32, 223, 0.16);
   border-radius: var(--dk-radius-lg);
   padding: 24px 28px;
   box-shadow: var(--dk-shadow-sm);
   overflow: hidden;
-  transition: box-shadow var(--dk-transition-fast), border-color var(--dk-transition-fast);
+  transition:
+    box-shadow var(--dk-transition-fast),
+    border-color var(--dk-transition-fast);
 }
 
 .dk-task-hero:hover {
@@ -5334,7 +5436,9 @@ textarea {
   flex-direction: column;
   justify-content: space-between;
   gap: 8px;
-  transition: border-color var(--dk-transition-fast), box-shadow var(--dk-transition-fast);
+  transition:
+    border-color var(--dk-transition-fast),
+    box-shadow var(--dk-transition-fast);
 }
 
 .dk-task-metrics .dk-fact:hover {
@@ -5433,7 +5537,9 @@ textarea {
   border: 1px solid var(--dk-borderSubtle);
   border-radius: var(--dk-radius-md);
   box-shadow: var(--dk-shadow-sm);
-  transition: box-shadow var(--dk-transition-fast), border-color var(--dk-transition-fast);
+  transition:
+    box-shadow var(--dk-transition-fast),
+    border-color var(--dk-transition-fast);
 }
 
 .dk-task-card:hover {
@@ -5506,7 +5612,9 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  transition: border-color var(--dk-transition-fast), box-shadow var(--dk-transition-fast);
+  transition:
+    border-color var(--dk-transition-fast),
+    box-shadow var(--dk-transition-fast);
 }
 
 .dk-attachment-card:hover {
@@ -5678,7 +5786,9 @@ textarea {
   justify-content: center;
   color: var(--dk-textSecondary);
   border-radius: var(--dk-radius-sm);
-  transition: color var(--dk-transition-fast), background var(--dk-transition-fast);
+  transition:
+    color var(--dk-transition-fast),
+    background var(--dk-transition-fast);
   flex-shrink: 0;
   line-height: 1;
   vertical-align: middle;
@@ -5866,9 +5976,10 @@ textarea {
   line-height: 1.4;
 }
 
-/* --- KPI Metric Cards (Uniform Height & Responsive Grid) --- */
+/* --- Reconciliation Summary Metric Cards (6 cards) --- */
 
-.dk-kpi-grid {
+.dk-reconciliation-grid,
+.dk-kpi-grid[aria-label="Reconciliation summary"] {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 12px;
@@ -5877,13 +5988,15 @@ textarea {
 }
 
 @media (min-width: 640px) {
-  .dk-kpi-grid {
+  .dk-reconciliation-grid,
+  .dk-kpi-grid[aria-label="Reconciliation summary"] {
     grid-template-columns: repeat(3, 1fr);
   }
 }
 
 @media (min-width: 1024px) {
-  .dk-kpi-grid {
+  .dk-reconciliation-grid,
+  .dk-kpi-grid[aria-label="Reconciliation summary"] {
     grid-template-columns: repeat(6, 1fr);
   }
 }
@@ -5900,7 +6013,9 @@ textarea {
   min-height: 124px;
   box-sizing: border-box;
   margin: 0 !important;
-  transition: border-color var(--dk-transition-fast), box-shadow var(--dk-transition-fast);
+  transition:
+    border-color var(--dk-transition-fast),
+    box-shadow var(--dk-transition-fast);
 }
 
 .dk-kpi-card:hover {
@@ -5917,14 +6032,14 @@ textarea {
   gap: 8px;
 }
 
-.dk-kpi-label {
+.dk-kpi-card .dk-kpi-label {
   font-size: 13px;
   font-weight: 600;
   color: var(--dk-textSecondary);
   line-height: 1.2;
 }
 
-.dk-kpi-value {
+.dk-kpi-card .dk-kpi-value {
   margin: 0;
   font-size: 1.75rem;
   font-weight: 800;
@@ -5941,7 +6056,3 @@ textarea {
   display: block;
   line-height: 1.35;
 }
-
-
-
-
