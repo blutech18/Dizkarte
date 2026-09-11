@@ -160,21 +160,48 @@ export async function uploadFile(input: {
 }
 
 /**
- * Short-lived signed URL for viewing a private object.
+ * Short-lived signed URL for viewing a stored object, with fallback to public URL.
  *
- * Buckets are private, so this is the only way to render stored media. The
- * expiry is deliberately short: a leaked URL should stop working quickly.
+ * Handles raw absolute URLs, strips duplicate bucket prefixes if passed,
+ * and falls back to getPublicUrl if signed URL creation fails or the bucket is public.
  */
 export async function createSignedUrl(
   bucket: StorageBucket,
   path: string,
   expiresInSeconds = 300,
 ): Promise<string | null> {
-  const { data, error } = await getSupabaseClient()
-    .storage.from(bucket)
-    .createSignedUrl(path, expiresInSeconds);
-  if (error || !data) return null;
-  return data.signedUrl;
+  if (!path || typeof path !== "string") return null;
+  const trimmed = path.trim();
+  if (!trimmed) return null;
+
+  // If already an absolute URL, return directly
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    return trimmed;
+  }
+
+  // Strip leading bucket name or slashes if accidentally included
+  const cleanPath = trimmed.replace(new RegExp(`^/?${bucket}/`), "").replace(/^\/+/, "");
+
+  try {
+    const { data, error } = await getSupabaseClient()
+      .storage.from(bucket)
+      .createSignedUrl(cleanPath, expiresInSeconds);
+    if (!error && data?.signedUrl) {
+      return data.signedUrl;
+    }
+  } catch {
+    // Continue to public URL fallback
+  }
+
+  // For public buckets or fallback resolution, attempt getPublicUrl
+  try {
+    const { data } = getSupabaseClient().storage.from(bucket).getPublicUrl(cleanPath);
+    if (data?.publicUrl) return data.publicUrl;
+  } catch {
+    // Return null if resolution fails
+  }
+
+  return null;
 }
 
 /** Remove an object the user just uploaded, e.g. after they undo an attachment. */

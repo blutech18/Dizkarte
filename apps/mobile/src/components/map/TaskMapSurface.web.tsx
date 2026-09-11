@@ -16,8 +16,8 @@ import type {
   MarkerOptions,
   LatLngExpression,
 } from "leaflet";
-import { formatPhp } from "@dizkarte/domain";
-import { theme, spacing, fontSize, radii } from "../../theme";
+import type { PublicTaskFeedItem } from "@dizkarte/domain";
+import { TaskMapPreviewCard } from "./TaskMapPreviewCard";
 import type { TaskMapSurfaceProps } from "./TaskMapSurface";
 
 const LEAFLET_VERSION = "1.9.4";
@@ -100,15 +100,6 @@ function taskMarkerHtml(imageUri: string): string {
 }
 
 /**
- * Distance to the approximate area, not the exact address. `search_task_feed`
- * rounds to 100 m, so sub-kilometre values read in metres and anything further
- * in one decimal of a kilometre.
- */
-function formatMarkerDistance(meters: number): string {
-  return meters < 1000 ? `${meters} m away` : `${(meters / 1000).toFixed(1)} km away`;
-}
-
-/**
  * Interactive web task map.
  *
  * Renders the same public-safe `PublicTaskFeedItem`s the list/schematic use, as
@@ -122,6 +113,9 @@ export function TaskMapSurface({ items, onSelectTask, origin }: TaskMapSurfacePr
   const leafletRef = useRef<LeafletGlobal | null>(null);
   const onSelectRef = useRef(onSelectTask);
   onSelectRef.current = onSelectTask;
+  const [selectedTask, setSelectedTask] = useState<PublicTaskFeedItem | null>(null);
+  const selectedTaskRef = useRef<PublicTaskFeedItem | null>(null);
+  selectedTaskRef.current = selectedTask;
   // Primitive coords so the marker effect depends on values, not object identity.
   const originLat = origin && Number.isFinite(origin.lat) ? origin.lat : null;
   const originLng = origin && Number.isFinite(origin.lng) ? origin.lng : null;
@@ -139,6 +133,9 @@ export function TaskMapSurface({ items, onSelectTask, origin }: TaskMapSurfacePr
           attribution: "&copy; OpenStreetMap contributors",
           maxZoom: 19,
         }).addTo(map);
+        map.on("click", () => {
+          setSelectedTask(null);
+        });
         leafletRef.current = L;
         mapRef.current = map;
         layerRef.current = L.layerGroup().addTo(map);
@@ -179,21 +176,19 @@ export function TaskMapSurface({ items, onSelectTask, origin }: TaskMapSurfacePr
       const lng = task.approximateLng;
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue;
       bounds.push([lat, lng]);
-      const distanceLine =
-        task.distanceMeters === null
-          ? ""
-          : `<span style="font-size:12px;color:#555">${escapeHtml(
-              formatMarkerDistance(task.distanceMeters),
-            )}</span><br/>`;
-      const html =
-        `<div style="min-width:170px;font-family:sans-serif">` +
-        `<strong style="font-size:13px">${escapeHtml(task.title)}</strong><br/>` +
-        `<span style="font-size:12px;color:#555">${escapeHtml(task.landmark)} (approx.)</span><br/>` +
-        distanceLine +
-        `<span style="font-size:13px;font-weight:700">${escapeHtml(formatPhp(task.budgetCentavos))}</span><br/>` +
-        `<button type="button" data-task-id="${escapeHtml(task.id)}" style="margin-top:6px;padding:5px 12px;border:none;border-radius:6px;background:${theme.primary};color:#fff;font-weight:600;cursor:pointer">View task</button>` +
-        `</div>`;
-      L.marker([lat, lng], { icon: pin, title: task.title }).bindPopup(html).addTo(layer);
+      const marker = L.marker([lat, lng], { icon: pin, title: task.title }).addTo(layer);
+      marker.on("click", (e) => {
+        // Stop propagation so map click handler doesn't immediately dismiss
+        if (e && typeof (e as { originalEvent?: Event }).originalEvent?.stopPropagation === "function") {
+          (e as { originalEvent: Event }).originalEvent.stopPropagation();
+        }
+        if (selectedTaskRef.current?.id === task.id) {
+          onSelectRef.current(task.id);
+          return;
+        }
+        setSelectedTask(task);
+        map.panTo([lat, lng]);
+      });
     }
     // The viewer's own approximate location, when they have opted in. A distinct
     // dot (never the task pin) so it is unmistakably "you", and it joins the
@@ -207,7 +202,6 @@ export function TaskMapSurface({ items, onSelectTask, origin }: TaskMapSurfacePr
         popupAnchor: [0, -8],
       });
       L.marker([originLat, originLng], { icon: userIcon, title: "Your location" })
-        .bindPopup("You are here")
         .addTo(layer);
       bounds.push([originLat, originLng]);
     }
@@ -216,24 +210,6 @@ export function TaskMapSurface({ items, onSelectTask, origin }: TaskMapSurfacePr
     else if (bounds.length > 1)
       map.fitBounds(bounds, { padding: [TASK_MARKER_WIDTH, TASK_MARKER_HEIGHT] });
   }, [items, status, originLat, originLng]);
-
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-    const handler = (event: PopupEvent) => {
-      const element = event.popup.getElement();
-      const button = element?.querySelector<HTMLButtonElement>("button[data-task-id]");
-      if (!button) return;
-      button.addEventListener("click", () => {
-        const id = button.getAttribute("data-task-id");
-        if (id) onSelectRef.current(id);
-      });
-    };
-    map.on("popupopen", handler);
-    return () => {
-      map.off("popupopen", handler);
-    };
-  }, [status]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -259,6 +235,14 @@ export function TaskMapSurface({ items, onSelectTask, origin }: TaskMapSurfacePr
             {status === "error" ? "Map could not load — use the list view." : "Loading map…"}
           </Text>
         </View>
+      ) : null}
+
+      {selectedTask ? (
+        <TaskMapPreviewCard
+          task={selectedTask}
+          onOpen={onSelectTask}
+          onClose={() => setSelectedTask(null)}
+        />
       ) : null}
     </View>
   );

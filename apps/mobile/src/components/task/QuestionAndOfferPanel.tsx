@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { router } from "expo-router";
 import { askQuestionSchema, submitOfferSchema, type TaskId } from "@dizkarte/domain";
 import type { MobileSession } from "../../services/session-types";
-import { isClient, isIdentityVerified } from "../../services/session-types";
+import { isClient, isIdentityVerified, isTasker } from "../../services/session-types";
 import { useMarketplace } from "../../providers/MarketplaceProvider";
 import { MyOfferHistoryList } from "./MyOfferHistoryList";
 import { TextField } from "../ui/TextField";
@@ -38,7 +38,7 @@ export function QuestionAndOfferPanel({
   if (!session) {
     return <DeniedState description="Sign in to ask a question or submit an offer." />;
   }
-  if (isClient(session)) {
+  if (isClient(session) && !isTasker(session)) {
     return null;
   }
   if (!eligibleToOffer) {
@@ -102,7 +102,6 @@ function OfferGate({
   return (
     <View style={[styles.registrationCard, isTablet ? styles.panelPaddingTablet : null]}>
       <View style={styles.registrationHeader}>
-        <Text style={styles.registrationEyebrow}>OFFER ACCESS</Text>
         <View style={styles.registrationTitleRow}>
           <Icon name="lock" size={20} color={theme.primary} />
           <Text style={styles.registrationTitle}>Finish registration to make offers</Text>
@@ -202,7 +201,6 @@ function OfferForm({
     <View style={styles.formStack}>
       <View style={[styles.section, isTablet ? styles.panelPaddingTablet : null]}>
         <WorkspaceSectionHeader
-          eyebrow="BEFORE YOU QUOTE"
           icon="chat"
           title="Ask a question"
           description="Confirm important scope details without exchanging private contact information."
@@ -212,12 +210,12 @@ function OfferForm({
         ) : (
           <>
             <TextField
-              label="Question"
               value={questionBody}
               onChangeText={setQuestionBody}
+              placeholder="Write your question for the Client here..."
+              accessibilityLabel="Question for the client"
               multiline
               error={questionError}
-              description="Keep questions specific to this task. Contact details cannot be exchanged here."
             />
             <Button
               label="Send question"
@@ -231,7 +229,6 @@ function OfferForm({
 
       <View style={[styles.section, isTablet ? styles.panelPaddingTablet : null]}>
         <WorkspaceSectionHeader
-          eyebrow="YOUR PROPOSAL"
           icon="briefcase"
           title="Make an offer"
           description="Give the Client one complete price, timeline, availability, and relevant experience."
@@ -296,7 +293,6 @@ function OfferForm({
 
       <View style={[styles.section, isTablet ? styles.panelPaddingTablet : null]}>
         <WorkspaceSectionHeader
-          eyebrow="OFFER ACTIVITY"
           icon="note"
           title="Your offers on this task"
           description="Track every proposal you have submitted for this brief."
@@ -313,21 +309,18 @@ function OfferForm({
 }
 
 function WorkspaceSectionHeader({
-  eyebrow,
   icon,
   title,
   description,
 }: {
-  readonly eyebrow: string;
   readonly icon: IconName;
   readonly title: string;
   readonly description: string;
 }) {
   return (
     <View style={styles.workspaceHeader}>
-      <Text style={styles.workspaceEyebrow}>{eyebrow}</Text>
       <View style={styles.workspaceTitleRow}>
-        <Icon name={icon} size={20} color={theme.primary} />
+        <Icon name={icon} size={16} color={theme.primary} />
         <Text style={styles.workspaceTitle} accessibilityRole="header">
           {title}
         </Text>
@@ -342,30 +335,29 @@ const styles = StyleSheet.create({
     minWidth: 0,
     width: "100%",
     gap: spacing.md,
-    padding: spacing.md,
+    padding: spacing.lg,
     borderWidth: 1,
     borderColor: theme.borderSubtle,
     borderRadius: radii.lg,
     backgroundColor: theme.surface,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
   },
   panelPaddingTablet: {
-    padding: spacing.lg,
+    padding: spacing.xl,
   },
   registrationHeader: {
     minWidth: 0,
-    gap: spacing.sm,
-  },
-  registrationEyebrow: {
-    color: theme.primary,
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 1,
+    gap: spacing.xs,
   },
   registrationTitleRow: {
     minWidth: 0,
     flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.sm,
+    alignItems: "center",
+    gap: spacing.xs + 2,
   },
   registrationTitle: {
     minWidth: 0,
@@ -378,8 +370,9 @@ const styles = StyleSheet.create({
   registrationBody: {
     minWidth: 0,
     color: theme.textSecondary,
-    fontSize: fontSize.sm,
+    fontSize: fontSize.xs,
     lineHeight: lineHeight.sm,
+    marginTop: 2,
   },
   formStack: {
     minWidth: 0,
@@ -390,28 +383,27 @@ const styles = StyleSheet.create({
     minWidth: 0,
     width: "100%",
     gap: spacing.md,
-    padding: spacing.md,
+    padding: spacing.lg,
     borderWidth: 1,
     borderColor: theme.borderSubtle,
     borderRadius: radii.lg,
     backgroundColor: theme.surface,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
   },
   workspaceHeader: {
     minWidth: 0,
-    gap: spacing.xs + 2,
-    paddingBottom: spacing.xs,
-  },
-  workspaceEyebrow: {
-    color: theme.textSecondary,
-    fontSize: 10,
-    fontWeight: "800",
-    letterSpacing: 1,
+    gap: spacing.xs,
+    paddingBottom: 2,
   },
   workspaceTitleRow: {
     minWidth: 0,
     flexDirection: "row",
-    alignItems: "flex-start",
-    gap: spacing.sm,
+    alignItems: "center",
+    gap: spacing.xs + 2,
   },
   workspaceTitle: {
     minWidth: 0,
@@ -425,7 +417,8 @@ const styles = StyleSheet.create({
     minWidth: 0,
     color: theme.textSecondary,
     fontSize: fontSize.xs,
-    lineHeight: lineHeight.xs,
+    lineHeight: lineHeight.sm,
+    marginTop: 2,
   },
   successText: {
     color: theme.successOnSoft,

@@ -42,6 +42,7 @@ import {
   radii,
   MIN_TOUCH_TARGET,
   noWebOutline,
+  useResponsiveLayout,
 } from "../../theme";
 
 type LoadState = "loading" | "loaded" | "error";
@@ -55,6 +56,7 @@ export function TaskerDiscoveryFeed() {
   const { session } = useSession();
   const viewerId = session?.userId ?? null;
   const { nameFor } = useCategories();
+  const { gutter, contentWidth, isTablet } = useResponsiveLayout();
   // Draft keyword mirrors every keystroke; applied keyword changes only when
   // the user submits, so typing never starts a request on every key press.
   const [draftKeyword, setDraftKeyword] = useState("");
@@ -71,6 +73,18 @@ export function TaskerDiscoveryFeed() {
   const [openingTaskId, setOpeningTaskId] = useState<TaskId | null>(null);
   const openingTaskRef = useRef(false);
   const listRef = useRef<FlatList<PublicTaskFeedItem>>(null);
+
+  const listContentStyle = useMemo(
+    () => [
+      styles.listContent,
+      {
+        paddingHorizontal: gutter,
+        paddingTop: spacing.lg,
+      },
+      isTablet ? { width: contentWidth, alignSelf: "center" as const } : null,
+    ],
+    [gutter, isTablet, contentWidth],
+  );
 
   const distanceAvailable = useMemo(() => getMapProvider() !== null, []);
 
@@ -333,10 +347,10 @@ export function TaskerDiscoveryFeed() {
   );
 
   return (
-    <Screen scroll={false}>
+    <Screen scroll={false} padded={false}>
       {state === "loading" ? (
         <ScrollView
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={listContentStyle}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -347,7 +361,7 @@ export function TaskerDiscoveryFeed() {
 
       {state === "error" ? (
         <ScrollView
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={listContentStyle}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -361,7 +375,7 @@ export function TaskerDiscoveryFeed() {
 
       {state === "loaded" && items.length === 0 ? (
         <ScrollView
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={listContentStyle}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -395,7 +409,7 @@ export function TaskerDiscoveryFeed() {
           data={items}
           extraData={openingTaskId}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={listContentStyle}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -829,6 +843,7 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   listContent: {
+    flexGrow: 1,
     paddingBottom: spacing.xl,
     gap: spacing.sm,
   },

@@ -43,6 +43,7 @@ export default function PublicTaskerProfileScreen() {
   const [state, setState] = useState<LoadState>("loading");
   const [profile, setProfile] = useState<PublicTaskerProfile | null>(null);
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
   const [areaNames, setAreaNames] = useState<ReadonlyArray<string>>([]);
   const [quoteSheetOpen, setQuoteSheetOpen] = useState(false);
   /**
@@ -76,6 +77,7 @@ export default function PublicTaskerProfileScreen() {
   useEffect(() => {
     let active = true;
     const path = profile?.avatarPath ?? null;
+    setImageError(false);
     if (!path) {
       setAvatarUri(null);
       return;
@@ -157,11 +159,12 @@ export default function PublicTaskerProfileScreen() {
           {/* Identity hero & trust card */}
           <View style={styles.heroCard}>
             <View style={styles.heroTop}>
-              {avatarUri ? (
+              {avatarUri && !imageError ? (
                 <Image
                   source={{ uri: avatarUri }}
                   style={styles.avatarImage}
                   accessibilityLabel={`${profile.displayName} profile photo`}
+                  onError={() => setImageError(true)}
                 />
               ) : (
                 <View style={styles.avatar}>

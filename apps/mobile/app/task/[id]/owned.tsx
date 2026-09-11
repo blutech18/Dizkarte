@@ -1047,9 +1047,11 @@ function OfferRow({
   );
 
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
   useEffect(() => {
     let active = true;
     const path = offer.taskerProfile.avatarPath ?? null;
+    setImageError(false);
     if (!path) {
       setAvatarUri(null);
       return;
@@ -1087,8 +1089,12 @@ function OfferRow({
         style={({ pressed }) => [styles.offerHeader, pressed ? { opacity: 0.8 } : null]}
       >
         <View style={styles.offerAvatar}>
-          {avatarUri ? (
-            <Image source={{ uri: avatarUri }} style={styles.offerAvatarImage} />
+          {avatarUri && !imageError ? (
+            <Image
+              source={{ uri: avatarUri }}
+              style={styles.offerAvatarImage}
+              onError={() => setImageError(true)}
+            />
           ) : (
             <Text style={styles.offerAvatarText}>{getInitials(offer.taskerDisplayName)}</Text>
           )}

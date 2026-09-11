@@ -757,6 +757,7 @@ function MyTaskerCard({ booking }: MyTaskerCardProps) {
   const { repository } = useMarketplace();
   const [profile, setProfile] = useState<PublicTaskerProfile | null>(null);
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
+  const [imageError, setImageError] = useState(false);
   const [servicesModalVisible, setServicesModalVisible] = useState(false);
 
   useEffect(() => {
@@ -775,6 +776,7 @@ function MyTaskerCard({ booking }: MyTaskerCardProps) {
   useEffect(() => {
     let active = true;
     const path = profile?.avatarPath ?? null;
+    setImageError(false);
     if (!path) {
       setAvatarUri(null);
       return;
@@ -812,8 +814,12 @@ function MyTaskerCard({ booking }: MyTaskerCardProps) {
             accessibilityRole="button"
             accessibilityLabel={`View ${displayName}'s profile`}
           >
-            {avatarUri ? (
-              <Image source={{ uri: avatarUri }} style={clientStyles.taskerAvatarImage} />
+            {avatarUri && !imageError ? (
+              <Image
+                source={{ uri: avatarUri }}
+                style={clientStyles.taskerAvatarImage}
+                onError={() => setImageError(true)}
+              />
             ) : (
               <Text style={clientStyles.taskerAvatarText}>
                 {(displayName.charAt(0) || "?").toUpperCase()}

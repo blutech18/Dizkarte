@@ -5,8 +5,8 @@ import { useMarketplace } from "../../providers/MarketplaceProvider";
 import type { MyOfferHistoryItem } from "../../services/marketplace/types";
 import { Button } from "../ui/Button";
 import { StatusBadge, type BadgeTone } from "../ui/StatusBadge";
-import { EmptyState, ErrorState, LoadingState } from "../ui/AsyncState";
-import { theme, spacing, fontSize, radii } from "../../theme";
+import { ErrorState, LoadingState } from "../ui/AsyncState";
+import { theme, spacing, fontSize, lineHeight, radii } from "../../theme";
 
 type LoadState = "loading" | "loaded" | "error";
 
@@ -73,11 +73,16 @@ export function MyOfferHistoryList({
   if (state === "loading") return <LoadingState label="Loading your offers" />;
   if (state === "error") return <ErrorState onRetry={load} />;
   if (items.length === 0) {
-    return <EmptyState title={emptyTitle} description={emptyDescription} />;
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyTitle}>{emptyTitle}</Text>
+        {emptyDescription ? <Text style={styles.emptyDescription}>{emptyDescription}</Text> : null}
+      </View>
+    );
   }
 
   return (
-    <View>
+    <View style={styles.list}>
       {items.map((item) => (
         <View key={item.offer.id} style={styles.row}>
           <View style={styles.headerRow}>
@@ -108,12 +113,16 @@ export function MyOfferHistoryList({
 }
 
 const styles = StyleSheet.create({
+  list: {
+    gap: spacing.sm,
+  },
   row: {
-    borderTopWidth: 1,
-    borderTopColor: theme.borderSubtle,
-    paddingTop: spacing.sm,
-    marginTop: spacing.sm,
-    gap: spacing.xs,
+    backgroundColor: theme.surfaceSubtle,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: theme.borderSubtle,
+    padding: spacing.md,
+    gap: spacing.xs + 2,
   },
   headerRow: {
     flexDirection: "row",
@@ -140,5 +149,26 @@ const styles = StyleSheet.create({
     backgroundColor: theme.warningSoft,
     padding: spacing.xs,
     borderRadius: radii.sm,
+  },
+  emptyContainer: {
+    minWidth: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.md,
+    gap: 4,
+  },
+  emptyTitle: {
+    fontSize: fontSize.sm,
+    lineHeight: lineHeight.sm,
+    fontWeight: "700",
+    color: theme.textPrimary,
+    textAlign: "center",
+  },
+  emptyDescription: {
+    fontSize: fontSize.xs,
+    lineHeight: lineHeight.xs,
+    color: theme.textSecondary,
+    textAlign: "center",
   },
 });

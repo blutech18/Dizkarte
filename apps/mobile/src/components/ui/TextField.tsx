@@ -14,7 +14,7 @@ import { Icon } from "./Icon";
 import { useScreenScroll } from "../../providers/ScreenScrollContext";
 
 export type TextFieldProps = Omit<TextInputProps, "style"> & {
-  readonly label: string;
+  readonly label?: string;
   readonly error?: string | undefined;
   readonly description?: string | undefined;
   readonly required?: boolean;
@@ -57,10 +57,12 @@ export function TextField({
       }}
       style={[styles.container, containerStyle]}
     >
-      <Text style={styles.label} nativeID={`${fieldId}-label`}>
-        {label}
-        {required ? <Text style={styles.required}> *</Text> : null}
-      </Text>
+      {label ? (
+        <Text style={styles.label} nativeID={`${fieldId}-label`}>
+          {label}
+          {required ? <Text style={styles.required}> *</Text> : null}
+        </Text>
+      ) : null}
       {description ? <Text style={styles.description}>{description}</Text> : null}
 
       <View
@@ -89,8 +91,8 @@ export function TextField({
           secureTextEntry={isPasswordField ? isSecure : false}
           multiline={multiline}
           textAlignVertical={multiline ? "top" : textAlignVertical}
-          accessibilityLabel={label}
-          accessibilityLabelledBy={`${fieldId}-label`}
+          accessibilityLabel={inputProps.accessibilityLabel ?? label}
+          accessibilityLabelledBy={label ? `${fieldId}-label` : undefined}
           accessibilityHint={description}
           style={[
             styles.input,

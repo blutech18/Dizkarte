@@ -5,7 +5,6 @@ import type { PublicTaskFeedItem, TaskId } from "@dizkarte/domain";
 import { formatPhp } from "@dizkarte/domain";
 import { Screen } from "../../src/components/ui/Screen";
 import { LoadingState, EmptyState, ErrorState } from "../../src/components/ui/AsyncState";
-import { StatusBadge } from "../../src/components/ui/StatusBadge";
 import { Icon } from "../../src/components/ui/Icon";
 import { useMarketplace } from "../../src/providers/MarketplaceProvider";
 import { useSession } from "../../src/providers/SessionProvider";
@@ -18,7 +17,7 @@ import type { TaskAnswerRecord } from "../../src/services/marketplace/types";
 type LoadState = "loading" | "loaded" | "empty" | "error";
 
 function taskTimingLabel(task: PublicTaskFeedItem): string {
-  if (task.sameDay) return "Needed today";
+  if (task.sameDay) return "Needed today (Same-day)";
   if (!task.scheduledFor) return "Flexible schedule";
   const scheduled = new Date(task.scheduledFor);
   if (Number.isNaN(scheduled.getTime())) return "Flexible schedule";
@@ -29,6 +28,35 @@ function taskTimingLabel(task: PublicTaskFeedItem): string {
     year: "numeric",
   });
   return `${weekday} - ${datePart}`;
+}
+
+function formatTaskStatus(status: PublicTaskFeedItem["status"]): string {
+  switch (status) {
+    case "OPEN":
+      return "Open for offers";
+    case "BOOKING_PENDING":
+      return "Payment pending";
+    case "ASSIGNED":
+      return "Assigned";
+    case "IN_PROGRESS":
+      return "In progress";
+    case "COMPLETION_REQUESTED":
+      return "Completion requested";
+    case "COMPLETED":
+      return "Completed";
+    case "EXPIRED":
+      return "Expired";
+    case "CANCELLED":
+      return "Cancelled";
+    case "DISPUTED":
+      return "In dispute";
+    case "DRAFT":
+      return "Draft";
+    case "REMOVED":
+      return "Removed";
+    default:
+      return status;
+  }
 }
 
 export default function TaskDetailScreen() {
@@ -130,37 +158,62 @@ export default function TaskDetailScreen() {
 
           {/* Card 2: Overview / Details Card */}
           <View style={styles.overviewCard}>
-            <View style={styles.overviewTopRow}>
-              <Text style={styles.overviewSectionTitle}>Task details</Text>
-              <View style={styles.badgeGroup}>
-                <StatusBadge tone="brand" label={categoryLabel} />
-                {task.sameDay ? <StatusBadge tone="warning" label="Same-day" /> : null}
-              </View>
-            </View>
-
-            {/* Spec Tiles: Schedule & Area */}
-            <View style={[styles.specGrid, isTablet ? styles.specGridTablet : null]}>
-              <View style={[styles.specTile, isTablet ? styles.specTileTablet : null]}>
-                <View style={styles.specHeader}>
-                  <Icon name="calendar" size={14} color={theme.primary} />
-                  <Text style={styles.specLabel}>SCHEDULE</Text>
-                </View>
-                <Text style={styles.specValue}>{taskTimingLabel(task)}</Text>
-              </View>
-
-              <View style={[styles.specTile, isTablet ? styles.specTileTablet : null]}>
-                <View style={styles.specHeader}>
-                  <Icon name="map-pin" size={14} color={theme.primary} />
-                  <Text style={styles.specLabel}>APPROXIMATE AREA</Text>
-                </View>
-                <Text style={styles.specValue}>
-                  {task.landmark?.trim() || "Approximate area not specified"}
+            <View style={styles.overviewHeader}>
+              <View style={styles.overviewTitleRow}>
+                <Icon name="note" size={16} color={theme.primary} />
+                <Text style={styles.overviewSectionTitle} accessibilityRole="header">
+                  Task details
                 </Text>
               </View>
             </View>
 
-            {/* Formal Financial & Activity Banner */}
-            <View style={styles.financialBanner}>
+            {/* Spec List */}
+            <View style={styles.specList}>
+              <View style={styles.specRow}>
+                <View style={styles.specCol}>
+                  <View style={styles.specHeader}>
+                    <Icon name="briefcase" size={14} color={theme.primary} />
+                    <Text style={styles.specLabel}>CATEGORY</Text>
+                  </View>
+                  <Text style={styles.specValue} numberOfLines={1}>
+                    {categoryLabel}
+                  </Text>
+                </View>
+
+                <View style={styles.specCol}>
+                  <View style={styles.specHeader}>
+                    <Icon name="check-circle" size={14} color={theme.primary} />
+                    <Text style={styles.specLabel}>STATUS</Text>
+                  </View>
+                  <Text style={styles.specValue} numberOfLines={1}>
+                    {formatTaskStatus(task.status)}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={[styles.specRow, isTablet ? null : styles.specRowStacked]}>
+                <View style={styles.specCol}>
+                  <View style={styles.specHeader}>
+                    <Icon name="calendar" size={14} color={theme.primary} />
+                    <Text style={styles.specLabel}>SCHEDULE</Text>
+                  </View>
+                  <Text style={styles.specValue}>{taskTimingLabel(task)}</Text>
+                </View>
+
+                <View style={styles.specCol}>
+                  <View style={styles.specHeader}>
+                    <Icon name="map-pin" size={14} color={theme.primary} />
+                    <Text style={styles.specLabel}>APPROXIMATE AREA</Text>
+                  </View>
+                  <Text style={styles.specValue}>
+                    {task.landmark?.trim() || "Approximate area not specified"}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Clean Financial Row with Hairline Divider */}
+            <View style={styles.financialRow}>
               <View style={styles.financialCol}>
                 <Text style={styles.financialLabel}>ESTIMATED BUDGET</Text>
                 <Text style={styles.financialAmount} numberOfLines={1}>
@@ -168,24 +221,10 @@ export default function TaskDetailScreen() {
                 </Text>
               </View>
               <View style={styles.financialColRight}>
-                <Text style={[styles.financialLabel, styles.financialLabelCenter]}>
-                  OFFER ACTIVITY
-                </Text>
+                <Text style={styles.financialLabelRight}>OFFER ACTIVITY</Text>
                 <Text style={styles.financialActivity}>{offerLabel}</Text>
               </View>
             </View>
-          </View>
-
-          {/* Privacy Notice */}
-          <View style={styles.privacyStatement}>
-            <View style={styles.privacyHeader}>
-              <Icon name="shield" size={15} color={theme.textSecondary} />
-              <Text style={styles.privacyTitle}>Private until payment is confirmed</Text>
-            </View>
-            <Text style={styles.privacyText}>
-              The exact address and direct contact details are released only to the selected Tasker
-              after provider-confirmed payment.
-            </Text>
           </View>
         </View>
 
@@ -194,6 +233,18 @@ export default function TaskDetailScreen() {
           eligibleToOffer={eligibleToOffer}
           session={session}
         />
+
+        {/* Privacy Notice - at most bottom last */}
+        <View style={styles.privacyStatement}>
+          <View style={styles.privacyHeader}>
+            <Icon name="shield" size={15} color={theme.textSecondary} />
+            <Text style={styles.privacyTitle}>Private until payment is confirmed</Text>
+          </View>
+          <Text style={styles.privacyText}>
+            The exact address and direct contact details are released only to the selected Tasker
+            after provider-confirmed payment.
+          </Text>
+        </View>
       </View>
     </Screen>
   );
@@ -255,7 +306,7 @@ const styles = StyleSheet.create({
   },
   overviewCard: {
     minWidth: 0,
-    padding: spacing.md + 2,
+    padding: spacing.lg,
     borderRadius: radii.lg,
     backgroundColor: theme.surface,
     borderWidth: 1,
@@ -267,44 +318,40 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 1,
   },
-  overviewTopRow: {
+  overviewHeader: {
+    minWidth: 0,
+    gap: spacing.xs,
+  },
+  overviewTitleRow: {
     minWidth: 0,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: spacing.sm,
+    gap: spacing.xs + 2,
   },
   overviewSectionTitle: {
     color: theme.textPrimary,
     fontSize: fontSize.md,
+    lineHeight: lineHeight.md,
     fontWeight: "800",
   },
-  badgeGroup: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: spacing.xs,
-    flexWrap: "wrap",
-  },
-  specGrid: {
+  specList: {
     minWidth: 0,
-    gap: spacing.sm,
-  },
-  specGridTablet: {
-    flexDirection: "row",
     gap: spacing.md,
   },
-  specTile: {
+  specRow: {
     minWidth: 0,
-    backgroundColor: theme.surfaceSubtle,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: theme.borderSubtle,
-    paddingVertical: spacing.sm + 2,
-    paddingHorizontal: spacing.md,
-    gap: 4,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: spacing.md,
   },
-  specTileTablet: {
+  specRowStacked: {
+    flexDirection: "column",
+    gap: spacing.md,
+  },
+  specCol: {
     flex: 1,
+    minWidth: 0,
+    gap: 4,
   },
   specHeader: {
     flexDirection: "row",
@@ -324,17 +371,14 @@ const styles = StyleSheet.create({
     lineHeight: lineHeight.sm + 2,
     fontWeight: "700",
   },
-  financialBanner: {
+  financialRow: {
     minWidth: 0,
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-end",
     justifyContent: "space-between",
-    backgroundColor: theme.surfaceSubtle,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: theme.borderSubtle,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: theme.borderSubtle,
     gap: spacing.md,
   },
   financialCol: {
@@ -344,8 +388,8 @@ const styles = StyleSheet.create({
   },
   financialColRight: {
     minWidth: 0,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: "flex-end",
+    justifyContent: "flex-end",
     gap: 2,
   },
   financialLabel: {
@@ -355,22 +399,27 @@ const styles = StyleSheet.create({
     letterSpacing: 0.7,
     textTransform: "uppercase",
   },
-  financialLabelCenter: {
-    textAlign: "center",
+  financialLabelRight: {
+    color: theme.textSecondary,
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.7,
+    textTransform: "uppercase",
+    textAlign: "right",
   },
   financialAmount: {
     color: theme.primary,
-    fontSize: fontSize.xl,
-    lineHeight: lineHeight.xl,
+    fontSize: 22,
+    lineHeight: 28,
     fontWeight: "800",
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
   },
   financialActivity: {
     color: theme.textPrimary,
     fontSize: fontSize.md,
-    lineHeight: lineHeight.md,
+    lineHeight: 28,
     fontWeight: "800",
-    textAlign: "center",
+    textAlign: "right",
   },
   privacyStatement: {
     minWidth: 0,
