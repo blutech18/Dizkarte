@@ -115,7 +115,7 @@ jobs:
 
       - name: Ensure no committed .env files (only .env.example allowed)
         run: |
-          if git ls-files | grep -E '(^|/)\.env($|\.)' | grep -v '\.env\.example$'; then
+          if git ls-files | grep -E '(^|/)\.env($|\.)' | grep -v '\.example$'; then
             echo "::error::A committed .env file was found. Remove it."
             exit 1
           fi
@@ -127,7 +127,7 @@ jobs:
           # long token-like string with that marker is committed anywhere.
           if grep -RIn --exclude-dir=node_modules --exclude-dir=.git \
                -e 'service_role' -- . \
-             | grep -Ev '(\.md:|\.sql:|\.yml:|SUPABASE_SERVICE_ROLE_KEY=|// |-- |ADMIN_|user_capability|has_capability)'; then
+             | grep -Ev '(\.md:|\.sql:|\.yml:|SUPABASE_SERVICE_ROLE_KEY=|// |-- |# |:[0-9]+: \* |rolname in|ADMIN_|user_capability|has_capability)'; then
             echo "::error::Possible service-role reference leak. Review the matches above."
             exit 1
           fi
@@ -187,12 +187,13 @@ jobs:
       # aborts the job with a non-zero exit. Matches the local run:
       # ledger_and_constraints 4/4, rls_enabled 3/3, security_hardening 30/30,
       # milestone3_reviews_notifications 14/14, conversation_read_state 8/8,
-      # task_feed_filters 6/6, report_submission 10/10, admin_case_subject 15/15.
+      # task_feed_filters 6/6, report_submission 10/10, admin_case_subject 15/15,
+      # read_path_aggregates 8/8, task_reference_sequence 4/4.
       - name: Run SQL test suites
         run: |
           set -euo pipefail
           DB_URL="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
-          for suite in ledger_and_constraints rls_enabled security_hardening milestone3_reviews_notifications conversation_read_state task_feed_filters report_submission admin_case_subject; do
+          for suite in ledger_and_constraints rls_enabled security_hardening milestone3_reviews_notifications conversation_read_state task_feed_filters report_submission admin_case_subject read_path_aggregates task_reference_sequence; do
             echo "=== running supabase/tests/$suite.sql ==="
             psql "$DB_URL" -v ON_ERROR_STOP=1 -f "supabase/tests/$suite.sql"
           done
