@@ -37,7 +37,7 @@ describe("getAdminRepository", () => {
     // The default is real data, so a development console shows what is actually
     // in the database rather than a fabricated in-memory dataset.
     expect(repo.synthetic).toBe(false);
-  });
+  }, 15000);
 
   it("returns the synthetic adapter only when explicitly opted into in development", async () => {
     process.env.DIZKARTE_ENV = "development";

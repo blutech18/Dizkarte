@@ -18,8 +18,7 @@ export function LoginForm({ from }: { readonly from: string }) {
       style={{
         display: "flex",
         flexDirection: "column",
-        justifyContent: "space-between",
-        height: "100%",
+        gap: 16,
       }}
     >
       <input type="hidden" name="from" value={from} />
@@ -107,7 +106,7 @@ export function LoginForm({ from }: { readonly from: string }) {
         </div>
       </div>
 
-      <div style={{ marginTop: "auto" }}>
+      <div style={{ marginTop: 8 }}>
         <button
           type="submit"
           className="dk-btn dk-btn-primary"

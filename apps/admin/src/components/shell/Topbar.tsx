@@ -1,18 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { AppLink } from "@/components/ui/AppLink";
 import { usePathname } from "next/navigation";
 import type { AdminSession } from "@/lib/session";
 import { NAV_SECTIONS } from "@/lib/nav";
 import { SignOutButton } from "./SignOutButton";
-import { MenuIcon, ChevronRightIcon, ChevronDownIcon } from "./icons";
-
-const CAPABILITY_LABEL: Record<string, string> = {
-  ADMIN_SUPER: "Super Admin",
-  ADMIN_FINANCE: "Finance Admin",
-  ADMIN_SUPPORT: "Support Admin",
-};
+import { MenuIcon, ChevronRightIcon } from "./icons";
 
 function initialsFor(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -49,30 +42,8 @@ export function Topbar({
   readonly syntheticData?: boolean;
   readonly onOpenSidebar: () => void;
 }) {
-  const [menuOpen, setMenuOpen] = useState(false);
-  const menuRef = useRef<HTMLDivElement>(null);
   const pathname = usePathname() ?? "";
   const currentPageTitle = getPageLabel(pathname);
-
-  useEffect(() => {
-    if (!menuOpen) return;
-    function onDocClick(event: MouseEvent) {
-      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
-    }
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") setMenuOpen(false);
-    }
-    document.addEventListener("mousedown", onDocClick);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDocClick);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [menuOpen]);
-
-  const capabilityText = session.capabilities
-    .map((capability) => CAPABILITY_LABEL[capability] ?? capability)
-    .join(", ");
 
   return (
     <header className="dk-app-topbar">
@@ -121,34 +92,14 @@ export function Topbar({
           </span>
         </div>
       </div>
-      <div className="dk-topbar-user-menu" ref={menuRef}>
-        <button
-          type="button"
-          className="dk-avatar-btn"
-          onClick={() => setMenuOpen((v) => !v)}
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-        >
+      <div className="dk-topbar-right">
+        <div className="dk-topbar-user">
           <span className="dk-avatar-circle" aria-hidden="true">
             {initialsFor(session.displayName)}
           </span>
           <span className="dk-avatar-name">{session.displayName}</span>
-          <ChevronDownIcon
-            width={14}
-            height={14}
-            className="dk-avatar-chevron"
-            aria-hidden="true"
-          />
-        </button>
-        {menuOpen ? (
-          <div className="dk-user-menu-panel" role="menu">
-            <div className="dk-user-menu-header">
-              <strong>{session.displayName}</strong>
-              <span>{capabilityText}</span>
-            </div>
-            <SignOutButton />
-          </div>
-        ) : null}
+        </div>
+        <SignOutButton />
       </div>
     </header>
   );
