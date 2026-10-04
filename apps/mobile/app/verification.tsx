@@ -235,250 +235,265 @@ export default function VerificationScreen() {
         >
           <ScreenScrollProvider scrollViewRef={scrollRef}>
             <View style={styles.contentFrame}>
-
-            {/* APPROVED: full hero success state */}
-            {status === "APPROVED" ? (
-              <View style={styles.approvedHero}>
-                {/* Hero Badge Ring */}
-                <View style={styles.heroBadgeContainer}>
-                  <View style={styles.heroIconRing}>
-                    <Icon name="shield" size={44} color="#10B981" />
-                  </View>
-                  <View style={styles.heroMiniCheck}>
-                    <Icon name="check-circle" size={16} color="#FFFFFF" />
-                  </View>
-                </View>
-
-                {/* Title + subtitle */}
-                <View style={styles.heroTextBlock}>
-                  <Text style={styles.heroTitle}>Identity Verified</Text>
-                  <Text style={styles.heroSubtitle}>
-                    Your government ID and biometric verification have been approved with full marketplace privileges.
-                  </Text>
-                </View>
-
-                {/* Verified Identity Credential Card */}
-                <View style={styles.credentialCard}>
-                  <View style={styles.credentialCardHeader}>
-                    <View style={styles.credentialHeaderTitleRow}>
-                      <Icon name="shield" size={18} color={theme.primary} />
-                      <Text style={styles.credentialCardTitle}>Verified Credentials</Text>
+              {/* APPROVED: full hero success state */}
+              {status === "APPROVED" ? (
+                <View style={styles.approvedHero}>
+                  {/* Hero Badge Ring */}
+                  <View style={styles.heroBadgeContainer}>
+                    <View style={styles.heroIconRing}>
+                      <Icon name="shield" size={44} color="#10B981" />
                     </View>
-                    <View style={styles.statusPill}>
-                      <Icon name="check-circle" size={13} color="#059669" />
-                      <Text style={styles.statusPillText}>Active</Text>
+                    <View style={styles.heroMiniCheck}>
+                      <Icon name="check-circle" size={16} color="#FFFFFF" />
                     </View>
                   </View>
 
-                  <View style={styles.credentialDivider} />
+                  {/* Title + subtitle */}
+                  <View style={styles.heroTextBlock}>
+                    <Text style={styles.heroTitle}>Identity Verified</Text>
+                    <Text style={styles.heroSubtitle}>
+                      Your government ID and biometric verification have been approved with full
+                      marketplace privileges.
+                    </Text>
+                  </View>
 
-                  <View style={styles.credentialRows}>
-                    <View style={styles.credentialRow}>
-                      <Text style={styles.credentialLabel}>Account Name</Text>
-                      <Text style={styles.credentialValue}>{session?.displayName || "Verified User"}</Text>
-                    </View>
-
-                    <View style={styles.credentialRow}>
-                      <Text style={styles.credentialLabel}>Document Type</Text>
-                      <Text style={styles.credentialValue}>Government Issued Valid ID</Text>
-                    </View>
-
-                    <View style={styles.credentialRow}>
-                      <Text style={styles.credentialLabel}>Verification ID</Text>
-                      <Text style={[styles.credentialValue, styles.monospaceText]}>
-                        VC-{verificationCase.id.slice(0, 8).toUpperCase()}
-                      </Text>
-                    </View>
-
-                    <View style={styles.credentialRow}>
-                      <Text style={styles.credentialLabel}>Verified Date</Text>
-                      <Text style={styles.credentialValue}>
-                        {new Date(
-                          verificationCase.decidedAt || verificationCase.submittedAt || Date.now(),
-                        ).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </Text>
-                    </View>
-
-                    <View style={styles.credentialRow}>
-                      <Text style={styles.credentialLabel}>Biometrics</Text>
-                      <View style={styles.biometricBadge}>
-                        <Icon name="check-circle" size={14} color="#059669" />
-                        <Text style={styles.biometricText}>Liveness & Match Passed</Text>
+                  {/* Verified Identity Credential Card */}
+                  <View style={styles.credentialCard}>
+                    <View style={styles.credentialCardHeader}>
+                      <View style={styles.credentialHeaderTitleRow}>
+                        <Icon name="shield" size={18} color={theme.primary} />
+                        <Text style={styles.credentialCardTitle}>Verified Credentials</Text>
+                      </View>
+                      <View style={styles.statusPill}>
+                        <Icon name="check-circle" size={13} color="#059669" />
+                        <Text style={styles.statusPillText}>Active</Text>
                       </View>
                     </View>
-                  </View>
-                </View>
 
-                {/* Unlocked Privileges */}
-                <View style={styles.privilegesCard}>
-                  <Text style={styles.privilegesTitle}>Unlocked Account Privileges</Text>
-                  <View style={styles.privilegesList}>
-                    <View style={styles.privilegeItem}>
-                      <View style={styles.privilegeIconWrap}>
-                        <Icon name="check-circle" size={16} color={theme.primary} />
-                      </View>
-                      <Text style={styles.privilegeText}>Instant task creation and publishing</Text>
-                    </View>
-                    <View style={styles.privilegeItem}>
-                      <View style={styles.privilegeIconWrap}>
-                        <Icon name="check-circle" size={16} color={theme.primary} />
-                      </View>
-                      <Text style={styles.privilegeText}>Submit tasker offers & receive escrow payouts</Text>
-                    </View>
-                    <View style={styles.privilegeItem}>
-                      <View style={styles.privilegeIconWrap}>
-                        <Icon name="check-circle" size={16} color={theme.primary} />
-                      </View>
-                      <Text style={styles.privilegeText}>Real-time direct messaging on confirmed tasks</Text>
-                    </View>
-                    <View style={styles.privilegeItem}>
-                      <View style={styles.privilegeIconWrap}>
-                        <Icon name="check-circle" size={16} color={theme.primary} />
-                      </View>
-                      <Text style={styles.privilegeText}>Verified trust badge displayed on your profile</Text>
-                    </View>
-                  </View>
-                </View>
+                    <View style={styles.credentialDivider} />
 
-                {/* Privacy and Security Note */}
-                <View style={styles.securityCard}>
-                  <View style={styles.securityHeaderRow}>
-                    <Icon name="shield" size={18} color={theme.infoOnSoft} />
-                    <Text style={styles.securityTitle}>Private and securely stored</Text>
-                  </View>
-                  <Text style={styles.securityDescription}>
-                    Your ID photos and selfie are kept strictly private and secure. They are never shared publicly or visible to other users.
-                  </Text>
-                </View>
-
-                <Button
-                  label="Back to profile"
-                  onPress={() => router.replace("/(tabs)/profile")}
-                  fullWidth
-                />
-              </View>
-            ) : (
-              <>
-                {/* Non-approved: standard page header */}
-                <View style={styles.intro}>
-                  <Text
-                    style={styles.pageTitle}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                    minimumFontScale={0.8}
-                    accessibilityRole="header"
-                  >
-                    {introCopy.title}
-                  </Text>
-                  <Text style={styles.pageSubtitle}>{introCopy.description}</Text>
-                </View>
-
-                {/* Privacy notice */}
-                <InfoCard
-                  icon="shield"
-                  title="Private and securely stored"
-                  body="Your documents are never public. Only an assigned verification reviewer can access them through an audited, short-lived link."
-                  tone="info"
-                />
-
-                {status === "SUBMITTED" || status === "IN_REVIEW" ? (
-                  <StatusPanel
-                    icon="calendar"
-                    title={status === "IN_REVIEW" ? "Review in progress" : "Submitted for review"}
-                    description="Manual review usually takes 1-2 business days. You will receive a notification when a decision is ready."
-                    tone="info"
-                  />
-                ) : (
-                  <>
-                    {status === "RESUBMISSION_REQUIRED" ? (
-                      <StatusPanel
-                        icon="alert-circle"
-                        title="New documents required"
-                        description={
-                          verificationCase.decisionReason ??
-                          "The reviewer requested clearer or updated documents."
-                        }
-                        tone="error"
-                      />
-                    ) : null}
-
-                    <View style={styles.progressCard}>
-                      <View style={styles.progressHeader}>
-                        <View style={styles.progressHeaderInfo}>
-                          <Text style={styles.progressTitle}>Required documents</Text>
-                          <Text style={styles.progressCaption}>
-                            {completedCount} of 2 securely attached
-                          </Text>
-                        </View>
-                        <Text style={styles.progressValue}>
-                          {Math.round((completedCount / 2) * 100)}%
+                    <View style={styles.credentialRows}>
+                      <View style={styles.credentialRow}>
+                        <Text style={styles.credentialLabel}>Account Name</Text>
+                        <Text style={styles.credentialValue}>
+                          {session?.displayName || "Verified User"}
                         </Text>
                       </View>
-                      <View style={styles.progressTrack}>
-                        <View
-                          style={[
-                            styles.progressFill,
-                            { width: `${Math.round((completedCount / 2) * 100)}%` },
-                          ]}
-                        />
+
+                      <View style={styles.credentialRow}>
+                        <Text style={styles.credentialLabel}>Document Type</Text>
+                        <Text style={styles.credentialValue}>Government Issued Valid ID</Text>
+                      </View>
+
+                      <View style={styles.credentialRow}>
+                        <Text style={styles.credentialLabel}>Verification ID</Text>
+                        <Text style={[styles.credentialValue, styles.monospaceText]}>
+                          VC-{verificationCase.id.slice(0, 8).toUpperCase()}
+                        </Text>
+                      </View>
+
+                      <View style={styles.credentialRow}>
+                        <Text style={styles.credentialLabel}>Verified Date</Text>
+                        <Text style={styles.credentialValue}>
+                          {new Date(
+                            verificationCase.decidedAt ||
+                              verificationCase.submittedAt ||
+                              Date.now(),
+                          ).toLocaleDateString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
+                        </Text>
+                      </View>
+
+                      <View style={styles.credentialRow}>
+                        <Text style={styles.credentialLabel}>Biometrics</Text>
+                        <View style={styles.biometricBadge}>
+                          <Icon name="check-circle" size={14} color="#059669" />
+                          <Text style={styles.biometricText}>Liveness & Match Passed</Text>
+                        </View>
                       </View>
                     </View>
+                  </View>
 
-                    {error ? (
-                      <View
-                        style={styles.errorCard}
-                        accessibilityRole="alert"
-                        accessibilityLiveRegion="polite"
-                      >
-                        <Icon name="alert-circle" size={18} color={theme.errorOnSoft} />
-                        <Text style={styles.errorText}>{error}</Text>
+                  {/* Unlocked Privileges */}
+                  <View style={styles.privilegesCard}>
+                    <Text style={styles.privilegesTitle}>Unlocked Account Privileges</Text>
+                    <View style={styles.privilegesList}>
+                      <View style={styles.privilegeItem}>
+                        <View style={styles.privilegeIconWrap}>
+                          <Icon name="check-circle" size={16} color={theme.primary} />
+                        </View>
+                        <Text style={styles.privilegeText}>
+                          Instant task creation and publishing
+                        </Text>
                       </View>
-                    ) : null}
+                      <View style={styles.privilegeItem}>
+                        <View style={styles.privilegeIconWrap}>
+                          <Icon name="check-circle" size={16} color={theme.primary} />
+                        </View>
+                        <Text style={styles.privilegeText}>
+                          Submit tasker offers & receive escrow payouts
+                        </Text>
+                      </View>
+                      <View style={styles.privilegeItem}>
+                        <View style={styles.privilegeIconWrap}>
+                          <Icon name="check-circle" size={16} color={theme.primary} />
+                        </View>
+                        <Text style={styles.privilegeText}>
+                          Real-time direct messaging on confirmed tasks
+                        </Text>
+                      </View>
+                      <View style={styles.privilegeItem}>
+                        <View style={styles.privilegeIconWrap}>
+                          <Icon name="check-circle" size={16} color={theme.primary} />
+                        </View>
+                        <Text style={styles.privilegeText}>
+                          Verified trust badge displayed on your profile
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
 
-                    {canAttach ? (
-                      <View style={[styles.documentGrid, isTablet ? styles.documentGridTablet : null]}>
-                        <VerificationDocumentPicker
-                          title="Government ID"
-                          hint="Show the full front of the card with all four corners visible."
-                          icon="note"
-                          userId={session.userId}
-                          caseId={verificationCase.id}
-                          document={idFront}
-                          onAttach={(object) => attach("government_id_front", object)}
-                          onRemove={removeDocument}
-                          disabled={submitting}
+                  {/* Privacy and Security Note */}
+                  <View style={styles.securityCard}>
+                    <View style={styles.securityHeaderRow}>
+                      <Icon name="shield" size={18} color={theme.infoOnSoft} />
+                      <Text style={styles.securityTitle}>Private and securely stored</Text>
+                    </View>
+                    <Text style={styles.securityDescription}>
+                      Your ID photos and selfie are kept strictly private and secure. They are never
+                      shared publicly or visible to other users.
+                    </Text>
+                  </View>
+
+                  <Button
+                    label="Back to profile"
+                    onPress={() => router.replace("/(tabs)/profile")}
+                    fullWidth
+                  />
+                </View>
+              ) : (
+                <>
+                  {/* Non-approved: standard page header */}
+                  <View style={styles.intro}>
+                    <Text
+                      style={styles.pageTitle}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.8}
+                      accessibilityRole="header"
+                    >
+                      {introCopy.title}
+                    </Text>
+                    <Text style={styles.pageSubtitle}>{introCopy.description}</Text>
+                  </View>
+
+                  {/* Privacy notice */}
+                  <InfoCard
+                    icon="shield"
+                    title="Private and securely stored"
+                    body="Your documents are never public. Only an assigned verification reviewer can access them through an audited, short-lived link."
+                    tone="info"
+                  />
+
+                  {status === "SUBMITTED" || status === "IN_REVIEW" ? (
+                    <StatusPanel
+                      icon="calendar"
+                      title={status === "IN_REVIEW" ? "Review in progress" : "Submitted for review"}
+                      description="Manual review usually takes 1-2 business days. You will receive a notification when a decision is ready."
+                      tone="info"
+                    />
+                  ) : (
+                    <>
+                      {status === "RESUBMISSION_REQUIRED" ? (
+                        <StatusPanel
+                          icon="alert-circle"
+                          title="New documents required"
+                          description={
+                            verificationCase.decisionReason ??
+                            "The reviewer requested clearer or updated documents."
+                          }
+                          tone="error"
                         />
-                        <VerificationDocumentPicker
-                          title="Selfie"
-                          hint="Face the camera in good lighting without a hat or sunglasses."
-                          icon="user"
-                          userId={session.userId}
-                          caseId={verificationCase.id}
-                          document={selfie}
-                          onAttach={(object) => attach("selfie", object)}
-                          onRemove={removeDocument}
-                          disabled={submitting}
-                        />
+                      ) : null}
+
+                      <View style={styles.progressCard}>
+                        <View style={styles.progressHeader}>
+                          <View style={styles.progressHeaderInfo}>
+                            <Text style={styles.progressTitle}>Required documents</Text>
+                            <Text style={styles.progressCaption}>
+                              {completedCount} of 2 securely attached
+                            </Text>
+                          </View>
+                          <Text style={styles.progressValue}>
+                            {Math.round((completedCount / 2) * 100)}%
+                          </Text>
+                        </View>
+                        <View style={styles.progressTrack}>
+                          <View
+                            style={[
+                              styles.progressFill,
+                              { width: `${Math.round((completedCount / 2) * 100)}%` },
+                            ]}
+                          />
+                        </View>
                       </View>
-                    ) : (
-                      <StatusPanel
-                        icon="lock"
-                        title="Documents locked"
-                        description="This verification case cannot accept new documents. Contact support if you need assistance."
-                        tone="neutral"
-                      />
-                    )}
-                  </>
-                )}
-              </>
-            )}
-          </View>
-        </ScreenScrollProvider>
-      </ScrollView>
+
+                      {error ? (
+                        <View
+                          style={styles.errorCard}
+                          accessibilityRole="alert"
+                          accessibilityLiveRegion="polite"
+                        >
+                          <Icon name="alert-circle" size={18} color={theme.errorOnSoft} />
+                          <Text style={styles.errorText}>{error}</Text>
+                        </View>
+                      ) : null}
+
+                      {canAttach ? (
+                        <View
+                          style={[styles.documentGrid, isTablet ? styles.documentGridTablet : null]}
+                        >
+                          <VerificationDocumentPicker
+                            title="Government ID"
+                            hint="Show the full front of the card with all four corners visible."
+                            icon="note"
+                            userId={session.userId}
+                            caseId={verificationCase.id}
+                            document={idFront}
+                            onAttach={(object) => attach("government_id_front", object)}
+                            onRemove={removeDocument}
+                            disabled={submitting}
+                          />
+                          <VerificationDocumentPicker
+                            title="Selfie"
+                            hint="Face the camera in good lighting without a hat or sunglasses."
+                            icon="user"
+                            userId={session.userId}
+                            caseId={verificationCase.id}
+                            document={selfie}
+                            onAttach={(object) => attach("selfie", object)}
+                            onRemove={removeDocument}
+                            disabled={submitting}
+                          />
+                        </View>
+                      ) : (
+                        <StatusPanel
+                          icon="lock"
+                          title="Documents locked"
+                          description="This verification case cannot accept new documents. Contact support if you need assistance."
+                          tone="neutral"
+                        />
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </View>
+          </ScreenScrollProvider>
+        </ScrollView>
 
         {canAttach ? (
           <Animated.View
@@ -989,5 +1004,3 @@ const styles = StyleSheet.create({
     alignSelf: "center",
   },
 });
-
-

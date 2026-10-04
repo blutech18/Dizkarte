@@ -54,7 +54,8 @@ export default async function DisputesPage({
   const activeStatus = status
     ? DISPUTE_STATUS_OPTIONS.find((s) => s.toLowerCase() === status.toLowerCase())
     : undefined;
-  const activeSort = sort && DISPUTE_SORT_OPTIONS.some((opt) => opt.value === sort) ? sort : undefined;
+  const activeSort =
+    sort && DISPUTE_SORT_OPTIONS.some((opt) => opt.value === sort) ? sort : undefined;
   const cleanQ = q?.trim() || undefined;
 
   return (
@@ -95,12 +96,7 @@ export default async function DisputesPage({
           key={`${activeStatus ?? ""}|${cleanQ ?? ""}|${activeSort ?? ""}|${page}`}
           fallback={<TableRegionSkeleton columns={7} />}
         >
-          <DisputesTable
-            page={page}
-            status={activeStatus}
-            q={cleanQ}
-            sort={activeSort}
-          />
+          <DisputesTable page={page} status={activeStatus} q={cleanQ} sort={activeSort} />
         </Suspense>
       </PageSection>
     </>
@@ -182,13 +178,14 @@ async function DisputesTable({
     {
       key: "assignee",
       header: "Assignee",
-      render: (row) => (
+      render: (row) =>
         row.assignee ? (
           <span style={{ fontSize: 13, fontWeight: 500 }}>{row.assignee}</span>
         ) : (
-          <span className="dk-muted" style={{ fontSize: 12.5 }}>Unassigned</span>
-        )
-      ),
+          <span className="dk-muted" style={{ fontSize: 12.5 }}>
+            Unassigned
+          </span>
+        ),
     },
     {
       key: "actions",
@@ -244,4 +241,3 @@ async function DisputesTable({
     </>
   );
 }
-

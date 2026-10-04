@@ -3,8 +3,14 @@ import { Suspense, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 const { listTasks, listCategories } = vi.hoisted(() => ({
-  listTasks: vi.fn((): Promise<any> => new Promise<never>(() => {})),
-  listCategories: vi.fn(async () => ({ items: [], total: 0, page: 1, pageSize: 100, hasMore: false })),
+  listTasks: vi.fn((): Promise<unknown> => new Promise<never>(() => {})),
+  listCategories: vi.fn(async () => ({
+    items: [],
+    total: 0,
+    page: 1,
+    pageSize: 100,
+    hasMore: false,
+  })),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -57,7 +63,7 @@ describe("tasks page streaming shell", () => {
     expect(boundaries.length).toBeGreaterThanOrEqual(1);
     const tableBoundary = boundaries.find((b) => (b.key as string)?.includes("|1"));
     expect(tableBoundary).toBeDefined();
-    expect((tableBoundary as any).props.fallback).toBeTruthy();
+    expect((tableBoundary as ReactElement<Record<string, unknown>>).props.fallback).toBeTruthy();
   });
 
   it("renders non-clickable task title, TSK formal reference, status, budget, city, compound datetime, and View action in table", async () => {
@@ -83,12 +89,15 @@ describe("tasks page streaming shell", () => {
     const shell = (await TasksPage({ searchParams: Promise.resolve({}) })) as ReactElement;
     const tableElement = walk(shell).find(
       (element) =>
-        typeof element.type === "function" && element.type.constructor.name === "AsyncFunction" &&
+        typeof element.type === "function" &&
+        element.type.constructor.name === "AsyncFunction" &&
         element.type.name === "TasksTable",
     );
     expect(tableElement).toBeDefined();
 
-    const resolved = await (tableElement!.type as (props: unknown) => Promise<ReactElement>)(tableElement!.props);
+    const resolved = await (tableElement!.type as (props: unknown) => Promise<ReactElement>)(
+      tableElement!.props,
+    );
     const html = renderToStaticMarkup(resolved);
 
     // Non-clickable task title

@@ -93,10 +93,7 @@ export function CreateCategoryModal() {
             <h2 id={titleId} className="dk-dialog-title" style={{ margin: 0 }}>
               Add category
             </h2>
-            <p
-              className="dk-muted"
-              style={{ margin: "4px 0 0", fontSize: 13 }}
-            >
+            <p className="dk-muted" style={{ margin: "4px 0 0", fontSize: 13 }}>
               Add a new service category to the marketplace catalog.
             </p>
           </div>
@@ -110,10 +107,7 @@ export function CreateCategoryModal() {
           </button>
         </div>
 
-        <CreateCategoryForm
-          onSuccess={() => setOpen(false)}
-          onCancel={() => setOpen(false)}
-        />
+        <CreateCategoryForm onSuccess={() => setOpen(false)} onCancel={() => setOpen(false)} />
       </div>
     </div>
   );

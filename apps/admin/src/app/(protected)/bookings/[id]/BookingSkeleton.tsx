@@ -57,20 +57,29 @@ export function BookingRecordSkeleton() {
                   <SkeletonBone variant="text-sm" style={{ width: 60 }} />
                   <SkeletonBone variant="text" style={{ width: "85%", height: 22, marginTop: 4 }} />
                 </div>
-                <SkeletonBone variant="badge" style={{ width: 145, height: 34, borderRadius: 8, flexShrink: 0 }} />
+                <SkeletonBone
+                  variant="badge"
+                  style={{ width: 145, height: 34, borderRadius: 8, flexShrink: 0 }}
+                />
               </div>
               <div className="dk-fact-grid">
                 <div className="dk-fact">
                   <SkeletonBone variant="text-sm" style={{ width: 50 }} />
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 5 }}>
-                    <SkeletonBone variant="badge" style={{ width: 28, height: 28, borderRadius: "50%" }} />
+                    <SkeletonBone
+                      variant="badge"
+                      style={{ width: 28, height: 28, borderRadius: "50%" }}
+                    />
                     <SkeletonBone variant="text" style={{ width: 100 }} />
                   </div>
                 </div>
                 <div className="dk-fact">
                   <SkeletonBone variant="text-sm" style={{ width: 50 }} />
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 5 }}>
-                    <SkeletonBone variant="badge" style={{ width: 28, height: 28, borderRadius: "50%" }} />
+                    <SkeletonBone
+                      variant="badge"
+                      style={{ width: 28, height: 28, borderRadius: "50%" }}
+                    />
                     <SkeletonBone variant="text" style={{ width: 100 }} />
                   </div>
                 </div>

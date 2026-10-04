@@ -27,9 +27,7 @@ const AUDIT_ACTION_OPTIONS = [
   { value: "setting.update", label: "Setting update" },
 ];
 
-const AUDIT_SORT_OPTIONS = [
-  { value: "oldest", label: "Oldest first" },
-];
+const AUDIT_SORT_OPTIONS = [{ value: "oldest", label: "Oldest first" }];
 
 export default async function AuditLogPage({
   searchParams,
@@ -83,12 +81,7 @@ export default async function AuditLogPage({
           key={`${activeAction ?? ""}|${cleanQ}|${activeSort ?? ""}|${page}`}
           fallback={<TableRegionSkeleton columns={5} />}
         >
-          <AuditLogTable
-            page={page}
-            q={cleanQ}
-            action={activeAction}
-            sort={activeSort}
-          />
+          <AuditLogTable page={page} q={cleanQ} action={activeAction} sort={activeSort} />
         </Suspense>
       </PageSection>
     </>
@@ -123,7 +116,13 @@ async function AuditLogTable({
         <div style={{ display: "flex", flexDirection: "column", whiteSpace: "nowrap" }}>
           <span style={{ fontWeight: 600, fontSize: 13 }}>{row.actor}</span>
           {row.capability ? (
-            <span style={{ fontSize: 12, color: "var(--dk-textSecondary)", fontFamily: "ui-monospace, monospace" }}>
+            <span
+              style={{
+                fontSize: 12,
+                color: "var(--dk-textSecondary)",
+                fontFamily: "ui-monospace, monospace",
+              }}
+            >
               {row.capability}
             </span>
           ) : null}
@@ -136,7 +135,12 @@ async function AuditLogTable({
       render: (row) => (
         <span
           className="dk-badge dk-badge--neutral"
-          style={{ fontFamily: "ui-monospace, monospace", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" }}
+          style={{
+            fontFamily: "ui-monospace, monospace",
+            fontSize: 12,
+            fontWeight: 600,
+            whiteSpace: "nowrap",
+          }}
         >
           {row.action}
         </span>
@@ -147,7 +151,9 @@ async function AuditLogTable({
       header: "Resource",
       render: (row) => (
         <div style={{ display: "inline-flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
-          <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 12.5 }}>{row.resource}</span>
+          <span style={{ fontFamily: "ui-monospace, monospace", fontSize: 12.5 }}>
+            {row.resource}
+          </span>
           <CopyButton text={row.resource} label="resource" variant="icon" />
         </div>
       ),
@@ -156,11 +162,7 @@ async function AuditLogTable({
       key: "reason",
       header: "Reason",
       render: (row) =>
-        row.reason ? (
-          <span style={{ fontSize: 13 }}>{row.reason}</span>
-        ) : (
-          <NotApplicable />
-        ),
+        row.reason ? <span style={{ fontSize: 13 }}>{row.reason}</span> : <NotApplicable />,
     },
     {
       key: "at",

@@ -213,9 +213,7 @@ function BookingIdentityDocument({
         <Text style={styles.taskTitle} accessibilityRole="header">
           {taskTitle || "Untitled task"}
         </Text>
-        {taskDescription ? (
-          <Text style={styles.taskDescription}>{taskDescription}</Text>
-        ) : null}
+        {taskDescription ? <Text style={styles.taskDescription}>{taskDescription}</Text> : null}
       </View>
 
       <View style={styles.overviewCard}>
@@ -539,7 +537,13 @@ function BookingAccessPanel({
               <Text style={styles.accessRowValue}>{contact}</Text>
             </View>
           </View>
-          <Button label="Open chat" icon="chat" onPress={onOpenChat} variant="secondary" fullWidth />
+          <Button
+            label="Open chat"
+            icon="chat"
+            onPress={onOpenChat}
+            variant="secondary"
+            fullWidth
+          />
         </>
       ) : coordinationClosed ? (
         <View style={styles.accessMatrixGrid}>

@@ -100,9 +100,7 @@ export async function getDynamicSuggestedSuburbs({
 
   // 3. User city / province hint from current draft
   if (userCityHint) {
-    const hint = userProvinceHint
-      ? `${userCityHint}, ${userProvinceHint}`
-      : userCityHint;
+    const hint = userProvinceHint ? `${userCityHint}, ${userProvinceHint}` : userCityHint;
     list.push(hint);
   }
 
@@ -111,8 +109,8 @@ export async function getDynamicSuggestedSuburbs({
   if (primaryCity && repository?.searchCities && repository?.searchBarangays) {
     try {
       const cities = await repository.searchCities(primaryCity);
-      if (cities.length > 0) {
-        const city = cities[0];
+      const city = cities[0];
+      if (city) {
         const barangays = await repository.searchBarangays(city.city6, "");
         for (const b of barangays.slice(0, 4)) {
           list.push(`${b.name}, ${city.name}`);
@@ -199,7 +197,7 @@ export async function resolvePsgcLocality(
             c.name.toLowerCase() === cleanCand.toLowerCase() ||
             c.name.toLowerCase().includes(cleanCand.toLowerCase()),
         );
-        matchedCity = exact ?? results[0];
+        matchedCity = exact ?? results[0] ?? null;
         break;
       }
     }
@@ -223,13 +221,13 @@ export async function resolvePsgcLocality(
     for (const bCand of barangayCandidates) {
       if (bCand.toLowerCase() === matchedCity.name.toLowerCase()) continue;
       const bResults = await repository.searchBarangays(matchedCity.city6, bCand);
-      if (bResults.length > 0) {
-        const exactB = bResults.find(
-          (b) =>
-            b.name.toLowerCase() === bCand.toLowerCase() ||
-            b.name.toLowerCase().includes(bCand.toLowerCase()),
-        );
-        const chosen = exactB ?? bResults[0];
+      const exactB = bResults.find(
+        (b) =>
+          b.name.toLowerCase() === bCand.toLowerCase() ||
+          b.name.toLowerCase().includes(bCand.toLowerCase()),
+      );
+      const chosen = exactB ?? bResults[0];
+      if (chosen) {
         return {
           ...patch,
           barangayCode: chosen.code,
@@ -315,10 +313,10 @@ export function LocationSearchModal({
     let active = true;
 
     void getDynamicSuggestedSuburbs({
-      userId: session?.userId,
+      userId: session?.userId ?? null,
       repository,
-      userCityHint,
-      userProvinceHint,
+      userCityHint: userCityHint ?? null,
+      userProvinceHint: userProvinceHint ?? null,
     }).then((list) => {
       if (active && list.length > 0) {
         setSuggestedSuburbs(list);
@@ -423,7 +421,7 @@ export function LocationSearchModal({
         choose({
           description: publicAreaLabel(description),
           ...coords,
-          cityHint: description.split(",")[0]?.trim(),
+          cityHint: description.split(",")[0]?.trim() ?? null,
         });
         return;
       }

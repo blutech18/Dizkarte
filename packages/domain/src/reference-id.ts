@@ -23,7 +23,10 @@ export interface FormatReferenceOptions {
 /**
  * Extracts a formatted YYYYMMDD or YYMMDD string in Manila timezone (UTC+8).
  */
-export function formatDateSegment(dateValue: string | Date, compact: boolean = false): string | null {
+export function formatDateSegment(
+  dateValue: string | Date,
+  compact: boolean = false,
+): string | null {
   const d = typeof dateValue === "string" ? new Date(dateValue) : dateValue;
   if (Number.isNaN(d.getTime())) return null;
 
@@ -71,9 +74,7 @@ export function formatReferenceId(
   if (cleanId.length === 0) return "";
 
   const opts: FormatReferenceOptions =
-    typeof options === "string" || options instanceof Date
-      ? { date: options }
-      : options ?? {};
+    typeof options === "string" || options instanceof Date ? { date: options } : (options ?? {});
 
   if (opts.date) {
     const dateSegment = formatDateSegment(opts.date, Boolean(opts.compactDate));

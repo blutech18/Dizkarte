@@ -555,10 +555,7 @@ describe("SyntheticMarketplaceRepository", () => {
       expect(convByConvId).not.toBeNull();
       expect(convByConvId?.id).toBe(conversation!.id);
 
-      const bookingByConvId = await repo.getBooking(
-        conversation!.id as never,
-        CLIENT_ID,
-      );
+      const bookingByConvId = await repo.getBooking(conversation!.id as never, CLIENT_ID);
       expect(bookingByConvId).not.toBeNull();
       expect(bookingByConvId?.id).toBe(bookingId);
     });

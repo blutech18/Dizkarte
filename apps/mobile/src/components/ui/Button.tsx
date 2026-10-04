@@ -192,4 +192,3 @@ const variantStyles: Record<ButtonVariant, { container: object; label: object; p
       pressed: { backgroundColor: theme.surfaceSubtle, transform: [{ scale: 0.98 }] },
     },
   };
-

@@ -178,6 +178,3 @@ describe("booking record layout", () => {
     expect(html).not.toContain("payments ·");
   });
 });
-
-
-

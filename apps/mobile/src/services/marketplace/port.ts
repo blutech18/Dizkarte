@@ -150,11 +150,7 @@ export interface MobileMarketplacePort {
   /**
    * Owner removes their reply to a question, clearing `answer` and `answered_at`.
    */
-  deleteAnswer(
-    questionId: string,
-    taskId: TaskId,
-    clientId: string,
-  ): Promise<TaskQuestionRecord>;
+  deleteAnswer(questionId: string, taskId: TaskId, clientId: string): Promise<TaskQuestionRecord>;
   listOffers(taskId: TaskId, viewerId: string): Promise<ReadonlyArray<OfferRecord>>;
   /** Every offer the current Tasker has ever submitted, across all tasks, newest first. */
   listMyOffers(taskerId: string): Promise<ReadonlyArray<MyOfferHistoryItem>>;

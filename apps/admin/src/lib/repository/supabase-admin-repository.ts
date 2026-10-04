@@ -837,7 +837,9 @@ export class SupabaseAdminRepository implements AdminRepository {
     const { from, to } = pageRange(input.page, input.pageSize);
     let query = db
       .from("tasks")
-      .select("id,reference_id,title,status,budget_centavos,created_at,category_id", { count: "exact" });
+      .select("id,reference_id,title,status,budget_centavos,created_at,category_id", {
+        count: "exact",
+      });
     if (input.status) query = query.eq("status", input.status);
     if (input.categoryId) query = query.eq("category_id", input.categoryId);
     const keyword = input.query?.trim();
@@ -1189,7 +1191,9 @@ export class SupabaseAdminRepository implements AdminRepository {
     if (input.status) query = query.eq("status", input.status);
     const keyword = input.query?.trim();
     if (keyword) {
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(keyword);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        keyword,
+      );
       if (isUuid) {
         query = query.or(`id.eq.${keyword},payment_intent_id.eq.${keyword}`);
       } else {
@@ -1265,9 +1269,13 @@ export class SupabaseAdminRepository implements AdminRepository {
 
     const keyword = input.query?.trim();
     if (keyword) {
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(keyword);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        keyword,
+      );
       if (isUuid) {
-        query = query.or(`id.eq.${keyword},booking_id.eq.${keyword},reviewer_id.eq.${keyword},reviewee_id.eq.${keyword}`);
+        query = query.or(
+          `id.eq.${keyword},booking_id.eq.${keyword},reviewer_id.eq.${keyword},reviewee_id.eq.${keyword}`,
+        );
       } else {
         query = query.or(`comment.ilike.%${keyword}%,task_title.ilike.%${keyword}%`);
       }
@@ -1347,7 +1355,9 @@ export class SupabaseAdminRepository implements AdminRepository {
 
     const keyword = input.query?.trim();
     if (keyword) {
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(keyword);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        keyword,
+      );
       if (isUuid) {
         query = query.eq("id", keyword);
       } else {
@@ -1359,9 +1369,7 @@ export class SupabaseAdminRepository implements AdminRepository {
     }
 
     const ascending = input.sort === "oldest";
-    const { data, count, error } = await query
-      .order("created_at", { ascending })
-      .range(from, to);
+    const { data, count, error } = await query.order("created_at", { ascending }).range(from, to);
     if (error) return paginate<ReportRow>([], input.page, input.pageSize, 0);
 
     const rows = (data ?? []) as ReadonlyArray<{
@@ -1399,16 +1407,16 @@ export class SupabaseAdminRepository implements AdminRepository {
 
     const keyword = input.query?.trim();
     if (keyword) {
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(keyword);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        keyword,
+      );
       if (isUuid) {
         query = query.or(`id.eq.${keyword},booking_id.eq.${keyword}`);
       }
     }
 
     const ascending = input.sort === "oldest";
-    const { data, count, error } = await query
-      .order("created_at", { ascending })
-      .range(from, to);
+    const { data, count, error } = await query.order("created_at", { ascending }).range(from, to);
     if (error) return paginate<DisputeRow>([], input.page, input.pageSize, 0);
 
     const rows = (data ?? []) as ReadonlyArray<{
@@ -1465,7 +1473,9 @@ export class SupabaseAdminRepository implements AdminRepository {
 
     const keyword = input.query?.trim();
     if (keyword) {
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(keyword);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        keyword,
+      );
       if (isUuid) {
         query = query.or(`id.eq.${keyword},user_id.eq.${keyword}`);
       } else {
@@ -1474,9 +1484,7 @@ export class SupabaseAdminRepository implements AdminRepository {
     }
 
     const ascending = input.sort === "oldest";
-    const { data, count, error } = await query
-      .order("updated_at", { ascending })
-      .range(from, to);
+    const { data, count, error } = await query.order("updated_at", { ascending }).range(from, to);
     if (error) return paginate<TicketRow>([], input.page, input.pageSize, 0);
 
     const rows = (data ?? []) as ReadonlyArray<{
@@ -2082,7 +2090,9 @@ export class SupabaseAdminRepository implements AdminRepository {
     }
     const keyword = input.query?.trim();
     if (keyword) {
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(keyword);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        keyword,
+      );
       if (isUuid) {
         query = query.or(`id.eq.${keyword},booking_id.eq.${keyword}`);
       }
@@ -2591,7 +2601,9 @@ export class SupabaseAdminRepository implements AdminRepository {
         (a, b) => new Date(a.checkedAt).getTime() - new Date(b.checkedAt).getTime(),
       );
     } else if (input.sort === "diff_desc") {
-      filtered = [...filtered].sort((a, b) => Math.abs(b.differenceCentavos) - Math.abs(a.differenceCentavos));
+      filtered = [...filtered].sort(
+        (a, b) => Math.abs(b.differenceCentavos) - Math.abs(a.differenceCentavos),
+      );
     }
     const { from, to } = pageRange(input.page, input.pageSize);
     return paginate(filtered.slice(from, to + 1), input.page, input.pageSize, filtered.length);
@@ -2643,7 +2655,9 @@ export class SupabaseAdminRepository implements AdminRepository {
     if (input.status) query = query.eq("status", input.status);
     const keyword = input.query?.trim();
     if (keyword) {
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(keyword);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        keyword,
+      );
       if (isUuid) {
         query = query.or(`id.eq.${keyword},tasker_id.eq.${keyword}`);
       }
@@ -2725,9 +2739,7 @@ export class SupabaseAdminRepository implements AdminRepository {
       ascending = false;
     }
 
-    const { data, count, error } = await query
-      .order(orderCol, { ascending })
-      .range(from, to);
+    const { data, count, error } = await query.order(orderCol, { ascending }).range(from, to);
     if (error) return paginate<CategoryRow>([], input.page, input.pageSize, 0);
 
     const rows = (data ?? []) as ReadonlyArray<{
@@ -2934,7 +2946,9 @@ export class SupabaseAdminRepository implements AdminRepository {
 
     const keyword = input.query?.trim();
     if (keyword) {
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(keyword);
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        keyword,
+      );
       if (isUuid) {
         query = query.eq("id", keyword);
       } else {
@@ -2960,9 +2974,13 @@ export class SupabaseAdminRepository implements AdminRepository {
             : Promise.resolve({ data: [] }),
         ]);
 
-        const taskIds = ((matchedTasks.data ?? []) as ReadonlyArray<{ id: string }>).map((t) => t.id);
+        const taskIds = ((matchedTasks.data ?? []) as ReadonlyArray<{ id: string }>).map(
+          (t) => t.id,
+        );
         const participantIds = userIds ?? [];
-        const bookingIds = ((candidateBookings.data ?? []) as ReadonlyArray<{ id: string }>).map((b) => b.id);
+        const bookingIds = ((candidateBookings.data ?? []) as ReadonlyArray<{ id: string }>).map(
+          (b) => b.id,
+        );
 
         const orClauses: string[] = [];
         if (bookingIds.length > 0) {
@@ -3000,9 +3018,7 @@ export class SupabaseAdminRepository implements AdminRepository {
       ascending = true;
     }
 
-    const { data, count, error } = await query
-      .order(orderCol, { ascending })
-      .range(from, to);
+    const { data, count, error } = await query.order(orderCol, { ascending }).range(from, to);
     if (error) return paginate<BookingRow>([], input.page, input.pageSize, 0);
 
     const rows = (data ?? []) as ReadonlyArray<RawAdminBookingRow>;
@@ -3043,7 +3059,9 @@ export class SupabaseAdminRepository implements AdminRepository {
 
   async getBooking(bookingId: string): Promise<BookingDetail | null> {
     const db = await this.db();
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookingId.trim());
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      bookingId.trim(),
+    );
     let resolvedId = bookingId;
     if (!isUuid) {
       const hexPrefix = this.extractBookingUuidPrefix(bookingId);
@@ -3142,9 +3160,7 @@ export class SupabaseAdminRepository implements AdminRepository {
       });
     if (input.action && input.action !== "all") query = query.eq("action", input.action);
     const ascending = input.sort === "oldest";
-    const { data, count, error } = await query
-      .order("created_at", { ascending })
-      .range(from, to);
+    const { data, count, error } = await query.order("created_at", { ascending }).range(from, to);
     if (error) return paginate<AuditLogRow>([], input.page, input.pageSize, 0);
 
     const rows = (data ?? []) as ReadonlyArray<{
@@ -3286,6 +3302,3 @@ function toCategoryHistoryType(action: string): CategoryHistoryEvent["type"] {
 export function createSupabaseAdminRepository(): SupabaseAdminRepository {
   return new SupabaseAdminRepository();
 }
-
-
-

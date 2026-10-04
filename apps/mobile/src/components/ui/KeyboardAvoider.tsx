@@ -30,7 +30,7 @@ export function KeyboardAvoider({
 
     const showSub = Keyboard.addListener(showEvent, (e: KeyboardEvent) => {
       const targetHeight = Math.max(0, e.endCoordinates.height - offset);
-      const duration = Platform.OS === "ios" ? (e.duration || 250) : 200;
+      const duration = Platform.OS === "ios" ? e.duration || 250 : 200;
       Animated.timing(keyboardPadding, {
         toValue: targetHeight,
         duration,
@@ -40,7 +40,7 @@ export function KeyboardAvoider({
     });
 
     const hideSub = Keyboard.addListener(hideEvent, (e: KeyboardEvent) => {
-      const duration = Platform.OS === "ios" ? (e.duration || 250) : 200;
+      const duration = Platform.OS === "ios" ? e.duration || 250 : 200;
       Animated.timing(keyboardPadding, {
         toValue: 0,
         duration,
@@ -56,8 +56,6 @@ export function KeyboardAvoider({
   }, [keyboardPadding, offset]);
 
   return (
-    <Animated.View style={[style, { paddingBottom: keyboardPadding }]}>
-      {children}
-    </Animated.View>
+    <Animated.View style={[style, { paddingBottom: keyboardPadding }]}>{children}</Animated.View>
   );
 }

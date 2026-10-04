@@ -5,13 +5,7 @@ import { TaskerRowActions } from "./TaskerRowActions";
 
 describe("TaskerRowActions", () => {
   it("renders a Review button for pending applications and includes Account link", () => {
-    render(
-      <TaskerRowActions
-        applicationId="tap-001"
-        userId="user-001"
-        status="SUBMITTED"
-      />,
-    );
+    render(<TaskerRowActions applicationId="tap-001" userId="user-001" status="SUBMITTED" />);
 
     const reviewLink = screen.getByRole("link", { name: /Review/i });
     expect(reviewLink).toBeInTheDocument();
@@ -25,12 +19,7 @@ describe("TaskerRowActions", () => {
   });
 
   it("renders a View button for approved applications without Account link when userId is omitted", () => {
-    render(
-      <TaskerRowActions
-        applicationId="tap-002"
-        status="APPROVED"
-      />,
-    );
+    render(<TaskerRowActions applicationId="tap-002" status="APPROVED" />);
 
     const viewLink = screen.getByRole("link", { name: /View/i });
     expect(viewLink).toBeInTheDocument();

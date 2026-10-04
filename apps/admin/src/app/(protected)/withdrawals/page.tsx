@@ -49,7 +49,8 @@ export default async function WithdrawalsPage({
   const activeStatus = (WITHDRAWAL_STATUS_OPTIONS as ReadonlyArray<string>).includes(status ?? "")
     ? status
     : undefined;
-  const activeSort = sort && WITHDRAWAL_SORT_OPTIONS.some((opt) => opt.value === sort) ? sort : undefined;
+  const activeSort =
+    sort && WITHDRAWAL_SORT_OPTIONS.some((opt) => opt.value === sort) ? sort : undefined;
   const cleanQ = q?.trim() || undefined;
   const availability = getAdminRepository().getFinanceProviderAvailability();
 
@@ -99,12 +100,7 @@ export default async function WithdrawalsPage({
           key={`${activeStatus ?? ""}|${cleanQ ?? ""}|${activeSort ?? ""}|${page}`}
           fallback={<TableRegionSkeleton columns={6} />}
         >
-          <WithdrawalsTable
-            page={page}
-            status={activeStatus}
-            q={cleanQ}
-            sort={activeSort}
-          />
+          <WithdrawalsTable page={page} status={activeStatus} q={cleanQ} sort={activeSort} />
         </Suspense>
       </PageSection>
     </>
@@ -137,7 +133,14 @@ async function WithdrawalsTable({
       header: "Withdrawal",
       render: (row) => (
         <div style={{ display: "inline-flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
-          <span style={{ fontFamily: "ui-monospace, monospace", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap" }}>
+          <span
+            style={{
+              fontFamily: "ui-monospace, monospace",
+              fontWeight: 600,
+              fontSize: 13,
+              whiteSpace: "nowrap",
+            }}
+          >
             {formatReferenceId(row.id, "WTH", row.requestedAt)}
           </span>
           <CopyButton text={row.id} label="withdrawal ID" variant="icon" />
@@ -147,7 +150,9 @@ async function WithdrawalsTable({
     {
       key: "tasker",
       header: "Tasker",
-      render: (row) => <span style={{ fontWeight: 600, fontSize: 13.5 }}>{row.taskerDisplayName}</span>,
+      render: (row) => (
+        <span style={{ fontWeight: 600, fontSize: 13.5 }}>{row.taskerDisplayName}</span>
+      ),
     },
     {
       key: "amount",

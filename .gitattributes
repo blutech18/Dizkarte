@@ -1,0 +1,5 @@
+# Keep LF in the working tree on every OS (matches .prettierrc endOfLine).
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.ico binary

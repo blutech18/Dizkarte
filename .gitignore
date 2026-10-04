@@ -63,3 +63,6 @@ npm-debug.log*
 # Next.js
 apps/admin/.next/
 apps/admin/out/
+
+# Stray local smoke-test export output
+dist-smoke*/

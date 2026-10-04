@@ -311,7 +311,10 @@ async function VerificationCaseRecord({
               {initials(detail.userDisplayName)}
             </div>
             <div style={{ minWidth: 0 }}>
-              <h1 className="dk-booking-hero-title" style={{ margin: 0, fontSize: "clamp(20px, 2.5vw, 26px)" }}>
+              <h1
+                className="dk-booking-hero-title"
+                style={{ margin: 0, fontSize: "clamp(20px, 2.5vw, 26px)" }}
+              >
                 {detail.userDisplayName}
               </h1>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
@@ -328,7 +331,9 @@ async function VerificationCaseRecord({
                 className={`dk-status-action-dot dk-status-action-dot-${verificationStatusTone(detail.status)}`}
                 aria-hidden="true"
               />
-              <span className="dk-status-action-label">{verificationStatusLabel(detail.status)}</span>
+              <span className="dk-status-action-label">
+                {verificationStatusLabel(detail.status)}
+              </span>
             </div>
             <div className="dk-status-action-divider" aria-hidden="true" />
             <AppLink
@@ -350,14 +355,19 @@ async function VerificationCaseRecord({
           </Fact>
           <Fact label="Assigned Reviewer">
             {detail.assignedAdminName ? (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 }}>
+              <span
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, fontWeight: 700 }}
+              >
                 <span className="dk-metric-avatar" aria-hidden="true">
                   {initials(detail.assignedAdminName)}
                 </span>
                 <span>{detail.assignedAdminName}</span>
               </span>
             ) : (
-              <span className="dk-badge dk-badge-neutral" style={{ padding: "3px 9px", fontSize: 12 }}>
+              <span
+                className="dk-badge dk-badge-neutral"
+                style={{ padding: "3px 9px", fontSize: 12 }}
+              >
                 Unassigned
               </span>
             )}
@@ -417,7 +427,9 @@ async function VerificationCaseRecord({
                         <DocumentIcon />
                       </div>
                       <div className="dk-verification-doc-info">
-                        <h3 className="dk-verification-doc-title">{documentLabel(document.kind)}</h3>
+                        <h3 className="dk-verification-doc-title">
+                          {documentLabel(document.kind)}
+                        </h3>
                         <span className="dk-verification-doc-kind">Kind: {document.kind}</span>
                       </div>
                       <span className="dk-verification-doc-security">
@@ -427,7 +439,9 @@ async function VerificationCaseRecord({
                     </div>
                     <div className="dk-verification-doc-meta-row">
                       <span className="dk-verification-doc-meta-label">Payload status:</span>
-                      <code className="dk-verification-doc-meta-value">{document.signedUrlPreview}</code>
+                      <code className="dk-verification-doc-meta-value">
+                        {document.signedUrlPreview}
+                      </code>
                     </div>
                   </div>
                 ))}
@@ -450,7 +464,10 @@ async function VerificationCaseRecord({
             {detail.history.length === 0 ? (
               <div className="dk-verification-empty">
                 <strong>No case events recorded</strong>
-                <p>State transitions and operator decisions are recorded in the immutable Admin audit trail.</p>
+                <p>
+                  State transitions and operator decisions are recorded in the immutable Admin audit
+                  trail.
+                </p>
               </div>
             ) : (
               <ol className="dk-verification-timeline">
@@ -461,7 +478,8 @@ async function VerificationCaseRecord({
                       <div className="dk-verification-timeline-heading">
                         <div className="dk-verification-timeline-statuses">
                           <span className="dk-timeline-transition">
-                            {verificationStatusLabel(event.fromStatus)} → {verificationStatusLabel(event.toStatus)}
+                            {verificationStatusLabel(event.fromStatus)} →{" "}
+                            {verificationStatusLabel(event.toStatus)}
                           </span>
                           <span className="dk-timeline-actor">by {event.actor}</span>
                         </div>
@@ -487,7 +505,9 @@ async function VerificationCaseRecord({
             <div className="dk-card-header-flex">
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <GavelIcon />
-                <h2 id="decision-heading">{decisions.length > 0 ? "Make a Decision" : "Decision"}</h2>
+                <h2 id="decision-heading">
+                  {decisions.length > 0 ? "Make a Decision" : "Decision"}
+                </h2>
               </div>
               <span className="dk-card-badge">
                 {decisions.length > 0 ? "Action required" : "Final decision"}
@@ -515,7 +535,8 @@ async function VerificationCaseRecord({
             ) : (
               <div className="dk-decision-active-box">
                 <p className="dk-decision-prompt">
-                  A written reason is required for any decision and will be permanently recorded in the Admin audit log.
+                  A written reason is required for any decision and will be permanently recorded in
+                  the Admin audit log.
                 </p>
                 <VerificationDecisionPanel caseId={detail.id} currentStatus={detail.status} />
               </div>
@@ -549,19 +570,20 @@ async function VerificationCaseRecord({
             <div className="dk-ref-group">
               <div className="dk-ref-row">
                 <span className="dk-ref-title">Case Reference</span>
-                <span className="dk-ref-code" title={detail.id}>{formattedCaseRef}</span>
+                <span className="dk-ref-code" title={detail.id}>
+                  {formattedCaseRef}
+                </span>
               </div>
               <div className="dk-ref-row">
                 <span className="dk-ref-title">Applicant Reference</span>
-                <span className="dk-ref-code" title={detail.userId}>{formattedUserRef}</span>
+                <span className="dk-ref-code" title={detail.userId}>
+                  {formattedUserRef}
+                </span>
               </div>
             </div>
 
             <div style={{ marginTop: 18 }}>
-              <LinkButton
-                href={`/users/${detail.userId}`}
-                variant="secondary"
-              >
+              <LinkButton href={`/users/${detail.userId}`} variant="secondary">
                 <span>View user account</span>
                 <ExternalLinkIcon />
               </LinkButton>

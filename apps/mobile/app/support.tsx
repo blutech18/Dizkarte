@@ -127,22 +127,14 @@ export default function SupportScreen() {
 
         <View style={[styles.guidanceGrid, isTablet ? styles.guidanceGridTablet : null]}>
           <View style={[styles.guidanceItem, isTablet ? styles.guidanceItemTablet : null]}>
-            <ProfilePageSection
-              icon="note"
-              title="Frequently asked questions"
-              showDivider={false}
-            >
+            <ProfilePageSection icon="note" title="Frequently asked questions" showDivider={false}>
               <Text style={styles.body}>
                 More approved help articles will appear here as product guidance is finalized.
               </Text>
             </ProfilePageSection>
           </View>
           <View style={[styles.guidanceItem, isTablet ? styles.guidanceItemTablet : null]}>
-            <ProfilePageSection
-              icon="shield"
-              title="Safety and privacy"
-              showDivider={false}
-            >
+            <ProfilePageSection icon="shield" title="Safety and privacy" showDivider={false}>
               <Text style={styles.body}>
                 Exact addresses and contact details are shared only with the confirmed booking
                 counterpart after payment is confirmed.

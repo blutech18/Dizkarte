@@ -131,10 +131,7 @@ export default async function MediaPage({
           ]}
         />
 
-        <Suspense
-          key={`${active ?? ""}|${search}|${page}`}
-          fallback={<GalleryRegionSkeleton />}
-        >
+        <Suspense key={`${active ?? ""}|${search}|${page}`} fallback={<GalleryRegionSkeleton />}>
           <MediaGallery page={page} active={active} search={search} actor={session.email} />
         </Suspense>
       </PageSection>
@@ -223,9 +220,19 @@ async function MediaGallery({
                 ) : (
                   <div className="dk-media-thumb-empty">
                     {item.kind === "video" ? (
-                      <VideoIcon width={28} height={28} className="dk-media-placeholder-icon" aria-hidden="true" />
+                      <VideoIcon
+                        width={28}
+                        height={28}
+                        className="dk-media-placeholder-icon"
+                        aria-hidden="true"
+                      />
                     ) : (
-                      <ImageIcon width={28} height={28} className="dk-media-placeholder-icon" aria-hidden="true" />
+                      <ImageIcon
+                        width={28}
+                        height={28}
+                        className="dk-media-placeholder-icon"
+                        aria-hidden="true"
+                      />
                     )}
                     <span className="dk-media-placeholder-text">
                       {item.kind === "video"
@@ -316,7 +323,3 @@ async function MediaGallery({
     </>
   );
 }
-
-
-
-

@@ -283,86 +283,86 @@ export default function EditTaskScreen() {
           <ScreenScrollProvider scrollViewRef={scrollRef}>
             <View style={styles.contentFrame}>
               <View style={styles.pageIntro}>
-              <View style={styles.pageIntroText}>
-                <Text
-                  style={styles.pageTitle}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.8}
-                  accessibilityRole="header"
-                >
-                  Update task details
-                </Text>
-                <Text style={styles.pageSubtitle}>
-                  Review your changes before returning to the publish screen.
-                </Text>
-              </View>
-              <StatusBadge tone="neutral" label="Draft" />
-            </View>
-
-            {errorCount > 0 ? (
-              <View
-                style={styles.errorSummary}
-                accessibilityRole="alert"
-                accessibilityLiveRegion="polite"
-              >
-                <Icon name="alert-circle" size={20} color={theme.errorOnSoft} />
-                <View style={styles.errorSummaryText}>
-                  <Text style={styles.errorSummaryTitle}>Review the highlighted fields</Text>
-                  <Text style={styles.errorSummaryBody}>
-                    {errorCount} field{errorCount === 1 ? "" : "s"} need attention before you can
-                    continue.
+                <View style={styles.pageIntroText}>
+                  <Text
+                    style={styles.pageTitle}
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.8}
+                    accessibilityRole="header"
+                  >
+                    Update task details
+                  </Text>
+                  <Text style={styles.pageSubtitle}>
+                    Review your changes before returning to the publish screen.
                   </Text>
                 </View>
+                <StatusBadge tone="neutral" label="Draft" />
               </View>
-            ) : null}
 
-            {saveError ? (
-              <View
-                style={styles.errorSummary}
-                accessibilityRole="alert"
-                accessibilityLiveRegion="polite"
-              >
-                <Icon name="alert-circle" size={20} color={theme.errorOnSoft} />
-                <View style={styles.errorSummaryText}>
-                  <Text style={styles.errorSummaryTitle}>Could not finish saving</Text>
-                  <Text style={styles.errorSummaryBody}>{saveError}</Text>
+              {errorCount > 0 ? (
+                <View
+                  style={styles.errorSummary}
+                  accessibilityRole="alert"
+                  accessibilityLiveRegion="polite"
+                >
+                  <Icon name="alert-circle" size={20} color={theme.errorOnSoft} />
+                  <View style={styles.errorSummaryText}>
+                    <Text style={styles.errorSummaryTitle}>Review the highlighted fields</Text>
+                    <Text style={styles.errorSummaryBody}>
+                      {errorCount} field{errorCount === 1 ? "" : "s"} need attention before you can
+                      continue.
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            ) : null}
+              ) : null}
 
-            <View style={[styles.formGrid, isTablet ? styles.formGridTablet : null]}>
-              <View style={styles.formColumn}>
-                <TaskDraftForm value={form} onChange={handleFormChange} errors={errors} />
-              </View>
-
-              <View style={[styles.mediaCard, isTablet ? styles.mediaCardTablet : null]}>
-                <View style={styles.mediaHeader}>
-                  <Icon name="image" size={20} color={theme.primary} />
-                  <Text style={styles.mediaTitle}>Photos and video</Text>
+              {saveError ? (
+                <View
+                  style={styles.errorSummary}
+                  accessibilityRole="alert"
+                  accessibilityLiveRegion="polite"
+                >
+                  <Icon name="alert-circle" size={20} color={theme.errorOnSoft} />
+                  <View style={styles.errorSummaryText}>
+                    <Text style={styles.errorSummaryTitle}>Could not finish saving</Text>
+                    <Text style={styles.errorSummaryBody}>{saveError}</Text>
+                  </View>
                 </View>
-                <Text style={styles.mediaSubtitle}>
-                  Clear media helps Taskers quote accurately.
-                </Text>
-                <View style={styles.mediaDivider} />
-                <TaskMediaEditor
-                  existing={form.media}
-                  pending={pendingMedia}
-                  onExistingChange={(next) => {
-                    setForm({ ...form, media: next });
-                    setSaveError(null);
-                  }}
-                  onPendingChange={(next) => {
-                    setPendingMedia(next);
-                    setSaveError(null);
-                  }}
-                  disabled={submitting}
-                />
+              ) : null}
+
+              <View style={[styles.formGrid, isTablet ? styles.formGridTablet : null]}>
+                <View style={styles.formColumn}>
+                  <TaskDraftForm value={form} onChange={handleFormChange} errors={errors} />
+                </View>
+
+                <View style={[styles.mediaCard, isTablet ? styles.mediaCardTablet : null]}>
+                  <View style={styles.mediaHeader}>
+                    <Icon name="image" size={20} color={theme.primary} />
+                    <Text style={styles.mediaTitle}>Photos and video</Text>
+                  </View>
+                  <Text style={styles.mediaSubtitle}>
+                    Clear media helps Taskers quote accurately.
+                  </Text>
+                  <View style={styles.mediaDivider} />
+                  <TaskMediaEditor
+                    existing={form.media}
+                    pending={pendingMedia}
+                    onExistingChange={(next) => {
+                      setForm({ ...form, media: next });
+                      setSaveError(null);
+                    }}
+                    onPendingChange={(next) => {
+                      setPendingMedia(next);
+                      setSaveError(null);
+                    }}
+                    disabled={submitting}
+                  />
+                </View>
               </View>
             </View>
-          </View>
-        </ScreenScrollProvider>
-      </ScrollView>
+          </ScreenScrollProvider>
+        </ScrollView>
 
         <Animated.View
           pointerEvents={keyboardVisible ? "none" : "auto"}
@@ -527,5 +527,3 @@ const styles = StyleSheet.create({
     flex: 1.15,
   },
 });
-
-

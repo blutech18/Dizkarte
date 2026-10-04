@@ -59,7 +59,6 @@ describe("formatElapsed", () => {
   });
 });
 
-
 describe("formatTime", () => {
   it("renders the time in Philippine time", () => {
     expect(formatTime("2026-07-24T12:59:44.000Z")).toBe("8:59 PM");

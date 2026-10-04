@@ -27,7 +27,7 @@ const report = {
 };
 
 const { getReport } = vi.hoisted(() => ({
-  getReport: vi.fn(async () => report),
+  getReport: vi.fn(async (): Promise<unknown> => report),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -71,7 +71,7 @@ describe("report detail page", () => {
 
     const boundaries = walk(shell).filter((element) => element.type === Suspense);
     expect(boundaries.length).toBeGreaterThanOrEqual(1);
-    expect((boundaries[0] as any).props.fallback).toBeTruthy();
+    expect((boundaries[0] as ReactElement<Record<string, unknown>>).props.fallback).toBeTruthy();
   });
 
   it("renders report record and assigns actions panel with pure serializable props", async () => {
@@ -87,7 +87,9 @@ describe("report detail page", () => {
     );
     expect(recordElement).toBeDefined();
 
-    const resolved = await (recordElement!.type as (props: unknown) => Promise<ReactElement>)(recordElement!.props);
+    const resolved = await (recordElement!.type as (props: unknown) => Promise<ReactElement>)(
+      recordElement!.props,
+    );
     const html = renderToStaticMarkup(resolved);
 
     expect(html).toContain("Task report · spam");
@@ -104,7 +106,7 @@ describe("report detail page", () => {
       assignee: null,
       narrative: null,
       subject: null,
-    } as any);
+    });
 
     const shell = (await ReportDetailPage({
       params: Promise.resolve({ id: report.id }),
@@ -128,4 +130,3 @@ describe("report detail page", () => {
     expect(html).toContain("Assign to me");
   });
 });
-

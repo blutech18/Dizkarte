@@ -1207,14 +1207,15 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
   }
 
   async getBooking(bookingId: BookingId, viewerId: string): Promise<BookingRecord | null> {
-    let { data, error } = await this.client
+    const direct = await this.client
       .from("bookings")
       .select(
         "id,task_id,client_id,tasker_id,agreed_centavos,status,idempotency_key,created_at,updated_at",
       )
       .eq("id", bookingId)
       .maybeSingle();
-    fail("getBooking", error);
+    fail("getBooking", direct.error);
+    let data = direct.data;
     if (!data) {
       const { data: convData } = await this.client
         .from("conversations")
@@ -1229,6 +1230,7 @@ export class SupabaseMarketplaceRepository implements MobileMarketplacePort {
           )
           .eq("id", convData.booking_id)
           .maybeSingle();
+        fail("getBooking", res.error);
         data = res.data;
       }
     }
@@ -3111,4 +3113,3 @@ export function createSupabaseMarketplaceRepository(): SupabaseMarketplaceReposi
     return module.getSupabaseClient() as DizkarteSupabaseClient;
   });
 }
-

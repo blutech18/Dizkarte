@@ -6,7 +6,6 @@ import taskMarkerImage from "../../../assets/app-icon-square.png";
 import type {
   Map as LeafletMap,
   LayerGroup,
-  PopupEvent,
   Marker,
   DivIcon,
   DivIconOptions,
@@ -17,6 +16,7 @@ import type {
   LatLngExpression,
 } from "leaflet";
 import type { PublicTaskFeedItem } from "@dizkarte/domain";
+import { theme, spacing, fontSize, radii } from "../../theme";
 import { TaskMapPreviewCard } from "./TaskMapPreviewCard";
 import type { TaskMapSurfaceProps } from "./TaskMapSurface";
 
@@ -179,7 +179,10 @@ export function TaskMapSurface({ items, onSelectTask, origin }: TaskMapSurfacePr
       const marker = L.marker([lat, lng], { icon: pin, title: task.title }).addTo(layer);
       marker.on("click", (e) => {
         // Stop propagation so map click handler doesn't immediately dismiss
-        if (e && typeof (e as { originalEvent?: Event }).originalEvent?.stopPropagation === "function") {
+        if (
+          e &&
+          typeof (e as { originalEvent?: Event }).originalEvent?.stopPropagation === "function"
+        ) {
           (e as { originalEvent: Event }).originalEvent.stopPropagation();
         }
         if (selectedTaskRef.current?.id === task.id) {
@@ -201,8 +204,7 @@ export function TaskMapSurface({ items, onSelectTask, origin }: TaskMapSurfacePr
         iconAnchor: [8, 8],
         popupAnchor: [0, -8],
       });
-      L.marker([originLat, originLng], { icon: userIcon, title: "Your location" })
-        .addTo(layer);
+      L.marker([originLat, originLng], { icon: userIcon, title: "Your location" }).addTo(layer);
       bounds.push([originLat, originLng]);
     }
     const first = bounds[0];

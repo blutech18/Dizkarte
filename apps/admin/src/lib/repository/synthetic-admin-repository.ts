@@ -1,5 +1,10 @@
 import "server-only";
-import { formatReferenceId, paginate, type AdminCapability, type Paginated } from "@dizkarte/domain";
+import {
+  formatReferenceId,
+  paginate,
+  type AdminCapability,
+  type Paginated,
+} from "@dizkarte/domain";
 import type {
   AdminRepository,
   AuditLogRow,
@@ -1773,14 +1778,10 @@ export class SyntheticAdminRepository implements AdminRepository {
     return null;
   }
 
-  async listRefunds(
-    input: PageInput & { status?: string; query?: string; sort?: string },
-  ) {
+  async listRefunds(input: PageInput & { status?: string; query?: string; sort?: string }) {
     let filtered = this.state.refunds;
     if (input.status) {
-      filtered = filtered.filter(
-        (r) => r.status.toUpperCase() === input.status?.toUpperCase(),
-      );
+      filtered = filtered.filter((r) => r.status.toUpperCase() === input.status?.toUpperCase());
     }
     if (input.query) {
       const q = input.query.trim().toLowerCase();
@@ -1813,14 +1814,10 @@ export class SyntheticAdminRepository implements AdminRepository {
     return paged<RefundRow>(filtered, input);
   }
 
-  async listReviews(
-    input: PageInput & { status?: string; query?: string; sort?: string },
-  ) {
+  async listReviews(input: PageInput & { status?: string; query?: string; sort?: string }) {
     let filtered = this.state.reviews;
     if (input.status) {
-      filtered = filtered.filter(
-        (r) => r.status.toUpperCase() === input.status?.toUpperCase(),
-      );
+      filtered = filtered.filter((r) => r.status.toUpperCase() === input.status?.toUpperCase());
     }
     if (input.query) {
       const q = input.query.trim().toLowerCase();
@@ -1884,9 +1881,7 @@ export class SyntheticAdminRepository implements AdminRepository {
   ) {
     let filtered = this.state.reports;
     if (input.status) {
-      filtered = filtered.filter(
-        (r) => r.status.toUpperCase() === input.status?.toUpperCase(),
-      );
+      filtered = filtered.filter((r) => r.status.toUpperCase() === input.status?.toUpperCase());
     }
     if (input.resourceType) {
       filtered = filtered.filter(
@@ -1927,14 +1922,10 @@ export class SyntheticAdminRepository implements AdminRepository {
     return this.applyCaseAccess(found, input.actor, "report");
   }
 
-  async listDisputes(
-    input: PageInput & { status?: string; query?: string; sort?: string },
-  ) {
+  async listDisputes(input: PageInput & { status?: string; query?: string; sort?: string }) {
     let filtered = this.state.disputes;
     if (input.status) {
-      filtered = filtered.filter(
-        (d) => d.status.toUpperCase() === input.status?.toUpperCase(),
-      );
+      filtered = filtered.filter((d) => d.status.toUpperCase() === input.status?.toUpperCase());
     }
     if (input.query) {
       const q = input.query.trim().toLowerCase();
@@ -2026,14 +2017,10 @@ export class SyntheticAdminRepository implements AdminRepository {
   ) {
     let filtered = this.state.tickets;
     if (input.status) {
-      filtered = filtered.filter(
-        (t) => t.status.toUpperCase() === input.status?.toUpperCase(),
-      );
+      filtered = filtered.filter((t) => t.status.toUpperCase() === input.status?.toUpperCase());
     }
     if (input.category) {
-      filtered = filtered.filter(
-        (t) => t.category.toLowerCase() === input.category?.toLowerCase(),
-      );
+      filtered = filtered.filter((t) => t.category.toLowerCase() === input.category?.toLowerCase());
     }
     if (input.query) {
       const q = input.query.trim().toLowerCase();
@@ -2366,9 +2353,7 @@ export class SyntheticAdminRepository implements AdminRepository {
   ) {
     let filtered = this.state.paymentIntents;
     if (input.status) {
-      filtered = filtered.filter(
-        (p) => p.status.toUpperCase() === input.status?.toUpperCase(),
-      );
+      filtered = filtered.filter((p) => p.status.toUpperCase() === input.status?.toUpperCase());
     }
     if (input.query) {
       const q = input.query.trim().toLowerCase();
@@ -2718,7 +2703,9 @@ export class SyntheticAdminRepository implements AdminRepository {
         (a, b) => new Date(a.checkedAt).getTime() - new Date(b.checkedAt).getTime(),
       );
     } else if (input.sort === "diff_desc") {
-      rows = [...rows].sort((a, b) => Math.abs(b.differenceCentavos) - Math.abs(a.differenceCentavos));
+      rows = [...rows].sort(
+        (a, b) => Math.abs(b.differenceCentavos) - Math.abs(a.differenceCentavos),
+      );
     } else {
       rows = [...rows].sort(
         (a, b) => new Date(b.checkedAt).getTime() - new Date(a.checkedAt).getTime(),
@@ -2779,14 +2766,10 @@ export class SyntheticAdminRepository implements AdminRepository {
     return { ok: true, summary };
   }
 
-  async listWithdrawals(
-    input: PageInput & { status?: string; query?: string; sort?: string },
-  ) {
+  async listWithdrawals(input: PageInput & { status?: string; query?: string; sort?: string }) {
     let filtered = this.state.withdrawals;
     if (input.status) {
-      filtered = filtered.filter(
-        (w) => w.status.toUpperCase() === input.status?.toUpperCase(),
-      );
+      filtered = filtered.filter((w) => w.status.toUpperCase() === input.status?.toUpperCase());
     }
     if (input.query) {
       const q = input.query.trim().toLowerCase();
@@ -2857,7 +2840,7 @@ export class SyntheticAdminRepository implements AdminRepository {
       );
     }
 
-    let sorted = [...filtered].map((c) => this.withTaskCount(c));
+    const sorted = [...filtered].map((c) => this.withTaskCount(c));
 
     if (input.sort === "name") {
       sorted.sort((a, b) => a.name.localeCompare(b.name));
@@ -3206,7 +3189,3 @@ export function getSyntheticAdminRepository(): SyntheticAdminRepository {
   singleton ??= new SyntheticAdminRepository();
   return singleton;
 }
-
-
-
-

@@ -69,7 +69,7 @@ describe("support detail page", () => {
 
     const boundaries = walk(shell).filter((element) => element.type === Suspense);
     expect(boundaries.length).toBeGreaterThanOrEqual(1);
-    expect((boundaries[0] as any).props.fallback).toBeTruthy();
+    expect((boundaries[0] as ReactElement<Record<string, unknown>>).props.fallback).toBeTruthy();
   });
 
   it("renders support ticket record and assigns actions panel with pure serializable props", async () => {
@@ -85,7 +85,9 @@ describe("support detail page", () => {
     );
     expect(recordElement).toBeDefined();
 
-    const resolved = await (recordElement!.type as (props: unknown) => Promise<ReactElement>)(recordElement!.props);
+    const resolved = await (recordElement!.type as (props: unknown) => Promise<ReactElement>)(
+      recordElement!.props,
+    );
     const html = renderToStaticMarkup(resolved);
 
     expect(html).toContain("Cannot update payment method");

@@ -1,10 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Redirect, Stack, router, useLocalSearchParams } from "expo-router";
 import type { TaskId } from "@dizkarte/domain";
 import { formatPhp } from "@dizkarte/domain";
@@ -1096,5 +1091,3 @@ const styles = StyleSheet.create({
     width: 220,
   },
 });
-
-

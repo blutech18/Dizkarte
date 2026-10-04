@@ -106,21 +106,41 @@ async function RevenueSummary() {
 
       {!feeConfigured ? (
         <section className="dk-card" style={{ marginBottom: 20 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 8,
+            }}
+          >
             <h2 style={{ margin: 0, fontSize: 16 }}>Commercial Fee Policy</h2>
             <StatusBadge tone="info" label="0 bps Active" />
           </div>
           <p className="dk-card-note" style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5 }}>
-            <code>platform_fee_bps</code> is currently 0. The platform operates with a 0% commission rate during early beta, so platform revenue is genuinely zero. Rates can be configured in governance settings.
+            <code>platform_fee_bps</code> is currently 0. The platform operates with a 0% commission
+            rate during early beta, so platform revenue is genuinely zero. Rates can be configured
+            in governance settings.
           </p>
         </section>
       ) : null}
 
       {/* Revenue Metric Cards Grid */}
       <section className="dk-card" aria-labelledby="measures-heading" style={{ marginBottom: 20 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-          <h2 id="measures-heading" style={{ margin: 0, fontSize: 16 }}>Financial Overview & Money Flow</h2>
-          <span style={{ fontSize: 12.5, color: "var(--dk-textSecondary)" }}>Immutable double-entry calculations</span>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 18,
+          }}
+        >
+          <h2 id="measures-heading" style={{ margin: 0, fontSize: 16 }}>
+            Financial Overview & Money Flow
+          </h2>
+          <span style={{ fontSize: 12.5, color: "var(--dk-textSecondary)" }}>
+            Immutable double-entry calculations
+          </span>
         </div>
 
         <div
@@ -143,16 +163,41 @@ async function RevenueSummary() {
                 gap: 8,
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span style={{ fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--dk-textSecondary)" }}>
+              <div
+                style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}
+              >
+                <span
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    color: "var(--dk-textSecondary)",
+                  }}
+                >
                   {item.label}
                 </span>
                 <StatusBadge tone={item.badgeTone} label={item.badge} />
               </div>
-              <div style={{ fontSize: 24, fontWeight: 800, fontVariantNumeric: "tabular-nums", color: "var(--dk-textPrimary)", letterSpacing: "-0.02em" }}>
+              <div
+                style={{
+                  fontSize: 24,
+                  fontWeight: 800,
+                  fontVariantNumeric: "tabular-nums",
+                  color: "var(--dk-textPrimary)",
+                  letterSpacing: "-0.02em",
+                }}
+              >
                 {formatPhpSigned(item.value)}
               </div>
-              <p style={{ margin: 0, fontSize: 12.5, color: "var(--dk-textSecondary)", lineHeight: 1.45 }}>
+              <p
+                style={{
+                  margin: 0,
+                  fontSize: 12.5,
+                  color: "var(--dk-textSecondary)",
+                  lineHeight: 1.45,
+                }}
+              >
                 {item.help}
               </p>
             </div>
@@ -162,8 +207,17 @@ async function RevenueSummary() {
 
       {/* Ledger Integrity Card */}
       <section className="dk-card" aria-labelledby="integrity-heading">
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <h2 id="integrity-heading" style={{ margin: 0, fontSize: 16 }}>Ledger Audit & Balance Integrity</h2>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            marginBottom: 14,
+          }}
+        >
+          <h2 id="integrity-heading" style={{ margin: 0, fontSize: 16 }}>
+            Ledger Audit & Balance Integrity
+          </h2>
           <StatusBadge
             tone={summary.ledgerBalanceCentavos === 0 ? "success" : "error"}
             label={summary.ledgerBalanceCentavos === 0 ? "Balanced (0.00)" : "Discrepancy Detected"}

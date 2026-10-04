@@ -1,21 +1,9 @@
 import { useEffect, useRef } from "react";
-import {
-  Animated,
-  Easing,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 import type { PublicTaskFeedItem } from "@dizkarte/domain";
 import { formatPhp } from "@dizkarte/domain";
 import { Icon } from "../ui/Icon";
-import {
-  theme,
-  spacing,
-  fontSize,
-  radii,
-} from "../../theme";
+import { theme, spacing, fontSize, radii } from "../../theme";
 
 import { distanceLabel, taskTimingLabel } from "./taskMapPresentation";
 
@@ -64,10 +52,7 @@ export function TaskMapPreviewCard({ task, onOpen, onClose }: TaskMapPreviewCard
         ]}
       >
         <Pressable
-          style={({ pressed }) => [
-            styles.card,
-            pressed ? styles.cardPressed : null,
-          ]}
+          style={({ pressed }) => [styles.card, pressed ? styles.cardPressed : null]}
           onPress={() => onOpen(task.id)}
           accessibilityRole="button"
           accessibilityLabel={`${task.title}, click to view task description and details`}
@@ -255,7 +240,7 @@ const styles = StyleSheet.create({
   budgetLabel: {
     fontSize: 10,
     fontWeight: "700",
-    color: theme.textTertiary,
+    color: theme.textSecondary,
     letterSpacing: 0.6,
   },
   budgetAmount: {

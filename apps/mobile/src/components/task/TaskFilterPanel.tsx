@@ -634,4 +634,3 @@ const styles = StyleSheet.create({
   footerClearAction: { width: 128, flexShrink: 0 },
   footerApplyAction: { flexGrow: 1, flexShrink: 1, flexBasis: 140, minWidth: 0 },
 });
-

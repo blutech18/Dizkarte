@@ -160,11 +160,10 @@ describe("countMyTasksByCategory", () => {
     ];
     const categories = [{ id: "cat-clean" }, { id: "cat-move" }, { id: "cat-garden" }];
 
-    const counts = countMyTasksByCategory(
-      tasks,
-      categories,
-      { ...DEFAULT_MY_TASK_FILTERS, status: "published" },
-    );
+    const counts = countMyTasksByCategory(tasks, categories, {
+      ...DEFAULT_MY_TASK_FILTERS,
+      status: "published",
+    });
 
     // Status filter "published" matches OPEN/BOOKING_PENDING
     expect(counts.all).toBe(2);
@@ -189,10 +188,7 @@ describe("sortMyTasks", () => {
 
   it("sorts by highest budget and most recent update", () => {
     const byBudget = sortMyTasks(
-      [
-        task({ id: "low", budgetCentavos: 10_000 }),
-        task({ id: "high", budgetCentavos: 90_000 }),
-      ],
+      [task({ id: "low", budgetCentavos: 10_000 }), task({ id: "high", budgetCentavos: 90_000 })],
       "highest_budget",
     );
     expect(byBudget[0]!.id).toBe("high");

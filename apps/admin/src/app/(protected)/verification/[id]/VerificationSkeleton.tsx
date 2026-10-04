@@ -31,12 +31,17 @@ export function VerificationRecordSkeleton() {
               <SkeletonBone variant="title" style={{ width: 170 }} />
               <SkeletonBone variant="badge" style={{ width: 90 }} />
             </div>
-            <SkeletonBone variant="text-sm" style={{ width: "100%", height: 48, marginBottom: 16 }} />
+            <SkeletonBone
+              variant="text-sm"
+              style={{ width: "100%", height: 48, marginBottom: 16 }}
+            />
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {Array.from({ length: 2 }).map((_, i) => (
                 <div key={i} className="dk-verification-doc-item">
                   <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-                    <SkeletonBone style={{ width: 36, height: 36, borderRadius: 8, flexShrink: 0 }} />
+                    <SkeletonBone
+                      style={{ width: 36, height: 36, borderRadius: 8, flexShrink: 0 }}
+                    />
                     <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
                       <SkeletonBone variant="title" style={{ width: "50%", height: 16 }} />
                       <SkeletonBone variant="text-sm" style={{ width: "30%" }} />

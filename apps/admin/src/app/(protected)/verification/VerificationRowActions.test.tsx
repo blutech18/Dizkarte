@@ -5,13 +5,7 @@ import { VerificationRowActions } from "./VerificationRowActions";
 
 describe("VerificationRowActions", () => {
   it("renders a Review button with dk-action-btn-case class for open cases", () => {
-    render(
-      <VerificationRowActions
-        caseId="ver-001"
-        userId="user-001"
-        status="SUBMITTED"
-      />,
-    );
+    render(<VerificationRowActions caseId="ver-001" userId="user-001" status="SUBMITTED" />);
 
     const reviewLink = screen.getByRole("link", { name: /Review/i });
     expect(reviewLink).toBeInTheDocument();
@@ -25,12 +19,7 @@ describe("VerificationRowActions", () => {
   });
 
   it("renders a View button with the same dk-action-btn-case class for closed cases", () => {
-    render(
-      <VerificationRowActions
-        caseId="ver-002"
-        status="APPROVED"
-      />,
-    );
+    render(<VerificationRowActions caseId="ver-002" status="APPROVED" />);
 
     const viewLink = screen.getByRole("link", { name: /View/i });
     expect(viewLink).toBeInTheDocument();

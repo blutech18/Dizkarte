@@ -3,7 +3,7 @@ import { Suspense, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 const { listBookings } = vi.hoisted(() => ({
-  listBookings: vi.fn((): Promise<any> => new Promise<never>(() => {})),
+  listBookings: vi.fn((): Promise<unknown> => new Promise<never>(() => {})),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -56,7 +56,7 @@ describe("bookings page streaming shell and filters", () => {
     expect(boundaries.length).toBeGreaterThanOrEqual(1);
     const tableBoundary = boundaries.find((b) => (b.key as string)?.includes("|1"));
     expect(tableBoundary).toBeDefined();
-    expect((tableBoundary as any).props.fallback).toBeTruthy();
+    expect((tableBoundary as ReactElement<Record<string, unknown>>).props.fallback).toBeTruthy();
   });
 
   it("renders task title, formal BK reference, participants, amount, status, datetime, and View action", async () => {
@@ -89,7 +89,9 @@ describe("bookings page streaming shell and filters", () => {
     );
     expect(tableElement).toBeDefined();
 
-    const resolved = await (tableElement!.type as (props: unknown) => Promise<ReactElement>)(tableElement!.props);
+    const resolved = await (tableElement!.type as (props: unknown) => Promise<ReactElement>)(
+      tableElement!.props,
+    );
     const html = renderToStaticMarkup(resolved);
 
     // Task title and formal reference
@@ -134,7 +136,9 @@ describe("bookings page streaming shell and filters", () => {
     );
     expect(tableElement).toBeDefined();
 
-    const resolved = await (tableElement!.type as (props: unknown) => Promise<ReactElement>)(tableElement!.props);
+    const resolved = await (tableElement!.type as (props: unknown) => Promise<ReactElement>)(
+      tableElement!.props,
+    );
     expect(listBookings).toHaveBeenCalledWith(
       expect.objectContaining({
         query: "Maria",

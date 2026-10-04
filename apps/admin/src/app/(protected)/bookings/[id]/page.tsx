@@ -11,11 +11,7 @@ import { formatReferenceId } from "@/lib/format-id";
 import type { BookingDetail } from "@/lib/repository/types";
 import { Breadcrumbs } from "@/components/ui/Field";
 import { BookingRecordSkeleton } from "./BookingSkeleton";
-import {
-  bookingEventSourceLabel,
-  bookingStatusLabel,
-  bookingTone,
-} from "../status";
+import { bookingEventSourceLabel, bookingStatusLabel, bookingTone } from "../status";
 import { bookingFlowSteps, flowStateDescription } from "../flow";
 import { paymentStatusLabel } from "../../payments/status";
 
@@ -60,7 +56,6 @@ function ArrowLeftIcon() {
     </svg>
   );
 }
-
 
 function CheckIcon() {
   return (
@@ -389,7 +384,9 @@ async function BookingRecord({
             <div className="dk-finance-body">
               <div className="dk-finance-callout">
                 <span className="dk-finance-callout-label">Agreed Protection Amount</span>
-                <span className="dk-finance-callout-amount">{formatPhp(booking.agreedCentavos)}</span>
+                <span className="dk-finance-callout-amount">
+                  {formatPhp(booking.agreedCentavos)}
+                </span>
                 <p className="dk-finance-callout-desc">
                   {booking.status === "COMPLETED"
                     ? "Escrow funds have been successfully released to the Tasker."

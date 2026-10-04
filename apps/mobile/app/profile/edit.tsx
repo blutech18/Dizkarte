@@ -285,9 +285,11 @@ export default function EditProfileScreen() {
   const hasUnsavedChanges = useMemo(() => {
     if (!profile) return false;
     const nameDiff = displayName.trim() !== (profile.displayName ?? "").trim();
-    const mobileDiff = (mobile.trim().length > 0 ? mobile.trim() : "") !== (profile.mobile ?? "").trim();
+    const mobileDiff =
+      (mobile.trim().length > 0 ? mobile.trim() : "") !== (profile.mobile ?? "").trim();
     const cityDiff = (cityCode ? cityCode.trim() : "") !== (profile.cityCode ?? "").trim();
-    const barangayDiff = (barangayCode ? barangayCode.trim() : "") !== (profile.barangayCode ?? "").trim();
+    const barangayDiff =
+      (barangayCode ? barangayCode.trim() : "") !== (profile.barangayCode ?? "").trim();
     const bioDiff = bio.trim() !== (profile.bio ?? "").trim();
 
     let taskerDiff = false;
@@ -295,7 +297,7 @@ export default function EditProfileScreen() {
       const publicBioDiff = publicBio.trim() !== (profile.tasker.publicBio ?? "").trim();
       const publicExpDiff =
         publicExperience.trim() !== (profile.tasker.publicExperience ?? "").trim();
-      const initialSpecs = (profile.tasker.specialties ?? []).map((s) => s.id).sort().join(",");
+      const initialSpecs = [...profile.tasker.specialtyIds].sort().join(",");
       const currentSpecs = [...selectedSpecialties].sort().join(",");
       const specDiff = initialSpecs !== currentSpecs;
       taskerDiff = publicBioDiff || publicExpDiff || specDiff;
@@ -471,272 +473,272 @@ export default function EditProfileScreen() {
           >
             <ScreenScrollProvider scrollViewRef={scrollRef}>
               <View style={styles.contentFrame}>
-              <ProfilePageIntro
-                title="Update your profile"
-                description="Keep your private account details accurate and your public Tasker information clear."
-              />
+                <ProfilePageIntro
+                  title="Update your profile"
+                  description="Keep your private account details accurate and your public Tasker information clear."
+                />
 
-              {formError ? (
-                <View style={styles.errorNotice} accessibilityRole="alert">
-                  <Icon name="alert-circle" size={20} color={theme.errorOnSoft} />
-                  <Text style={styles.errorText}>{formError}</Text>
-                </View>
-              ) : null}
+                {formError ? (
+                  <View style={styles.errorNotice} accessibilityRole="alert">
+                    <Icon name="alert-circle" size={20} color={theme.errorOnSoft} />
+                    <Text style={styles.errorText}>{formError}</Text>
+                  </View>
+                ) : null}
 
-              {/* Formal Identity & Avatar Hero Card */}
-              <View style={styles.identityHeroCard}>
-                {/* Left Side: Avatar Circle */}
-                <View style={styles.avatarHeroWrapper}>
-                  <Pressable
-                    onPress={() => {
-                      if (avatarUri) {
-                        setShowPhotoModal(true);
-                      } else {
-                        void pickProfilePhoto();
-                      }
-                    }}
-                    disabled={uploadingAvatar}
-                    accessibilityRole="button"
-                    accessibilityLabel={avatarUri ? "View profile photo" : "Upload profile photo"}
-                    style={({ pressed }) => [
-                      styles.avatarRing,
-                      pressed && !uploadingAvatar
-                        ? { opacity: 0.85, transform: [{ scale: 0.97 }] }
-                        : null,
-                    ]}
-                  >
-                    {avatarUri ? (
-                      <Image
-                        source={{ uri: avatarUri }}
-                        style={styles.avatarHeroImage}
-                        accessibilityLabel="Profile photo"
-                      />
-                    ) : (
-                      <View style={styles.avatarHeroPlaceholder}>
-                        <Text style={styles.avatarHeroInitials}>
-                          {initials(displayName || session.displayName)}
-                        </Text>
-                      </View>
-                    )}
-                  </Pressable>
-
-                  {/* Badge Action: If photo exists, it acts as Delete/Remove button; if no photo, Camera badge */}
-                  {avatarUri ? (
+                {/* Formal Identity & Avatar Hero Card */}
+                <View style={styles.identityHeroCard}>
+                  {/* Left Side: Avatar Circle */}
+                  <View style={styles.avatarHeroWrapper}>
                     <Pressable
-                      onPress={() => void removeProfilePhoto()}
+                      onPress={() => {
+                        if (avatarUri) {
+                          setShowPhotoModal(true);
+                        } else {
+                          void pickProfilePhoto();
+                        }
+                      }}
                       disabled={uploadingAvatar}
                       accessibilityRole="button"
-                      accessibilityLabel="Remove photo"
+                      accessibilityLabel={avatarUri ? "View profile photo" : "Upload profile photo"}
                       style={({ pressed }) => [
-                        styles.cameraActionBadge,
-                        styles.deleteActionBadge,
+                        styles.avatarRing,
                         pressed && !uploadingAvatar
-                          ? { opacity: 0.8, transform: [{ scale: 0.9 }] }
+                          ? { opacity: 0.85, transform: [{ scale: 0.97 }] }
                           : null,
                       ]}
                     >
-                      <Icon name="trash" size={13} color={theme.errorSolid} />
-                    </Pressable>
-                  ) : (
-                    <Pressable
-                      onPress={() => void pickProfilePhoto()}
-                      disabled={uploadingAvatar}
-                      accessibilityRole="button"
-                      accessibilityLabel="Upload photo"
-                      style={({ pressed }) => [
-                        styles.cameraActionBadge,
-                        pressed && !uploadingAvatar
-                          ? { opacity: 0.8, transform: [{ scale: 0.9 }] }
-                          : null,
-                      ]}
-                    >
-                      {uploadingAvatar ? (
-                        <ActivityIndicator size="small" color={theme.primary} />
+                      {avatarUri ? (
+                        <Image
+                          source={{ uri: avatarUri }}
+                          style={styles.avatarHeroImage}
+                          accessibilityLabel="Profile photo"
+                        />
                       ) : (
-                        <Icon name="camera" size={13} color={theme.primary} />
+                        <View style={styles.avatarHeroPlaceholder}>
+                          <Text style={styles.avatarHeroInitials}>
+                            {initials(displayName || session.displayName)}
+                          </Text>
+                        </View>
                       )}
                     </Pressable>
-                  )}
+
+                    {/* Badge Action: If photo exists, it acts as Delete/Remove button; if no photo, Camera badge */}
+                    {avatarUri ? (
+                      <Pressable
+                        onPress={() => void removeProfilePhoto()}
+                        disabled={uploadingAvatar}
+                        accessibilityRole="button"
+                        accessibilityLabel="Remove photo"
+                        style={({ pressed }) => [
+                          styles.cameraActionBadge,
+                          styles.deleteActionBadge,
+                          pressed && !uploadingAvatar
+                            ? { opacity: 0.8, transform: [{ scale: 0.9 }] }
+                            : null,
+                        ]}
+                      >
+                        <Icon name="trash" size={13} color={theme.errorSolid} />
+                      </Pressable>
+                    ) : (
+                      <Pressable
+                        onPress={() => void pickProfilePhoto()}
+                        disabled={uploadingAvatar}
+                        accessibilityRole="button"
+                        accessibilityLabel="Upload photo"
+                        style={({ pressed }) => [
+                          styles.cameraActionBadge,
+                          pressed && !uploadingAvatar
+                            ? { opacity: 0.8, transform: [{ scale: 0.9 }] }
+                            : null,
+                        ]}
+                      >
+                        {uploadingAvatar ? (
+                          <ActivityIndicator size="small" color={theme.primary} />
+                        ) : (
+                          <Icon name="camera" size={13} color={theme.primary} />
+                        )}
+                      </Pressable>
+                    )}
+                  </View>
+
+                  {/* Right Side: Name on top, Single Action Button below */}
+                  <View style={styles.identityContentRight}>
+                    <Text style={styles.identityName} numberOfLines={1}>
+                      {displayName.trim() || session.displayName}
+                    </Text>
+
+                    {/* Actions Below Name */}
+                    {uploadingAvatar ? (
+                      <View style={styles.uploadingStatusRow}>
+                        <ActivityIndicator size="small" color={theme.onPrimary} />
+                        <Text style={styles.uploadingStatusText}>Uploading photo…</Text>
+                      </View>
+                    ) : (
+                      <Pressable
+                        onPress={() => void pickProfilePhoto()}
+                        accessibilityRole="button"
+                        accessibilityLabel={avatarUri ? "Change photo" : "Upload photo"}
+                        style={({ pressed }) => [
+                          styles.actionPill,
+                          pressed ? { opacity: 0.85, transform: [{ scale: 0.98 }] } : null,
+                        ]}
+                      >
+                        <Icon name="camera" size={13} color={theme.primary} />
+                        <Text style={styles.actionPillText}>
+                          {avatarUri ? "Change photo" : "Upload photo"}
+                        </Text>
+                      </Pressable>
+                    )}
+                  </View>
                 </View>
 
-                {/* Right Side: Name on top, Single Action Button below */}
-                <View style={styles.identityContentRight}>
-                  <Text style={styles.identityName} numberOfLines={1}>
-                    {displayName.trim() || session.displayName}
-                  </Text>
-
-                  {/* Actions Below Name */}
-                  {uploadingAvatar ? (
-                    <View style={styles.uploadingStatusRow}>
-                      <ActivityIndicator size="small" color={theme.onPrimary} />
-                      <Text style={styles.uploadingStatusText}>Uploading photo…</Text>
-                    </View>
-                  ) : (
-                    <Pressable
-                      onPress={() => void pickProfilePhoto()}
-                      accessibilityRole="button"
-                      accessibilityLabel={avatarUri ? "Change photo" : "Upload photo"}
-                      style={({ pressed }) => [
-                        styles.actionPill,
-                        pressed ? { opacity: 0.85, transform: [{ scale: 0.98 }] } : null,
-                      ]}
+                <View style={[styles.grid, isTablet ? styles.gridTablet : null]}>
+                  <View style={[styles.gridItem, isTablet ? styles.gridItemTablet : null]}>
+                    <ProfilePageSection
+                      icon="user"
+                      title="Personal details"
+                      description="Private contact and account information."
                     >
-                      <Icon name="camera" size={13} color={theme.primary} />
-                      <Text style={styles.actionPillText}>
-                        {avatarUri ? "Change photo" : "Upload photo"}
-                      </Text>
-                    </Pressable>
-                  )}
-                </View>
-              </View>
+                      <View ref={displayNameRef}>
+                        <TextField
+                          label="Full name"
+                          required
+                          value={displayName}
+                          onChangeText={(text) => {
+                            markChanged();
+                            setDisplayName(text);
+                          }}
+                          onFocus={() => scrollToRef(displayNameRef)}
+                          textContentType="name"
+                        />
+                      </View>
+                      <View ref={mobileRef}>
+                        <TextField
+                          label="Mobile number"
+                          description="Philippine mobile number. Never shown publicly."
+                          value={mobile}
+                          onChangeText={(text) => {
+                            markChanged();
+                            setMobile(text);
+                          }}
+                          onFocus={() => scrollToRef(mobileRef)}
+                          keyboardType="phone-pad"
+                          placeholder="0917 123 4567"
+                        />
+                      </View>
+                      <View ref={bioRef}>
+                        <TextField
+                          label="About you"
+                          description="A short private account note."
+                          value={bio}
+                          onChangeText={(text) => {
+                            markChanged();
+                            setBio(text);
+                          }}
+                          onFocus={() => scrollToRef(bioRef)}
+                          multiline
+                          numberOfLines={3}
+                        />
+                      </View>
+                    </ProfilePageSection>
+                  </View>
 
-              <View style={[styles.grid, isTablet ? styles.gridTablet : null]}>
-                <View style={[styles.gridItem, isTablet ? styles.gridItemTablet : null]}>
-                  <ProfilePageSection
-                    icon="user"
-                    title="Personal details"
-                    description="Private contact and account information."
+                  <View
+                    ref={localityRef}
+                    style={[styles.gridItem, isTablet ? styles.gridItemTablet : null]}
                   >
-                    <View ref={displayNameRef}>
-                      <TextField
-                        label="Full name"
-                        required
-                        value={displayName}
-                        onChangeText={(text) => {
-                          markChanged();
-                          setDisplayName(text);
+                    <ProfilePageSection
+                      icon="map-pin"
+                      title="Usual area"
+                      description="Choose the city and barangay for your account and service area."
+                    >
+                      <LocalityPicker
+                        value={{
+                          cityCode: cityCode.length > 0 ? cityCode : null,
+                          barangayCode: barangayCode.length > 0 ? barangayCode : null,
                         }}
-                        onFocus={() => scrollToRef(displayNameRef)}
-                        textContentType="name"
+                        onChange={(next) => {
+                          markChanged();
+                          setCityCode(next.cityCode ?? "");
+                          setBarangayCode(next.barangayCode ?? "");
+                        }}
+                        onOpen={() => scrollToRef(localityRef)}
+                        onClose={() => scrollToRef(localityRef)}
+                        cityLabel="City / Municipality"
                       />
-                    </View>
-                    <View ref={mobileRef}>
+                    </ProfilePageSection>
+                  </View>
+                </View>
+
+                {profile.tasker ? (
+                  <ProfilePageSection
+                    icon="briefcase"
+                    title="Public Tasker profile"
+                    description="Clients see this information on your offers. Ratings, completed jobs, and verification are managed by Dizkarte."
+                  >
+                    <View ref={publicBioRef}>
                       <TextField
-                        label="Mobile number"
-                        description="Philippine mobile number. Never shown publicly."
-                        value={mobile}
+                        label="Public bio"
+                        value={publicBio}
                         onChangeText={(text) => {
                           markChanged();
-                          setMobile(text);
+                          setPublicBio(text);
                         }}
-                        onFocus={() => scrollToRef(mobileRef)}
-                        keyboardType="phone-pad"
-                        placeholder="0917 123 4567"
-                      />
-                    </View>
-                    <View ref={bioRef}>
-                      <TextField
-                        label="About you"
-                        description="A short private account note."
-                        value={bio}
-                        onChangeText={(text) => {
-                          markChanged();
-                          setBio(text);
-                        }}
-                        onFocus={() => scrollToRef(bioRef)}
+                        onFocus={() => scrollToRef(publicBioRef)}
                         multiline
-                        numberOfLines={3}
+                        numberOfLines={4}
                       />
                     </View>
-                  </ProfilePageSection>
-                </View>
+                    <View ref={publicExperienceRef}>
+                      <TextField
+                        label="Experience"
+                        value={publicExperience}
+                        onChangeText={(text) => {
+                          markChanged();
+                          setPublicExperience(text);
+                        }}
+                        onFocus={() => scrollToRef(publicExperienceRef)}
+                        multiline
+                        numberOfLines={4}
+                      />
+                    </View>
 
-                <View
-                  ref={localityRef}
-                  style={[styles.gridItem, isTablet ? styles.gridItemTablet : null]}
-                >
-                  <ProfilePageSection
-                    icon="map-pin"
-                    title="Usual area"
-                    description="Choose the city and barangay for your account and service area."
-                  >
-                    <LocalityPicker
-                      value={{
-                        cityCode: cityCode.length > 0 ? cityCode : null,
-                        barangayCode: barangayCode.length > 0 ? barangayCode : null,
-                      }}
-                      onChange={(next) => {
-                        markChanged();
-                        setCityCode(next.cityCode ?? "");
-                        setBarangayCode(next.barangayCode ?? "");
-                      }}
-                      onOpen={() => scrollToRef(localityRef)}
-                      onClose={() => scrollToRef(localityRef)}
-                      cityLabel="City / Municipality"
-                    />
-                  </ProfilePageSection>
-                </View>
-              </View>
-
-              {profile.tasker ? (
-                <ProfilePageSection
-                  icon="briefcase"
-                  title="Public Tasker profile"
-                  description="Clients see this information on your offers. Ratings, completed jobs, and verification are managed by Dizkarte."
-                >
-                  <View ref={publicBioRef}>
-                    <TextField
-                      label="Public bio"
-                      value={publicBio}
-                      onChangeText={(text) => {
-                        markChanged();
-                        setPublicBio(text);
-                      }}
-                      onFocus={() => scrollToRef(publicBioRef)}
-                      multiline
-                      numberOfLines={4}
-                    />
-                  </View>
-                  <View ref={publicExperienceRef}>
-                    <TextField
-                      label="Experience"
-                      value={publicExperience}
-                      onChangeText={(text) => {
-                        markChanged();
-                        setPublicExperience(text);
-                      }}
-                      onFocus={() => scrollToRef(publicExperienceRef)}
-                      multiline
-                      numberOfLines={4}
-                    />
-                  </View>
-
-                  <Text style={styles.fieldLabel}>Specialties</Text>
-                  <Text style={styles.fieldHint}>
-                    Choose every service you are qualified to offer.
-                  </Text>
-                  <View style={styles.chipRow}>
-                    {specialties.map((option) => {
-                      const selected = selectedSpecialties.includes(option.id);
-                      return (
-                        <Pressable
-                          key={option.id}
-                          onPress={() => toggleSpecialty(option.id)}
-                          accessibilityRole="checkbox"
-                          accessibilityState={{ checked: selected }}
-                          accessibilityLabel={option.name}
-                          style={({ pressed }) => [
-                            styles.chip,
-                            selected ? styles.chipSelected : null,
-                            pressed ? styles.chipPressed : null,
-                          ]}
-                        >
-                          {selected ? (
-                            <Icon name="check-circle" size={15} color={theme.onPrimary} />
-                          ) : null}
-                          <Text
-                            style={[styles.chipText, selected ? styles.chipTextSelected : null]}
+                    <Text style={styles.fieldLabel}>Specialties</Text>
+                    <Text style={styles.fieldHint}>
+                      Choose every service you are qualified to offer.
+                    </Text>
+                    <View style={styles.chipRow}>
+                      {specialties.map((option) => {
+                        const selected = selectedSpecialties.includes(option.id);
+                        return (
+                          <Pressable
+                            key={option.id}
+                            onPress={() => toggleSpecialty(option.id)}
+                            accessibilityRole="checkbox"
+                            accessibilityState={{ checked: selected }}
+                            accessibilityLabel={option.name}
+                            style={({ pressed }) => [
+                              styles.chip,
+                              selected ? styles.chipSelected : null,
+                              pressed ? styles.chipPressed : null,
+                            ]}
                           >
-                            {option.name}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </ProfilePageSection>
-              ) : null}
-            </View>
-          </ScreenScrollProvider>
+                            {selected ? (
+                              <Icon name="check-circle" size={15} color={theme.onPrimary} />
+                            ) : null}
+                            <Text
+                              style={[styles.chipText, selected ? styles.chipTextSelected : null]}
+                            >
+                              {option.name}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </ProfilePageSection>
+                ) : null}
+              </View>
+            </ScreenScrollProvider>
           </ScrollView>
 
           <Animated.View
@@ -1175,10 +1177,3 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
-
-
-
-
-
-
-

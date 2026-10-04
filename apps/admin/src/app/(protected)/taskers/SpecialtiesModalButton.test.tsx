@@ -10,7 +10,7 @@ describe("SpecialtiesModalButton", () => {
 
   it("renders count button with singular or plural label", () => {
     const { rerender } = render(
-      <SpecialtiesModalButton specialties={["Home cleaning"]} applicantName="R. Bautista" />
+      <SpecialtiesModalButton specialties={["Home cleaning"]} applicantName="R. Bautista" />,
     );
     expect(screen.getByText("1")).toBeDefined();
     expect(screen.getByText("Specialty")).toBeDefined();
@@ -19,7 +19,7 @@ describe("SpecialtiesModalButton", () => {
       <SpecialtiesModalButton
         specialties={["Home cleaning", "Laundry"]}
         applicantName="R. Bautista"
-      />
+      />,
     );
     expect(screen.getByText("2")).toBeDefined();
     expect(screen.getByText("Specialties")).toBeDefined();
@@ -30,7 +30,7 @@ describe("SpecialtiesModalButton", () => {
       <SpecialtiesModalButton
         specialties={["Home cleaning", "Laundry", "Appliance repair"]}
         applicantName="R. Bautista"
-      />
+      />,
     );
 
     const button = screen.getByRole("button", { name: /view 3 specialties/i });
@@ -45,12 +45,7 @@ describe("SpecialtiesModalButton", () => {
   });
 
   it("closes modal on Close button click and Escape key", () => {
-    render(
-      <SpecialtiesModalButton
-        specialties={["Home cleaning"]}
-        applicantName="R. Bautista"
-      />
-    );
+    render(<SpecialtiesModalButton specialties={["Home cleaning"]} applicantName="R. Bautista" />);
 
     fireEvent.click(screen.getByRole("button", { name: /view 1 specialty/i }));
     expect(screen.getByRole("dialog")).toBeDefined();

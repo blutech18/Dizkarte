@@ -125,9 +125,7 @@ export function Screen({
   );
 
   const content = scroll ? (
-    <ScreenScrollProvider scrollViewRef={effectiveScrollRef}>
-      {innerContent}
-    </ScreenScrollProvider>
+    <ScreenScrollProvider scrollViewRef={effectiveScrollRef}>{innerContent}</ScreenScrollProvider>
   ) : (
     innerContent
   );
@@ -191,9 +189,7 @@ export function Screen({
         </>
       ) : null}
       {keyboardAvoiding ? (
-        <KeyboardAvoider style={styles.keyboardAvoider}>
-          {body}
-        </KeyboardAvoider>
+        <KeyboardAvoider style={styles.keyboardAvoider}>{body}</KeyboardAvoider>
       ) : (
         body
       )}

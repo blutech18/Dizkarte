@@ -14,11 +14,7 @@ import { CaseHistoryList } from "@/components/ui/CaseHistoryList";
 import { EvidenceList } from "@/components/ui/EvidenceList";
 import { ReportActionsPanel } from "./ReportActionsPanel";
 import { CaseSubjectCard } from "@/components/ui/CaseSubjectCard";
-import {
-  reportStatusLabel,
-  reportStatusTone,
-  reportStatusMeaning,
-} from "../status";
+import { reportStatusLabel, reportStatusTone, reportStatusMeaning } from "../status";
 
 export const metadata: Metadata = { title: "Report" };
 
@@ -45,13 +41,7 @@ function resourceTypeLabel(resourceType: string): string {
   return resourceType.replace(/[_-]+/g, " ").replace(/^\w/, (letter) => letter.toUpperCase());
 }
 
-function Fact({
-  label,
-  children,
-}: {
-  readonly label: string;
-  readonly children: React.ReactNode;
-}) {
+function Fact({ label, children }: { readonly label: string; readonly children: React.ReactNode }) {
   return (
     <div className="dk-fact">
       <dt>{label}</dt>
@@ -122,9 +112,7 @@ async function ReportCaseRecord({
             <h1 className="dk-report-hero-title">
               {resourceTypeLabel(detail.resourceType)} report · {detail.category}
             </h1>
-            <p className="dk-report-hero-meaning">
-              {reportStatusMeaning(detail.status)}
-            </p>
+            <p className="dk-report-hero-meaning">{reportStatusMeaning(detail.status)}</p>
           </div>
           <div style={{ flexShrink: 0 }}>
             <StatusBadge
@@ -152,7 +140,9 @@ async function ReportCaseRecord({
             <time dateTime={detail.createdAt}>{formatDateTime(detail.createdAt)}</time>
           </Fact>
           <Fact label="Assignee">
-            <span style={{ color: isAssigned ? "var(--dk-textPrimary)" : "var(--dk-textSecondary)" }}>
+            <span
+              style={{ color: isAssigned ? "var(--dk-textPrimary)" : "var(--dk-textSecondary)" }}
+            >
               {detail.assignee ?? "Unassigned"}
             </span>
           </Fact>
@@ -238,9 +228,7 @@ async function ReportCaseRecord({
                 <strong>Subject reference:</strong> {detail.caseSubject.resourceLabel}
               </p>
               {detail.narrative ? (
-                <div className="dk-report-narrative-box">
-                  {detail.narrative}
-                </div>
+                <div className="dk-report-narrative-box">{detail.narrative}</div>
               ) : (
                 <p className="dk-muted" style={{ marginTop: 12 }}>
                   No additional written narrative was provided with this report.
@@ -286,10 +274,26 @@ async function ReportCaseRecord({
                 />
               </div>
               <div style={{ marginBottom: 14 }}>
-                <p style={{ margin: "0 0 4px 0", fontSize: 11, fontWeight: 600, color: "var(--dk-textSecondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                <p
+                  style={{
+                    margin: "0 0 4px 0",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "var(--dk-textSecondary)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                  }}
+                >
                   Assignee
                 </p>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "var(--dk-textPrimary)" }}>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: "var(--dk-textPrimary)",
+                  }}
+                >
                   {detail.assignee ?? "Unassigned"}
                 </p>
               </div>
@@ -332,7 +336,8 @@ async function ReportCaseRecord({
                   <dd>{detail.triage.actionedCases}</dd>
                 </dl>
                 <p className="dk-muted" style={{ margin: "14px 0 0 0", fontSize: 12 }}>
-                  Counts only. The number of distinct reporters distinguishes a single complaint from a coordinated pile-on.
+                  Counts only. The number of distinct reporters distinguishes a single complaint
+                  from a coordinated pile-on.
                 </p>
               </div>
             ) : null}
@@ -361,7 +366,3 @@ async function ReportCaseRecord({
     </>
   );
 }
-
-
-
-

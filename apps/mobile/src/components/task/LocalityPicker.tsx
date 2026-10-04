@@ -14,14 +14,7 @@ import { Icon } from "../ui/Icon";
 import { useMarketplace } from "../../providers/MarketplaceProvider";
 import { useScreenScroll } from "../../providers/ScreenScrollContext";
 import type { PsgcBarangay, PsgcCity } from "../../services/marketplace";
-import {
-  theme,
-  spacing,
-  fontSize,
-  lineHeight,
-  radii,
-  noWebOutline,
-} from "../../theme";
+import { theme, spacing, fontSize, lineHeight, radii, noWebOutline } from "../../theme";
 
 export type LocalityValue = {
   /** 6-digit PSGC city/municipality code (stored as `city_code`). */
@@ -242,11 +235,7 @@ export function LocalityPicker({
         onPress={openBarangay}
       />
 
-      <Modal
-        visible={picking !== null}
-        animationType="slide"
-        onRequestClose={closePicker}
-      >
+      <Modal visible={picking !== null} animationType="slide" onRequestClose={closePicker}>
         <View
           style={[
             styles.modalContainer,
@@ -404,11 +393,7 @@ function SelectRow({
         ]}
       >
         <View style={styles.locationSelectIcon}>
-          <Icon
-            name="map-pin"
-            size={18}
-            color={disabled ? theme.textSecondary : theme.primary}
-          />
+          <Icon name="map-pin" size={18} color={disabled ? theme.textSecondary : theme.primary} />
         </View>
         <Text
           style={[styles.selectText, selectedLabel ? null : styles.selectPlaceholder]}
@@ -423,13 +408,7 @@ function SelectRow({
   );
 }
 
-function EmptyResults({
-  query,
-  isCity,
-}: {
-  readonly query: string;
-  readonly isCity?: boolean;
-}) {
+function EmptyResults({ query, isCity }: { readonly query: string; readonly isCity?: boolean }) {
   return (
     <Text style={styles.empty} accessibilityLiveRegion="polite">
       {query.trim().length === 0

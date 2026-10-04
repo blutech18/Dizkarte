@@ -204,8 +204,18 @@ describe("countBookingsByStage", () => {
 describe("sortBookings", () => {
   it("orders by recency, age, and amount", () => {
     const items = [
-      booking({ id: "old", createdAt: "2026-08-01T00:00:00.000Z", updatedAt: "2026-08-01T00:00:00.000Z", agreedCentavos: 500_000 }),
-      booking({ id: "new", createdAt: "2026-08-20T00:00:00.000Z", updatedAt: "2026-08-20T00:00:00.000Z", agreedCentavos: 100_000 }),
+      booking({
+        id: "old",
+        createdAt: "2026-08-01T00:00:00.000Z",
+        updatedAt: "2026-08-01T00:00:00.000Z",
+        agreedCentavos: 500_000,
+      }),
+      booking({
+        id: "new",
+        createdAt: "2026-08-20T00:00:00.000Z",
+        updatedAt: "2026-08-20T00:00:00.000Z",
+        agreedCentavos: 100_000,
+      }),
     ];
     expect(sortBookings(items, "recent")[0]!.id).toBe("new");
     expect(sortBookings(items, "oldest")[0]!.id).toBe("old");

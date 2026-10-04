@@ -25,7 +25,11 @@ export function TaskRecordSkeleton() {
         <SkeletonBone variant="subtitle" style={{ width: "55%", marginBottom: 20 }} />
         <div className="dk-task-metrics">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="dk-fact" style={{ padding: "14px 16px", borderRadius: "var(--dk-radius-md)" }}>
+            <div
+              key={i}
+              className="dk-fact"
+              style={{ padding: "14px 16px", borderRadius: "var(--dk-radius-md)" }}
+            >
               <SkeletonBone variant="text-sm" style={{ width: 70 }} />
               <SkeletonBone variant="text" style={{ width: 120, height: 24, marginTop: 8 }} />
             </div>
@@ -39,7 +43,15 @@ export function TaskRecordSkeleton() {
         <div className="dk-task-main-col">
           <div className="dk-card dk-task-card">
             <SkeletonBone variant="title" style={{ width: "35%", marginBottom: 16 }} />
-            <SkeletonBone variant="text" style={{ width: "95%", height: 48, borderRadius: "var(--dk-radius-md)", marginBottom: 16 }} />
+            <SkeletonBone
+              variant="text"
+              style={{
+                width: "95%",
+                height: 48,
+                borderRadius: "var(--dk-radius-md)",
+                marginBottom: 16,
+              }}
+            />
             <div className="dk-task-highlight-box">
               <SkeletonBone style={{ height: 64, borderRadius: "var(--dk-radius-md)" }} />
               <SkeletonBone style={{ height: 64, borderRadius: "var(--dk-radius-md)" }} />
@@ -73,7 +85,9 @@ export function TaskRecordSkeleton() {
         <div className="dk-task-side-col">
           <div className="dk-card dk-task-card">
             <SkeletonBone variant="title" style={{ width: "40%", marginBottom: 14 }} />
-            <SkeletonBone style={{ height: 44, borderRadius: "var(--dk-radius-md)", marginBottom: 14 }} />
+            <SkeletonBone
+              style={{ height: 44, borderRadius: "var(--dk-radius-md)", marginBottom: 14 }}
+            />
             <SkeletonBone variant="btn" style={{ width: "100%", height: 36 }} />
           </div>
 

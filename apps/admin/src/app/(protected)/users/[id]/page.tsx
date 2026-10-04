@@ -224,10 +224,21 @@ async function UserRecord({ userId }: { readonly userId: string }) {
               {initials(user.displayName)}
             </div>
             <div style={{ minWidth: 0 }}>
-              <h1 className="dk-booking-hero-title" style={{ margin: 0, fontSize: "clamp(20px, 2.5vw, 26px)" }}>
+              <h1
+                className="dk-booking-hero-title"
+                style={{ margin: 0, fontSize: "clamp(20px, 2.5vw, 26px)" }}
+              >
                 {user.displayName}
               </h1>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  marginTop: 6,
+                  flexWrap: "wrap",
+                }}
+              >
                 <span className="dk-task-ref-chip" title={user.id}>
                   <span className="dk-task-ref-label">User Ref: </span>
                   <span className="dk-task-ref-value">{formattedUserRef}</span>
@@ -413,9 +424,14 @@ async function UserRecord({ userId }: { readonly userId: string }) {
 
             <div className="dk-decision-active-box" style={{ marginTop: 12 }}>
               <p className="dk-decision-prompt">
-                Every action requires an explicit reason and is permanently recorded in the Admin audit log. Capability grants are preserved so reinstatement is lossless.
+                Every action requires an explicit reason and is permanently recorded in the Admin
+                audit log. Capability grants are preserved so reinstatement is lossless.
               </p>
-              <UserRowActions userId={user.id} status={user.accountStatus} className="dk-decision-btn-row" />
+              <UserRowActions
+                userId={user.id}
+                status={user.accountStatus}
+                className="dk-decision-btn-row"
+              />
             </div>
           </section>
 
@@ -480,7 +496,8 @@ async function UserRecord({ userId }: { readonly userId: string }) {
                 <LockIcon className="dk-callout-icon" aria-hidden="true" />
               </div>
               <p>
-                Email addresses and authentication credentials reside securely in Supabase Auth and are not readable by the operator console.
+                Email addresses and authentication credentials reside securely in Supabase Auth and
+                are not readable by the operator console.
               </p>
             </div>
           </section>
@@ -494,11 +511,15 @@ async function UserRecord({ userId }: { readonly userId: string }) {
             <div className="dk-ref-group" style={{ marginTop: 12 }}>
               <div className="dk-ref-row">
                 <span className="dk-ref-title">User Reference</span>
-                <span className="dk-ref-code" title={user.id}>{formattedUserRef}</span>
+                <span className="dk-ref-code" title={user.id}>
+                  {formattedUserRef}
+                </span>
               </div>
               <div className="dk-ref-row">
                 <span className="dk-ref-title">User ID</span>
-                <span className="dk-ref-code" title={user.id}>{user.id}</span>
+                <span className="dk-ref-code" title={user.id}>
+                  {user.id}
+                </span>
               </div>
             </div>
           </section>

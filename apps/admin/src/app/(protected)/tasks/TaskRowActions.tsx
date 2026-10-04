@@ -47,7 +47,10 @@ export function TaskRowActions({
   }
 
   return (
-    <div className={className ?? "dk-row"} style={className ? undefined : { gap: 8, justifyContent: "center" }}>
+    <div
+      className={className ?? "dk-row"}
+      style={className ? undefined : { gap: 8, justifyContent: "center" }}
+    >
       {showViewLink ? (
         <LinkButton
           href={`/tasks/${taskId}`}

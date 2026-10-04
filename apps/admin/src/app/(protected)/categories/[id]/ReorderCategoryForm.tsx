@@ -119,9 +119,7 @@ export function ReorderCategoryForm({
             value={reason}
             onChange={(event) => setReason(event.target.value)}
           />
-          <span className="dk-field-description">
-            Recorded in moderation audit log.
-          </span>
+          <span className="dk-field-description">Recorded in moderation audit log.</span>
         </div>
       </div>
 

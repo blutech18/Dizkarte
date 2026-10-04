@@ -328,10 +328,13 @@ export default function TaskerApplicationScreen() {
                     {/* Title & Subtitle */}
                     <View style={styles.heroTextBlock}>
                       <Text style={styles.heroTitle}>
-                        {application.status === "IN_REVIEW" ? "Review In Progress" : "Application Submitted"}
+                        {application.status === "IN_REVIEW"
+                          ? "Review In Progress"
+                          : "Application Submitted"}
                       </Text>
                       <Text style={styles.heroSubtitle}>
-                        Your Tasker profile and qualifications are currently with our manual review team. We typically review applications within 1–2 business days.
+                        Your Tasker profile and qualifications are currently with our manual review
+                        team. We typically review applications within 1–2 business days.
                       </Text>
                     </View>
 
@@ -358,11 +361,14 @@ export default function TaskerApplicationScreen() {
                           <View style={styles.metaBlock}>
                             <Text style={styles.metaLabel}>SUBMITTED ON</Text>
                             <Text style={styles.metaValue} numberOfLines={1}>
-                              {new Date(application.submittedAt || Date.now()).toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              })}
+                              {new Date(application.submittedAt || Date.now()).toLocaleDateString(
+                                "en-US",
+                                {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                },
+                              )}
                             </Text>
                           </View>
 
@@ -415,9 +421,12 @@ export default function TaskerApplicationScreen() {
                         {/* Step 1 */}
                         <View style={styles.roadmapItem}>
                           <View style={styles.roadmapStepContent}>
-                            <Text style={styles.roadmapStepTitleCompleted}>1. Application Received</Text>
+                            <Text style={styles.roadmapStepTitleCompleted}>
+                              1. Application Received
+                            </Text>
                             <Text style={styles.roadmapStepDesc}>
-                              Your bio, work experience, specialties, and service area are safely recorded.
+                              Your bio, work experience, specialties, and service area are safely
+                              recorded.
                             </Text>
                           </View>
                           <View style={styles.roadmapBareIcon}>
@@ -430,7 +439,8 @@ export default function TaskerApplicationScreen() {
                           <View style={styles.roadmapStepContent}>
                             <Text style={styles.roadmapStepTitleActive}>2. Manual Review</Text>
                             <Text style={styles.roadmapStepDesc}>
-                              Our team verifies your profile details to maintain trust and quality across the marketplace.
+                              Our team verifies your profile details to maintain trust and quality
+                              across the marketplace.
                             </Text>
                           </View>
                           <View style={styles.roadmapBareIcon}>
@@ -443,7 +453,8 @@ export default function TaskerApplicationScreen() {
                           <View style={styles.roadmapStepContent}>
                             <Text style={styles.roadmapStepTitlePending}>3. Tasker Activation</Text>
                             <Text style={styles.roadmapStepDesc}>
-                              Once approved, you will be able to make offers on open tasks and receive protected payouts.
+                              Once approved, you will be able to make offers on open tasks and
+                              receive protected payouts.
                             </Text>
                           </View>
                           <View style={styles.roadmapBareIcon}>
@@ -460,7 +471,8 @@ export default function TaskerApplicationScreen() {
                         <Text style={styles.noticeHeading}>You will be notified</Text>
                       </View>
                       <Text style={styles.noticeBody}>
-                        You'll receive an in-app notification when the review is complete. You can continue using Dizkarte to post and browse tasks in the meantime.
+                        You'll receive an in-app notification when the review is complete. You can
+                        continue using Dizkarte to post and browse tasks in the meantime.
                       </Text>
                     </View>
 
@@ -484,7 +496,8 @@ export default function TaskerApplicationScreen() {
                     <View style={styles.heroTextBlock}>
                       <Text style={styles.heroTitle}>You are an approved Tasker</Text>
                       <Text style={styles.heroSubtitle}>
-                        Your Tasker profile is active and verified. You can bid on open tasks, chat with clients, and manage your specialties.
+                        Your Tasker profile is active and verified. You can bid on open tasks, chat
+                        with clients, and manage your specialties.
                       </Text>
                     </View>
 
@@ -534,187 +547,187 @@ export default function TaskerApplicationScreen() {
                         <Text style={styles.noticeTitle}>Manual application review</Text>
                       </View>
                       <Text style={styles.noticeDescription}>
-                        Dizkarte reviews every application before Tasker capabilities are enabled. Your
-                        ratings and verification status cannot be edited here.
+                        Dizkarte reviews every application before Tasker capabilities are enabled.
+                        Your ratings and verification status cannot be edited here.
                       </Text>
                     </View>
-                  {application?.decisionReason ? (
-                    <ApplicationStatusPanel
-                      icon="alert-circle"
-                      title={
-                        application.status === "RESUBMISSION_REQUIRED"
-                          ? "Changes requested"
-                          : "Previous application decision"
-                      }
-                      description={application.decisionReason}
-                      tone="warning"
-                    />
-                  ) : null}
+                    {application?.decisionReason ? (
+                      <ApplicationStatusPanel
+                        icon="alert-circle"
+                        title={
+                          application.status === "RESUBMISSION_REQUIRED"
+                            ? "Changes requested"
+                            : "Previous application decision"
+                        }
+                        description={application.decisionReason}
+                        tone="warning"
+                      />
+                    ) : null}
 
-                  <View style={styles.progressCard}>
-                    <View style={styles.progressHeader}>
-                      <View style={styles.progressHeaderInfo}>
-                        <Text style={styles.progressTitle}>Application readiness</Text>
-                        <Text style={styles.progressCaption}>
-                          Complete every required section before submitting.
-                        </Text>
-                      </View>
-                      <Text style={styles.progressValue}>{completion}%</Text>
-                    </View>
-                    <View style={styles.progressTrack}>
-                      <View style={[styles.progressFill, { width: `${completion}%` }]} />
-                    </View>
-                  </View>
-
-                  {error ? (
-                    <View style={styles.errorNotice} accessibilityRole="alert">
-                      <Icon name="alert-circle" size={20} color={theme.errorOnSoft} />
-                      <Text style={styles.errorText}>{error}</Text>
-                    </View>
-                  ) : null}
-
-                  <View style={[styles.formGrid, isTablet ? styles.formGridTablet : null]}>
-                    <View style={[styles.gridItem, isTablet ? styles.gridItemTablet : null]}>
-                      <ProfilePageSection
-                        icon="briefcase"
-                        title="Specialties"
-                        description="Choose every service you are qualified and prepared to offer."
-                        showDivider={false}
-                      >
-                        <View style={styles.chipRow}>
-                          {options.map((option) => {
-                            const selected = specialties.includes(option.id);
-                            return (
-                              <SelectChip
-                                key={option.id}
-                                label={option.name}
-                                selected={selected}
-                                wide={isTablet}
-                                onPress={() => toggleSpecialty(option.id)}
-                              />
-                            );
-                          })}
+                    <View style={styles.progressCard}>
+                      <View style={styles.progressHeader}>
+                        <View style={styles.progressHeaderInfo}>
+                          <Text style={styles.progressTitle}>Application readiness</Text>
+                          <Text style={styles.progressCaption}>
+                            Complete every required section before submitting.
+                          </Text>
                         </View>
-                      </ProfilePageSection>
+                        <Text style={styles.progressValue}>{completion}%</Text>
+                      </View>
+                      <View style={styles.progressTrack}>
+                        <View style={[styles.progressFill, { width: `${completion}%` }]} />
+                      </View>
                     </View>
 
-                    <View
-                      ref={serviceAreaRef}
-                      style={[styles.gridItem, isTablet ? styles.gridItemTablet : null]}
-                    >
-                      <ProfilePageSection
-                        icon="map-pin"
-                        title="Service area"
-                        description="Choose the city and barangay where you can accept work."
+                    {error ? (
+                      <View style={styles.errorNotice} accessibilityRole="alert">
+                        <Icon name="alert-circle" size={20} color={theme.errorOnSoft} />
+                        <Text style={styles.errorText}>{error}</Text>
+                      </View>
+                    ) : null}
+
+                    <View style={[styles.formGrid, isTablet ? styles.formGridTablet : null]}>
+                      <View style={[styles.gridItem, isTablet ? styles.gridItemTablet : null]}>
+                        <ProfilePageSection
+                          icon="briefcase"
+                          title="Specialties"
+                          description="Choose every service you are qualified and prepared to offer."
+                          showDivider={false}
+                        >
+                          <View style={styles.chipRow}>
+                            {options.map((option) => {
+                              const selected = specialties.includes(option.id);
+                              return (
+                                <SelectChip
+                                  key={option.id}
+                                  label={option.name}
+                                  selected={selected}
+                                  wide={isTablet}
+                                  onPress={() => toggleSpecialty(option.id)}
+                                />
+                              );
+                            })}
+                          </View>
+                        </ProfilePageSection>
+                      </View>
+
+                      <View
+                        ref={serviceAreaRef}
+                        style={[styles.gridItem, isTablet ? styles.gridItemTablet : null]}
                       >
-                        <LocalityPicker
-                          value={{
-                            cityCode: cityCode.length > 0 ? cityCode : null,
-                            barangayCode: barangayCode.length > 0 ? barangayCode : null,
-                          }}
-                          onChange={(next) => {
-                            markChanged();
-                            setCityCode(next.cityCode ?? "");
-                            setBarangayCode(next.barangayCode ?? "");
-                          }}
-                          onOpen={() => scrollToRef(serviceAreaRef)}
-                          onClose={() => scrollToRef(serviceAreaRef)}
-                          cityLabel="Service city / municipality"
-                          cityRequired
-                        />
-                      </ProfilePageSection>
-                    </View>
-                  </View>
-
-                  <ProfilePageSection
-                    icon="user"
-                    title="Professional profile"
-                    description="Explain what you do well and the experience clients can rely on."
-                  >
-                    <View ref={bioFieldRef}>
-                      <TextField
-                        label="Professional bio"
-                        required
-                        multiline
-                        numberOfLines={4}
-                        description="At least 20 characters. Clients see this on your offers."
-                        value={bio}
-                        onChangeText={(text) => {
-                          markChanged();
-                          setBio(text);
-                        }}
-                        onFocus={() => scrollToRef(bioFieldRef)}
-                        maxLength={2000}
-                        placeholder="Introduce yourself and the services you provide."
-                      />
-                    </View>
-                    <View ref={experienceFieldRef}>
-                      <TextField
-                        label="Relevant experience"
-                        required
-                        multiline
-                        numberOfLines={4}
-                        description="Describe completed work, practical skills, or professional experience."
-                        value={experience}
-                        onChangeText={(text) => {
-                          markChanged();
-                          setExperience(text);
-                        }}
-                        onFocus={() => scrollToRef(experienceFieldRef)}
-                        maxLength={2000}
-                        placeholder="Summarize your experience."
-                      />
-                    </View>
-                  </ProfilePageSection>
-
-                  <ProfilePageSection
-                    icon="wallet"
-                    title="Preferred payout provider"
-                    description="Optional. Choose a provider preference only—never enter a wallet, bank, or card number here."
-                    showDivider={false}
-                  >
-                    <View style={styles.providerGrid}>
-                      {PAYOUT_PROVIDERS.map((provider) => {
-                        const selected = payoutProvider === provider.value;
-                        return (
-                          <Pressable
-                            key={provider.value}
-                            onPress={() => {
-                              markChanged();
-                              setPayoutProvider(selected ? null : provider.value);
+                        <ProfilePageSection
+                          icon="map-pin"
+                          title="Service area"
+                          description="Choose the city and barangay where you can accept work."
+                        >
+                          <LocalityPicker
+                            value={{
+                              cityCode: cityCode.length > 0 ? cityCode : null,
+                              barangayCode: barangayCode.length > 0 ? barangayCode : null,
                             }}
-                            accessibilityRole="radio"
-                            accessibilityState={{ selected }}
-                            accessibilityLabel={provider.label}
-                            style={({ pressed }) => [
-                              styles.providerCard,
-                              selected ? styles.providerCardSelected : null,
-                              pressed ? styles.providerCardPressed : null,
-                            ]}
-                          >
-                            <ProviderMark mark={provider.mark} />
-                            {provider.mark === "bank" ? (
-                              <Text style={styles.providerLabel}>{provider.label}</Text>
-                            ) : null}
-                            {selected ? (
-                              <View style={styles.providerSelectedMark}>
-                                <Icon name="check-circle" size={17} color={theme.primary} />
-                              </View>
-                            ) : null}
-                          </Pressable>
-                        );
-                      })}
+                            onChange={(next) => {
+                              markChanged();
+                              setCityCode(next.cityCode ?? "");
+                              setBarangayCode(next.barangayCode ?? "");
+                            }}
+                            onOpen={() => scrollToRef(serviceAreaRef)}
+                            onClose={() => scrollToRef(serviceAreaRef)}
+                            cityLabel="Service city / municipality"
+                            cityRequired
+                          />
+                        </ProfilePageSection>
+                      </View>
                     </View>
-                    <Text style={styles.providerNote}>
-                      Secure payout linking happens after approval through the configured payout
-                      provider.
-                    </Text>
-                  </ProfilePageSection>
-                </>
-              ) : null}
-            </View>
-          </ScreenScrollProvider>
-        </ScrollView>
+
+                    <ProfilePageSection
+                      icon="user"
+                      title="Professional profile"
+                      description="Explain what you do well and the experience clients can rely on."
+                    >
+                      <View ref={bioFieldRef}>
+                        <TextField
+                          label="Professional bio"
+                          required
+                          multiline
+                          numberOfLines={4}
+                          description="At least 20 characters. Clients see this on your offers."
+                          value={bio}
+                          onChangeText={(text) => {
+                            markChanged();
+                            setBio(text);
+                          }}
+                          onFocus={() => scrollToRef(bioFieldRef)}
+                          maxLength={2000}
+                          placeholder="Introduce yourself and the services you provide."
+                        />
+                      </View>
+                      <View ref={experienceFieldRef}>
+                        <TextField
+                          label="Relevant experience"
+                          required
+                          multiline
+                          numberOfLines={4}
+                          description="Describe completed work, practical skills, or professional experience."
+                          value={experience}
+                          onChangeText={(text) => {
+                            markChanged();
+                            setExperience(text);
+                          }}
+                          onFocus={() => scrollToRef(experienceFieldRef)}
+                          maxLength={2000}
+                          placeholder="Summarize your experience."
+                        />
+                      </View>
+                    </ProfilePageSection>
+
+                    <ProfilePageSection
+                      icon="wallet"
+                      title="Preferred payout provider"
+                      description="Optional. Choose a provider preference only—never enter a wallet, bank, or card number here."
+                      showDivider={false}
+                    >
+                      <View style={styles.providerGrid}>
+                        {PAYOUT_PROVIDERS.map((provider) => {
+                          const selected = payoutProvider === provider.value;
+                          return (
+                            <Pressable
+                              key={provider.value}
+                              onPress={() => {
+                                markChanged();
+                                setPayoutProvider(selected ? null : provider.value);
+                              }}
+                              accessibilityRole="radio"
+                              accessibilityState={{ selected }}
+                              accessibilityLabel={provider.label}
+                              style={({ pressed }) => [
+                                styles.providerCard,
+                                selected ? styles.providerCardSelected : null,
+                                pressed ? styles.providerCardPressed : null,
+                              ]}
+                            >
+                              <ProviderMark mark={provider.mark} />
+                              {provider.mark === "bank" ? (
+                                <Text style={styles.providerLabel}>{provider.label}</Text>
+                              ) : null}
+                              {selected ? (
+                                <View style={styles.providerSelectedMark}>
+                                  <Icon name="check-circle" size={17} color={theme.primary} />
+                                </View>
+                              ) : null}
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                      <Text style={styles.providerNote}>
+                        Secure payout linking happens after approval through the configured payout
+                        provider.
+                      </Text>
+                    </ProfilePageSection>
+                  </>
+                ) : null}
+              </View>
+            </ScreenScrollProvider>
+          </ScrollView>
 
           {showForm ? (
             <Animated.View
@@ -1468,7 +1481,3 @@ const styles = StyleSheet.create({
     width: "100%",
   },
 });
-
-
-
-

@@ -3,7 +3,6 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { Screen } from "../ui/Screen";
 import { AppHeader } from "../ui/AppHeader";
-import { Button } from "../ui/Button";
 import { Icon, type IconName } from "../ui/Icon";
 import { useSession } from "../../providers/SessionProvider";
 import { useMarketplace } from "../../providers/MarketplaceProvider";
@@ -100,7 +99,7 @@ export function TaskerApplicationPrompt({
   useFocusEffect(
     useCallback(() => {
       void loadApplication();
-    }, [loadApplication])
+    }, [loadApplication]),
   );
 
   const handleRefresh = useCallback(async () => {
@@ -154,15 +153,16 @@ export function TaskerApplicationPrompt({
               ? "Application In Review"
               : isResubmission
                 ? "Updates Requested"
-                : title ?? "Turn your skills into income"}
+                : (title ?? "Turn your skills into income")}
           </Text>
           <Text style={styles.heroDescription}>
             {isUnderReview
               ? "Your Tasker profile and qualifications are currently being reviewed by our team. We typically review applications within 1–2 business days."
               : isResubmission
-                ? application?.decisionReason || "Please update your application with the requested details to proceed."
-                : description ??
-                  "Find nearby tasks, choose work that fits your schedule, and build trusted client relationships in your community."}
+                ? application?.decisionReason ||
+                  "Please update your application with the requested details to proceed."
+                : (description ??
+                  "Find nearby tasks, choose work that fits your schedule, and build trusted client relationships in your community.")}
           </Text>
         </View>
 
@@ -176,10 +176,7 @@ export function TaskerApplicationPrompt({
                   ? "Update Application"
                   : "Start Tasker Application"
             }
-            style={({ pressed }) => [
-              styles.heroCtaButton,
-              pressed && styles.heroCtaButtonPressed,
-            ]}
+            style={({ pressed }) => [styles.heroCtaButton, pressed && styles.heroCtaButtonPressed]}
             onPress={() => router.push("/tasker-application")}
           >
             <Icon name="arrow-right" size={15} color={theme.primary} />

@@ -173,4 +173,3 @@ describe("task record layout", () => {
     expect(html).toContain("TSK-20260829-2003");
   });
 });
-

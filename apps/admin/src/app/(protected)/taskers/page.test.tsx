@@ -53,7 +53,9 @@ function walk(node: unknown): ReadonlyArray<ReactElement> {
 
 describe("TaskerApplicationsPage", () => {
   it("renders the shell with breadcrumbs and filters", async () => {
-    const shell = (await TaskerApplicationsPage({ searchParams: Promise.resolve({}) })) as ReactElement;
+    const shell = (await TaskerApplicationsPage({
+      searchParams: Promise.resolve({}),
+    })) as ReactElement;
     const names = walk(shell).map((element) =>
       typeof element.type === "function" ? element.type.name : String(element.type),
     );
@@ -64,20 +66,26 @@ describe("TaskerApplicationsPage", () => {
   });
 
   it("renders 6-column skeleton fallback on Suspense", async () => {
-    const shell = (await TaskerApplicationsPage({ searchParams: Promise.resolve({}) })) as ReactElement;
+    const shell = (await TaskerApplicationsPage({
+      searchParams: Promise.resolve({}),
+    })) as ReactElement;
     const boundaries = walk(shell).filter((element) => element.type === Suspense);
     expect(boundaries).toHaveLength(1);
   });
 
   it("renders applicant avatar, ref code, status badge, specialty tags, and actions in table", async () => {
-    const shell = (await TaskerApplicationsPage({ searchParams: Promise.resolve({}) })) as ReactElement;
+    const shell = (await TaskerApplicationsPage({
+      searchParams: Promise.resolve({}),
+    })) as ReactElement;
     const tableElement = walk(shell).find(
       (element) =>
         typeof element.type === "function" && element.type.constructor.name === "AsyncFunction",
     );
     expect(tableElement).toBeDefined();
 
-    const resolved = await (tableElement!.type as (props: unknown) => Promise<ReactElement>)(tableElement!.props);
+    const resolved = await (tableElement!.type as (props: unknown) => Promise<ReactElement>)(
+      tableElement!.props,
+    );
     const html = renderToStaticMarkup(resolved);
 
     // Avatar initials

@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Animated,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Animated, Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Redirect, Stack, router } from "expo-router";
 import { formatPhp } from "@dizkarte/domain";
 import { Screen } from "../src/components/ui/Screen";
@@ -294,10 +287,7 @@ function DirectionTab({
       accessibilityRole="tab"
       accessibilityState={{ selected: active }}
       accessibilityLabel={`${label}, ${count} ${count === 1 ? "booking" : "bookings"}`}
-      style={({ pressed }) => [
-        styles.tab,
-        pressed ? { opacity: 0.85 } : null,
-      ]}
+      style={({ pressed }) => [styles.tab, pressed ? { opacity: 0.85 } : null]}
     >
       <Text style={[styles.tabLabel, active ? styles.tabLabelActive : null]}>{label}</Text>
       <View style={[styles.tabCount, active ? styles.tabCountActive : null]}>
@@ -331,16 +321,12 @@ function PaymentRow({
       style={({ pressed }) => [styles.row, pressed ? styles.rowPressed : null]}
     >
       <View style={styles.cardBody}>
-        <Text style={styles.rowTitle}>
-          {booking.taskTitle}
-        </Text>
+        <Text style={styles.rowTitle}>{booking.taskTitle}</Text>
         <View style={styles.rowMetaRow}>
           <Text style={styles.rowMetaLeft} numberOfLines={1}>
             {direction === "earned" ? "From" : "To"} {counterpart || "—"}
           </Text>
-          <Text style={styles.rowMetaDate}>
-            {shortDate(booking.createdAt)}
-          </Text>
+          <Text style={styles.rowMetaDate}>{shortDate(booking.createdAt)}</Text>
         </View>
       </View>
 
@@ -555,5 +541,3 @@ const styles = StyleSheet.create({
     color: theme.textPrimary,
   },
 });
-
-

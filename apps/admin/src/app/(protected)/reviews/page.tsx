@@ -49,7 +49,8 @@ export default async function ReviewsPage({
   const activeStatus = (REVIEW_STATUS_OPTIONS as ReadonlyArray<string>).includes(status ?? "")
     ? status
     : undefined;
-  const activeSort = sort && REVIEW_SORT_OPTIONS.some((opt) => opt.value === sort) ? sort : undefined;
+  const activeSort =
+    sort && REVIEW_SORT_OPTIONS.some((opt) => opt.value === sort) ? sort : undefined;
   const cleanQ = q?.trim() || undefined;
 
   return (
@@ -90,12 +91,7 @@ export default async function ReviewsPage({
           key={`${activeStatus ?? ""}|${cleanQ ?? ""}|${activeSort ?? ""}|${page}`}
           fallback={<TableRegionSkeleton columns={7} />}
         >
-          <ReviewsTable
-            page={page}
-            status={activeStatus}
-            q={cleanQ}
-            sort={activeSort}
-          />
+          <ReviewsTable page={page} status={activeStatus} q={cleanQ} sort={activeSort} />
         </Suspense>
       </PageSection>
     </>
@@ -128,13 +124,16 @@ async function ReviewsTable({
       header: "Task / Booking",
       render: (row) => (
         <div>
-          <AppLink
-            href={`/bookings/${row.bookingId}`}
-            style={{ fontWeight: 600, fontSize: 13 }}
-          >
+          <AppLink href={`/bookings/${row.bookingId}`} style={{ fontWeight: 600, fontSize: 13 }}>
             {row.taskTitle}
           </AppLink>
-          <div style={{ fontSize: 12, color: "var(--dk-textSecondary)", fontFamily: "ui-monospace, monospace" }}>
+          <div
+            style={{
+              fontSize: 12,
+              color: "var(--dk-textSecondary)",
+              fontFamily: "ui-monospace, monospace",
+            }}
+          >
             {formatReferenceId(row.bookingId, "BK")}
           </div>
         </div>
@@ -169,7 +168,9 @@ async function ReviewsTable({
             {row.comment}
           </blockquote>
         ) : (
-          <span className="dk-muted" style={{ fontSize: 12.5 }}>No comment</span>
+          <span className="dk-muted" style={{ fontSize: 12.5 }}>
+            No comment
+          </span>
         ),
     },
     {

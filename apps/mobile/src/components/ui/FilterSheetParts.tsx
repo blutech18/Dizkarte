@@ -231,7 +231,9 @@ export function FilterSwitchRow({
           accessibilityLabel={title}
           accessibilityRole="switch"
           trackColor={{ false: theme.borderControl, true: theme.primary }}
-          thumbColor={Platform.OS === "android" ? (value ? theme.onPrimary : theme.surface) : undefined}
+          thumbColor={
+            Platform.OS === "android" ? (value ? theme.onPrimary : theme.surface) : undefined
+          }
           ios_backgroundColor={theme.borderControl}
           style={styles.switchControl}
         />
@@ -573,4 +575,3 @@ const styles = StyleSheet.create({
     color: theme.infoOnSoft,
   },
 });
-

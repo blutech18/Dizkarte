@@ -45,6 +45,7 @@ import {
   type WizardStepId,
 } from "./taskWizardSteps";
 import { timeOfDayLabel, type TaskDraftFormValue } from "./taskDraftValue";
+import type { TaskQuestionDefinition } from "../../services/marketplace/types";
 import { BOOLEAN_ANSWERS } from "./taskCategoryQuestions";
 import { TaskPhotoPicker, type PendingTaskPhoto } from "./TaskPhotoPicker";
 import {
@@ -481,7 +482,9 @@ function StepBody({
   }, [timeOfDayEnabled, timeOfDayAnim]);
 
   const [isRemovalsTask, setIsRemovalsTask] = useState(value.dropoffLandmark.trim().length > 0);
-  const removalsAnim = useRef(new Animated.Value(value.dropoffLandmark.trim().length > 0 ? 1 : 0)).current;
+  const removalsAnim = useRef(
+    new Animated.Value(value.dropoffLandmark.trim().length > 0 ? 1 : 0),
+  ).current;
 
   useEffect(() => {
     Animated.timing(removalsAnim, {
@@ -650,9 +653,7 @@ function StepBody({
             style={styles.checkboxRow}
           >
             <View style={[styles.checkboxBox, timeOfDayEnabled ? styles.checkboxBoxChecked : null]}>
-              {timeOfDayEnabled ? (
-                <Icon name="check" size={13} color="#FFFFFF" />
-              ) : null}
+              {timeOfDayEnabled ? <Icon name="check" size={13} color="#FFFFFF" /> : null}
             </View>
             <Text style={styles.checkboxLabel}>I need a certain time of day</Text>
           </Pressable>
@@ -928,14 +929,10 @@ function StepBody({
                           <Icon name="home" size={28} color={theme.textPrimary} />
                         </Animated.View>
                       </View>
-                      <Animated.Text
-                        style={[styles.locTypeTitle, { color: inPersonTitleColor }]}
-                      >
+                      <Animated.Text style={[styles.locTypeTitle, { color: inPersonTitleColor }]}>
                         In Person
                       </Animated.Text>
-                      <Animated.Text
-                        style={[styles.locTypeSub, { color: inPersonSubColor }]}
-                      >
+                      <Animated.Text style={[styles.locTypeSub, { color: inPersonSubColor }]}>
                         They need to show up at a place
                       </Animated.Text>
                     </Animated.View>
@@ -992,14 +989,10 @@ function StepBody({
                           <Icon name="video" size={28} color={theme.textPrimary} />
                         </Animated.View>
                       </View>
-                      <Animated.Text
-                        style={[styles.locTypeTitle, { color: onlineTitleColor }]}
-                      >
+                      <Animated.Text style={[styles.locTypeTitle, { color: onlineTitleColor }]}>
                         Online
                       </Animated.Text>
-                      <Animated.Text
-                        style={[styles.locTypeSub, { color: onlineSubColor }]}
-                      >
+                      <Animated.Text style={[styles.locTypeSub, { color: onlineSubColor }]}>
                         They can do it from their home
                       </Animated.Text>
                     </Animated.View>
@@ -1070,18 +1063,19 @@ function StepBody({
             <LocalityPicker
               value={{ cityCode: value.cityCode, barangayCode: value.barangayCode }}
               onChange={(next) => {
-                const patch: Partial<TaskDraftFormValue> = {
-                  cityCode: next.cityCode,
-                  barangayCode: next.barangayCode,
-                };
+                let landmark: string | undefined;
                 if (!value.landmark || value.landmark === ONLINE_PLACEHOLDER) {
                   if (next.barangayName && next.cityName) {
-                    patch.landmark = `${next.barangayName}, ${next.cityName}`;
+                    landmark = `${next.barangayName}, ${next.cityName}`;
                   } else if (next.cityName) {
-                    patch.landmark = next.cityName;
+                    landmark = next.cityName;
                   }
                 }
-                setMultiple(patch);
+                setMultiple({
+                  cityCode: next.cityCode,
+                  barangayCode: next.barangayCode,
+                  ...(landmark !== undefined ? { landmark } : {}),
+                });
               }}
               cityRequired
               barangayRequired
@@ -1091,7 +1085,7 @@ function StepBody({
           {/* Location Search Modal Dialog */}
           <LocationSearchModal
             visible={locSearchTarget !== null}
-            userCityHint={value.cityName || value.landmark}
+            userCityHint={value.landmark}
             onSelect={async (selection) => {
               if (locSearchTarget === "dropoff") {
                 // Only the public area label is kept. `exactAddress` would be a
@@ -1279,10 +1273,7 @@ function StepBody({
       const overflowCount = photos.length - visiblePhotos.length;
       return (
         <>
-          <Prompt
-            title="Alright, ready to get offers?"
-            hint="Review the details before you post"
-          />
+          <Prompt title="Alright, ready to get offers?" hint="Review the details before you post" />
 
           <View style={styles.reviewCard}>
             <ReviewRow

@@ -50,11 +50,7 @@ import {
   radii,
   useResponsiveLayout,
 } from "../../../src/theme";
-import {
-  MOTION_DURATION,
-  MOTION_EASING,
-  MOTION_NATIVE_DRIVER,
-} from "../../../src/theme/motion";
+import { MOTION_DURATION, MOTION_EASING, MOTION_NATIVE_DRIVER } from "../../../src/theme/motion";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -1043,7 +1039,7 @@ function OfferRow({
     offer.status === "WITHDRAWN" || offer.status === "REJECTED" || offer.status === "EXPIRED";
   const selected = offer.status === "SELECTED";
   const hasSpecs = Boolean(
-    offer.etaText?.trim() || offer.availabilityText?.trim() || offer.experienceText?.trim()
+    offer.etaText?.trim() || offer.availabilityText?.trim() || offer.experienceText?.trim(),
   );
 
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
@@ -1166,11 +1162,7 @@ function OfferRow({
               <Text style={styles.specsHeaderText}>Proposal details</Text>
             </View>
             <Animated.View style={{ transform: [{ rotate: chevronRotate }] }}>
-              <Icon
-                name="chevron-down"
-                size={14}
-                color={theme.textSecondary}
-              />
+              <Icon name="chevron-down" size={14} color={theme.textSecondary} />
             </Animated.View>
           </Pressable>
 
@@ -1205,15 +1197,11 @@ function OfferRow({
         <View style={styles.offerPriceRow}>
           <View style={styles.offerPriceLabelGroup}>
             <Text style={styles.offerFooterLabel}>Offer amount</Text>
-            {offer.status === "WITHDRAWN" ? (
-              <StatusBadge tone="neutral" label="Withdrawn" />
-            ) : null}
+            {offer.status === "WITHDRAWN" ? <StatusBadge tone="neutral" label="Withdrawn" /> : null}
             {offer.status === "REJECTED" ? (
               <StatusBadge tone="neutral" label="Not selected" />
             ) : null}
-            {offer.status === "EXPIRED" ? (
-              <StatusBadge tone="neutral" label="Expired" />
-            ) : null}
+            {offer.status === "EXPIRED" ? <StatusBadge tone="neutral" label="Expired" /> : null}
           </View>
           <Text style={styles.offerFooterAmount}>{formatPhp(offer.amountCentavos)}</Text>
         </View>
@@ -1372,7 +1360,10 @@ function QuestionRow({
     };
 
     if (Platform.OS === "web") {
-      if (typeof window !== "undefined" && window.confirm("Are you sure you want to delete your response?")) {
+      if (
+        typeof window !== "undefined" &&
+        window.confirm("Are you sure you want to delete your response?")
+      ) {
         void doDelete();
       }
     } else {
@@ -1499,11 +1490,7 @@ function QuestionRow({
                     <ActivityIndicator size="small" color={theme.primary} />
                   ) : (
                     <>
-                      <Icon
-                        name="arrow-right"
-                        size={13}
-                        color={theme.onPrimary}
-                      />
+                      <Icon name="arrow-right" size={13} color={theme.onPrimary} />
                       <Text style={styles.replySendText}>Send reply</Text>
                     </>
                   )}

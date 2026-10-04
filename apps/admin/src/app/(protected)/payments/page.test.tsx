@@ -1,23 +1,25 @@
 import { describe, it, expect, vi } from "vitest";
 import { Suspense, type ReactElement } from "react";
 
-const { listPaymentIntents, getFinanceSummary, getFinanceProviderAvailability } = vi.hoisted(() => ({
-  listPaymentIntents: vi.fn((): Promise<any> => new Promise<never>(() => {})),
-  getFinanceSummary: vi.fn(async () => ({
-    synthetic: true,
-    protectedCentavos: 100000,
-    capturedCentavos: 150000,
-    releasedCentavos: 50000,
-    refundedCentavos: 0,
-    platformFeeCentavos: 15000,
-    platformFeeBps: 1000,
-    ledgerBalanceCentavos: 0,
-  })),
-  getFinanceProviderAvailability: vi.fn(async () => ({
-    available: false,
-    reason: "Synthetic sandbox active",
-  })),
-}));
+const { listPaymentIntents, getFinanceSummary, getFinanceProviderAvailability } = vi.hoisted(
+  () => ({
+    listPaymentIntents: vi.fn((): Promise<unknown> => new Promise<never>(() => {})),
+    getFinanceSummary: vi.fn(async () => ({
+      synthetic: true,
+      protectedCentavos: 100000,
+      capturedCentavos: 150000,
+      releasedCentavos: 50000,
+      refundedCentavos: 0,
+      platformFeeCentavos: 15000,
+      platformFeeBps: 1000,
+      ledgerBalanceCentavos: 0,
+    })),
+    getFinanceProviderAvailability: vi.fn(async () => ({
+      available: false,
+      reason: "Synthetic sandbox active",
+    })),
+  }),
+);
 
 vi.mock("server-only", () => ({}));
 
@@ -40,7 +42,13 @@ vi.mock("@/lib/repository", () => ({
     listPaymentIntents,
     getFinanceSummary,
     getFinanceProviderAvailability,
-    listProviderEvents: vi.fn(async () => ({ items: [], page: 1, pageSize: 20, total: 0, hasMore: false })),
+    listProviderEvents: vi.fn(async () => ({
+      items: [],
+      page: 1,
+      pageSize: 20,
+      total: 0,
+      hasMore: false,
+    })),
   }),
 }));
 
@@ -61,6 +69,6 @@ describe("payments page streaming shell", () => {
 
     const boundaries = walk(shell).filter((element) => element.type === Suspense);
     expect(boundaries.length).toBeGreaterThanOrEqual(1);
-    expect((boundaries[0] as any).props.fallback).toBeTruthy();
+    expect((boundaries[0] as ReactElement<Record<string, unknown>>).props.fallback).toBeTruthy();
   });
 });

@@ -53,6 +53,6 @@ describe("revenue page streaming shell", () => {
 
     const boundaries = walk(shell).filter((element) => element.type === Suspense);
     expect(boundaries.length).toBeGreaterThanOrEqual(1);
-    expect((boundaries[0] as any).props.fallback).toBeTruthy();
+    expect((boundaries[0] as ReactElement<Record<string, unknown>>).props.fallback).toBeTruthy();
   });
 });

@@ -18,11 +18,7 @@ import { DisputeActionsPanel } from "./DisputeActionsPanel";
 import { CaseSubjectCard } from "@/components/ui/CaseSubjectCard";
 import { PaymentActionsPanel } from "../../payments/PaymentActionsPanel";
 import { ConversationPanel } from "../ConversationPanel";
-import {
-  disputeStatusLabel,
-  disputeStatusMeaning,
-  disputeStatusTone,
-} from "../status";
+import { disputeStatusLabel, disputeStatusMeaning, disputeStatusTone } from "../status";
 
 export const metadata: Metadata = { title: "Dispute" };
 
@@ -45,13 +41,7 @@ function ArrowLeftIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-function Fact({
-  label,
-  children,
-}: {
-  readonly label: string;
-  readonly children: React.ReactNode;
-}) {
+function Fact({ label, children }: { readonly label: string; readonly children: React.ReactNode }) {
   return (
     <div className="dk-fact">
       <dt>{label}</dt>
@@ -124,12 +114,8 @@ async function DisputeCaseRecord({
       <header className="dk-report-hero">
         <div className="dk-report-hero-head">
           <div>
-            <h1 className="dk-report-hero-title">
-              Dispute on booking {detail.bookingId}
-            </h1>
-            <p className="dk-report-hero-meaning">
-              {disputeStatusMeaning(detail.status)}
-            </p>
+            <h1 className="dk-report-hero-title">Dispute on booking {detail.bookingId}</h1>
+            <p className="dk-report-hero-meaning">{disputeStatusMeaning(detail.status)}</p>
           </div>
           <div style={{ flexShrink: 0 }}>
             <StatusBadge
@@ -166,7 +152,9 @@ async function DisputeCaseRecord({
             <time dateTime={detail.openedAt}>{formatDateTime(detail.openedAt)}</time>
           </Fact>
           <Fact label="Assignee">
-            <span style={{ color: isAssigned ? "var(--dk-textPrimary)" : "var(--dk-textSecondary)" }}>
+            <span
+              style={{ color: isAssigned ? "var(--dk-textPrimary)" : "var(--dk-textSecondary)" }}
+            >
               {detail.assignee ?? "Unassigned"}
             </span>
           </Fact>
@@ -249,12 +237,11 @@ async function DisputeCaseRecord({
                 </span>
               </div>
               <p style={{ margin: 0, fontSize: 13, color: "var(--dk-textSecondary)" }}>
-                <strong>Dispute reference:</strong> {formatReferenceId(detail.id, "DSP", detail.openedAt)}
+                <strong>Dispute reference:</strong>{" "}
+                {formatReferenceId(detail.id, "DSP", detail.openedAt)}
               </p>
               {detail.narrative ? (
-                <div className="dk-report-narrative-box">
-                  {detail.narrative}
-                </div>
+                <div className="dk-report-narrative-box">{detail.narrative}</div>
               ) : (
                 <p className="dk-muted" style={{ marginTop: 12 }}>
                   No additional written narrative was provided with this dispute.
@@ -310,10 +297,26 @@ async function DisputeCaseRecord({
                 />
               </div>
               <div style={{ marginBottom: 14 }}>
-                <p style={{ margin: "0 0 4px 0", fontSize: 11, fontWeight: 600, color: "var(--dk-textSecondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                <p
+                  style={{
+                    margin: "0 0 4px 0",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "var(--dk-textSecondary)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                  }}
+                >
                   Assignee
                 </p>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "var(--dk-textPrimary)" }}>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: "var(--dk-textPrimary)",
+                  }}
+                >
                   {detail.assignee ?? "Unassigned"}
                 </p>
               </div>
@@ -371,8 +374,8 @@ async function DisputeCaseRecord({
                 <h2>Ledger integrity</h2>
               </div>
               <p className="dk-muted" style={{ margin: 0, fontSize: 12.5, lineHeight: 1.5 }}>
-                Freezing affected financial activity never rewrites ledger history. Amounts shown are
-                booking totals, not raw provider payloads.
+                Freezing affected financial activity never rewrites ledger history. Amounts shown
+                are booking totals, not raw provider payloads.
               </p>
             </div>
 
@@ -390,7 +393,9 @@ async function DisputeCaseRecord({
                 <dt>Booking ID</dt>
                 <dd>
                   <AppLink href={`/bookings/${detail.bookingId}`} style={{ fontSize: 12 }}>
-                    <code style={{ fontSize: 11.5, wordBreak: "break-all" }}>{detail.bookingId}</code>
+                    <code style={{ fontSize: 11.5, wordBreak: "break-all" }}>
+                      {detail.bookingId}
+                    </code>
                   </AppLink>
                   <CopyButton text={detail.bookingId} label="booking ID" variant="icon" />
                 </dd>

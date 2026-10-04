@@ -46,7 +46,7 @@ export function BottomSheetModal({ visible, onClose, children }: BottomSheetModa
   const { height: windowHeight } = useWindowDimensions();
   const screenHeight = windowHeight || 800;
   const sheetOffset = screenHeight;
-  const dismissThreshold = screenHeight * 0.60;
+  const dismissThreshold = screenHeight * 0.6;
 
   const [rendered, setRendered] = useState(visible);
   const fade = useRef(new Animated.Value(0)).current;

@@ -158,11 +158,7 @@ async function UsersTable({ page, query, status }: UsersQuery) {
         return (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
             {roles.map((role) => (
-              <StatusBadge
-                key={role}
-                tone={roleTone(role)}
-                label={roleLabel(role)}
-              />
+              <StatusBadge key={role} tone={roleTone(role)} label={roleLabel(role)} />
             ))}
           </div>
         );
@@ -202,11 +198,7 @@ async function UsersTable({ page, query, status }: UsersQuery) {
       key: "actions",
       header: "Actions",
       render: (row) => (
-        <UserRowActions
-          userId={row.id}
-          status={row.accountStatus}
-          showProfileLink
-        />
+        <UserRowActions userId={row.id} status={row.accountStatus} showProfileLink />
       ),
     },
   ];

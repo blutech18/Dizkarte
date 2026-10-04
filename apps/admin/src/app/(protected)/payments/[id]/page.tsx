@@ -32,13 +32,7 @@ function reconciliationTone(status: string): BadgeTone {
   }
 }
 
-function Fact({
-  label,
-  children,
-}: {
-  readonly label: string;
-  readonly children: React.ReactNode;
-}) {
+function Fact({ label, children }: { readonly label: string; readonly children: React.ReactNode }) {
   return (
     <div className="dk-fact">
       <dt>{label}</dt>
@@ -153,7 +147,11 @@ export default async function PaymentDetailPage({
           <ArrowLeftIcon />
           <span>Back to payments</span>
         </AppLink>
-        <span className="dk-booking-ref-text" title={id} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+        <span
+          className="dk-booking-ref-text"
+          title={id}
+          style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+        >
           <span>Payment Ref: {formatReferenceId(id, "PAY", detail.createdAt)}</span>
           <CopyButton text={id} label="payment reference ID" variant="icon" />
         </span>
@@ -304,7 +302,10 @@ async function PaymentDetailRecord({
               Gateway settlement status against the internal accounting ledger.
             </p>
             <p className="dk-card-note" style={{ margin: 0 }}>
-              <AppLink href={`/reconciliation?paymentIntentId=${detail.id}`} className="dk-ref-link">
+              <AppLink
+                href={`/reconciliation?paymentIntentId=${detail.id}`}
+                className="dk-ref-link"
+              >
                 <span>View in reconciliation</span>
                 <ExternalLinkIcon />
               </AppLink>
@@ -457,7 +458,3 @@ async function PaymentDetailRecord({
     </>
   );
 }
-
-
-
-

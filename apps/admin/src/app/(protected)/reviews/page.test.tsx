@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { Suspense, type ReactElement } from "react";
+import type { QueueFiltersProps } from "@/components/ui/QueueFilters";
 
 const { listReviews } = vi.hoisted(() => ({
-  listReviews: vi.fn((): Promise<any> => new Promise<never>(() => {})),
+  listReviews: vi.fn((): Promise<unknown> => new Promise<never>(() => {})),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -55,7 +56,7 @@ describe("reviews page streaming shell and filters", () => {
     expect(boundaries.length).toBeGreaterThanOrEqual(1);
     const tableBoundary = boundaries.find((b) => (b.key as string)?.includes("|1"));
     expect(tableBoundary).toBeDefined();
-    expect((tableBoundary as any).props.fallback).toBeTruthy();
+    expect((tableBoundary as ReactElement<Record<string, unknown>>).props.fallback).toBeTruthy();
   });
 
   it("binds search, status, and sort criteria to QueueFilters and Suspense key", async () => {
@@ -69,10 +70,12 @@ describe("reviews page streaming shell and filters", () => {
     })) as ReactElement;
 
     const elements = walk(shell);
-    const filtersElement = elements.find((el) => (el.props as any)?.basePath === "/reviews");
+    const filtersElement = elements.find(
+      (el) => (el.props as Record<string, unknown>)?.basePath === "/reviews",
+    );
     expect(filtersElement).toBeDefined();
 
-    const props = (filtersElement as any).props;
+    const props = (filtersElement as ReactElement<QueueFiltersProps>).props;
     expect(props.search).toEqual({
       label: "Search reviews by comment, task, reviewer, or reviewee",
       placeholder: "Search comment, task, parties, booking...",
@@ -80,10 +83,10 @@ describe("reviews page streaming shell and filters", () => {
     });
 
     expect(props.selects).toHaveLength(2);
-    expect(props.selects[0].name).toBe("status");
-    expect(props.selects[0].value).toBe("MODERATED");
-    expect(props.selects[1].name).toBe("sort");
-    expect(props.selects[1].value).toBe("score_high");
+    expect(props.selects[0]?.name).toBe("status");
+    expect(props.selects[0]?.value).toBe("MODERATED");
+    expect(props.selects[1]?.name).toBe("sort");
+    expect(props.selects[1]?.value).toBe("score_high");
 
     const boundary = elements.find(
       (el) => el.type === Suspense && (el.key as string) === "MODERATED|great service|score_high|2",

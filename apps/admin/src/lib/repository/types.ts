@@ -136,7 +136,6 @@ export type TaskDetail = TaskRow & {
   readonly moderationHistory: ReadonlyArray<TaskModerationEntry>;
 };
 
-
 export type ReportRow = {
   readonly id: string;
   readonly resourceType: string;
@@ -1075,4 +1074,3 @@ export interface AdminRepository {
     capability: AdminCapability | null;
   }): Promise<{ ok: boolean; message?: string }>;
 }
-

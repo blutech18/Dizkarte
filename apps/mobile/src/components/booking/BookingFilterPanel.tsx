@@ -398,10 +398,7 @@ export function BookingFilterPanel({
           </View>
 
           <View style={[sheet.section, sheet.lastSection]}>
-            <FilterSectionHeader
-              title="Sort"
-              description="Choose which bookings appear first."
-            />
+            <FilterSectionHeader title="Sort" description="Choose which bookings appear first." />
             <View style={sheet.choiceGrid} accessibilityRole="radiogroup">
               {BOOKING_SORT_OPTIONS.map((option) => (
                 <FilterChoice

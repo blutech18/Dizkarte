@@ -57,9 +57,9 @@ export default function PoliciesScreen() {
         {/* Insurance */}
         <ProfilePageSection icon="briefcase" title="Insurance terms" showDivider={false}>
           <Text style={styles.body}>
-            Platform insurance coverage details, eligibility criteria, and claims procedures will
-            be published here before public launch. Coverage is subject to the terms agreed at
-            the time of each booking.
+            Platform insurance coverage details, eligibility criteria, and claims procedures will be
+            published here before public launch. Coverage is subject to the terms agreed at the time
+            of each booking.
           </Text>
           <View style={styles.statusRow}>
             <Icon name="clock" size={14} color={theme.textSecondary} />
@@ -74,9 +74,9 @@ export default function PoliciesScreen() {
           showDivider={false}
         >
           <Text style={styles.body}>
-            By using Dizkarte you agree to our Terms of Service and Privacy Policy. These govern
-            how your data is stored, how disputes are resolved, and the rights and responsibilities
-            of both clients and taskers on the platform.
+            By using Dizkarte you agree to our Terms of Service and Privacy Policy. These govern how
+            your data is stored, how disputes are resolved, and the rights and responsibilities of
+            both clients and taskers on the platform.
           </Text>
           <View style={styles.statusRow}>
             <Icon name="clock" size={14} color={theme.textSecondary} />

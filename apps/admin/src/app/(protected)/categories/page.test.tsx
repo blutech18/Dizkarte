@@ -3,7 +3,7 @@ import { Suspense, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 const { listCategories } = vi.hoisted(() => ({
-  listCategories: vi.fn((): Promise<any> => new Promise<never>(() => {})),
+  listCategories: vi.fn((): Promise<unknown> => new Promise<never>(() => {})),
 }));
 
 vi.mock("server-only", () => ({}));
@@ -56,7 +56,7 @@ describe("categories page streaming shell and filters", () => {
     expect(boundaries.length).toBeGreaterThanOrEqual(1);
     const tableBoundary = boundaries.find((b) => (b.key as string)?.includes("|1"));
     expect(tableBoundary).toBeDefined();
-    expect((tableBoundary as any).props.fallback).toBeTruthy();
+    expect((tableBoundary as ReactElement<Record<string, unknown>>).props.fallback).toBeTruthy();
   });
 
   it("renders name, slug, badge, display order, task count, and Manage action", async () => {
@@ -87,7 +87,9 @@ describe("categories page streaming shell and filters", () => {
     );
     expect(tableElement).toBeDefined();
 
-    const resolved = await (tableElement!.type as (props: unknown) => Promise<ReactElement>)(tableElement!.props);
+    const resolved = await (tableElement!.type as (props: unknown) => Promise<ReactElement>)(
+      tableElement!.props,
+    );
     const html = renderToStaticMarkup(resolved);
 
     // Name link
@@ -134,7 +136,9 @@ describe("categories page streaming shell and filters", () => {
         element.type.constructor.name === "AsyncFunction" &&
         element.type.name === "CategoriesTable",
     );
-    const resolved = await (tableElement!.type as (props: unknown) => Promise<ReactElement>)(tableElement!.props);
+    const resolved = await (tableElement!.type as (props: unknown) => Promise<ReactElement>)(
+      tableElement!.props,
+    );
     const html = renderToStaticMarkup(resolved);
 
     expect(html).not.toContain("1970");
@@ -164,7 +168,9 @@ describe("categories page streaming shell and filters", () => {
         element.type.constructor.name === "AsyncFunction" &&
         element.type.name === "CategoriesTable",
     );
-    const resolved = await (tableElement!.type as (props: unknown) => Promise<ReactElement>)(tableElement!.props);
+    const resolved = await (tableElement!.type as (props: unknown) => Promise<ReactElement>)(
+      tableElement!.props,
+    );
 
     expect(listCategories).toHaveBeenCalledWith(
       expect.objectContaining({

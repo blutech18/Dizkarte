@@ -42,7 +42,7 @@ describe("AppShell scroll to top behavior", () => {
             View
           </a>
         </div>
-      </AppShell>
+      </AppShell>,
     );
 
     const main = container.querySelector("#dk-main-content") as HTMLElement;
@@ -67,7 +67,7 @@ describe("AppShell scroll to top behavior", () => {
     rerender(
       <AppShell session={mockSession} devMode={false} syntheticData={false}>
         <div data-testid="page-2">Tasker details</div>
-      </AppShell>
+      </AppShell>,
     );
 
     expect(main.scrollTop).toBe(0);
@@ -78,7 +78,7 @@ describe("AppShell scroll to top behavior", () => {
     const { container } = render(
       <AppShell session={mockSession} devMode={false} syntheticData={false}>
         <div>Page content</div>
-      </AppShell>
+      </AppShell>,
     );
 
     const main = container.querySelector("#dk-main-content") as HTMLElement;

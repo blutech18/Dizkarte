@@ -228,7 +228,8 @@ async function DashboardCharts({ canViewFinance }: { readonly canViewFinance: bo
             id="revenue-chart"
             meta={
               <>
-                <strong>{formatPhp(trends.current.platformFeeCentavos)}</strong> total ({WINDOW_DAYS}d)
+                <strong>{formatPhp(trends.current.platformFeeCentavos)}</strong> total (
+                {WINDOW_DAYS}d)
               </>
             }
             series={[{ key: "fee", label: "Platform fee", tone: "primary" }]}

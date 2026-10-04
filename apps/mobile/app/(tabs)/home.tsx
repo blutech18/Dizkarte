@@ -80,10 +80,7 @@ function ClientHome() {
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      await Promise.all([
-        load(),
-        new Promise((resolve) => setTimeout(resolve, 500)),
-      ]);
+      await Promise.all([load(), new Promise((resolve) => setTimeout(resolve, 500))]);
     } finally {
       setRefreshing(false);
     }
@@ -152,8 +149,6 @@ function ClientHome() {
     });
   }, [myTaskers, contentWidth, gutter]);
 
-
-
   function goToPostFlow() {
     const title = searchDraft.trim();
     router.push(
@@ -162,11 +157,7 @@ function ClientHome() {
   }
 
   return (
-    <Screen
-      headerVariant="hero"
-      refreshing={refreshing}
-      onRefresh={handleRefresh}
-    >
+    <Screen headerVariant="hero" refreshing={refreshing} onRefresh={handleRefresh}>
       {/*
         One continuous purple sweep — navbar, greeting, and the post-a-task
         hero all share the same brand-purple background and bleed to the
@@ -806,10 +797,7 @@ function MyTaskerCard({ booking }: MyTaskerCardProps) {
         {/* Top Horizontal Row: Avatar on Left + Info on Right */}
         <View style={clientStyles.taskerTopRow}>
           <Pressable
-            style={({ pressed }) => [
-              clientStyles.taskerAvatar,
-              pressed ? { opacity: 0.8 } : null,
-            ]}
+            style={({ pressed }) => [clientStyles.taskerAvatar, pressed ? { opacity: 0.8 } : null]}
             onPress={openProfile}
             accessibilityRole="button"
             accessibilityLabel={`View ${displayName}'s profile`}
@@ -1009,4 +997,3 @@ function MyTaskerCard({ booking }: MyTaskerCardProps) {
     </>
   );
 }
-

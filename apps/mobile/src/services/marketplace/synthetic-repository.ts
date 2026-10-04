@@ -106,8 +106,20 @@ const SYNTHETIC_CITIES: ReadonlyArray<PsgcCity> = [
   { code: "137502000", city6: "137502", name: "Makati City", provinceName: null, isCity: true },
   { code: "133900000", city6: "133900", name: "City of Manila", provinceName: null, isCity: true },
   { code: "072217000", city6: "072217", name: "Cebu City", provinceName: "Cebu", isCity: true },
-  { code: "104321000", city6: "104321", name: "Opol", provinceName: "Misamis Oriental", isCity: false },
-  { code: "104305000", city6: "104305", name: "Cagayan de Oro City", provinceName: "Misamis Oriental", isCity: true },
+  {
+    code: "104321000",
+    city6: "104321",
+    name: "Opol",
+    provinceName: "Misamis Oriental",
+    isCity: false,
+  },
+  {
+    code: "104305000",
+    city6: "104305",
+    name: "Cagayan de Oro City",
+    provinceName: "Misamis Oriental",
+    isCity: true,
+  },
 ];
 const SYNTHETIC_BARANGAYS: ReadonlyArray<PsgcBarangay> = [
   { code: "137404022", name: "Commonwealth", city6: "137404" },

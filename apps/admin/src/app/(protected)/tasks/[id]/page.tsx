@@ -323,7 +323,10 @@ async function TaskRecord({ taskId }: { readonly taskId: string }) {
 
         <dl className="dk-detail-header-meta dk-task-metrics">
           <Fact label="Task Ref">
-            <span title={task.id} style={{ fontFamily: "ui-monospace, monospace", fontWeight: 600 }}>
+            <span
+              title={task.id}
+              style={{ fontFamily: "ui-monospace, monospace", fontWeight: 600 }}
+            >
               {formattedRef}
             </span>
           </Fact>
@@ -344,7 +347,9 @@ async function TaskRecord({ taskId }: { readonly taskId: string }) {
             </span>
           </Fact>
           <Fact label="Abuse reports">
-            <span className={`dk-report-status-badge ${task.flagged ? "dk-report-flagged" : "dk-report-clean"}`}>
+            <span
+              className={`dk-report-status-badge ${task.flagged ? "dk-report-flagged" : "dk-report-clean"}`}
+            >
               <ShieldIcon />
               <span>{task.flagged ? "Open report on this task" : "None open"}</span>
             </span>
@@ -516,7 +521,8 @@ async function TaskRecord({ taskId }: { readonly taskId: string }) {
                 <span>Admin decisions</span>
               </h2>
               <span className="dk-card-badge">
-                {task.moderationHistory.length} {task.moderationHistory.length === 1 ? "record" : "records"}
+                {task.moderationHistory.length}{" "}
+                {task.moderationHistory.length === 1 ? "record" : "records"}
               </span>
             </div>
             {task.moderationHistory.length === 0 ? (
@@ -563,7 +569,9 @@ async function TaskRecord({ taskId }: { readonly taskId: string }) {
               <TaskRowActions
                 taskId={task.id}
                 status={task.status}
-                triggerLabel={task.status === "REMOVED" ? "Restore to discovery" : "Remove from discovery"}
+                triggerLabel={
+                  task.status === "REMOVED" ? "Restore to discovery" : "Remove from discovery"
+                }
                 triggerClassName="dk-discovery-btn"
                 className="dk-discovery-actions"
               />
@@ -579,7 +587,11 @@ async function TaskRecord({ taskId }: { readonly taskId: string }) {
             </div>
             <dl className="dk-fact-grid" style={{ gridTemplateColumns: "1fr", gap: 12 }}>
               <Fact label="Task ID">
-                <span className="dk-ref-code" title={`Database UUID: ${task.id}`} style={{ fontSize: 12, fontWeight: 650 }}>
+                <span
+                  className="dk-ref-code"
+                  title={`Database UUID: ${task.id}`}
+                  style={{ fontSize: 12, fontWeight: 650 }}
+                >
                   {formattedRef}
                 </span>
               </Fact>

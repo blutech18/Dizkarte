@@ -37,13 +37,7 @@ function ArrowLeftIcon(props: SVGProps<SVGSVGElement>) {
   );
 }
 
-function Fact({
-  label,
-  children,
-}: {
-  readonly label: string;
-  readonly children: React.ReactNode;
-}) {
+function Fact({ label, children }: { readonly label: string; readonly children: React.ReactNode }) {
   return (
     <div className="dk-fact">
       <dt>{label}</dt>
@@ -140,7 +134,9 @@ async function SupportTicketRecord({
             <time dateTime={detail.updatedAt}>{formatDateTime(detail.updatedAt)}</time>
           </Fact>
           <Fact label="Assignee">
-            <span style={{ color: isAssigned ? "var(--dk-textPrimary)" : "var(--dk-textSecondary)" }}>
+            <span
+              style={{ color: isAssigned ? "var(--dk-textPrimary)" : "var(--dk-textSecondary)" }}
+            >
               {detail.assignee ?? "Unassigned"}
             </span>
           </Fact>
@@ -189,7 +185,9 @@ async function SupportTicketRecord({
             </p>
             <div className="dk-report-locked-grid">
               <div className="dk-report-locked-item">
-                <span className="dk-report-locked-item-head">Subject Context & Target Resource</span>
+                <span className="dk-report-locked-item-head">
+                  Subject Context & Target Resource
+                </span>
                 <p>Associated resource context, booking, or user profile details.</p>
               </div>
               <div className="dk-report-locked-item">
@@ -221,9 +219,7 @@ async function SupportTicketRecord({
                 <strong>Subject reference:</strong> {detail.caseSubject.resourceLabel}
               </p>
               {detail.narrative ? (
-                <div className="dk-report-narrative-box">
-                  {detail.narrative}
-                </div>
+                <div className="dk-report-narrative-box">{detail.narrative}</div>
               ) : (
                 <p className="dk-muted" style={{ marginTop: 12 }}>
                   No additional written narrative was provided with this ticket.
@@ -269,10 +265,26 @@ async function SupportTicketRecord({
                 />
               </div>
               <div style={{ marginBottom: 14 }}>
-                <p style={{ margin: "0 0 4px 0", fontSize: 11, fontWeight: 600, color: "var(--dk-textSecondary)", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                <p
+                  style={{
+                    margin: "0 0 4px 0",
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: "var(--dk-textSecondary)",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                  }}
+                >
                   Assignee
                 </p>
-                <p style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "var(--dk-textPrimary)" }}>
+                <p
+                  style={{
+                    margin: 0,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    color: "var(--dk-textPrimary)",
+                  }}
+                >
                   {detail.assignee ?? "Unassigned"}
                 </p>
               </div>

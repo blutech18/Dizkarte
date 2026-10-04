@@ -3,7 +3,7 @@ import { Suspense, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 const { listTaskMedia, getMediaPreviewUrl } = vi.hoisted(() => ({
-  listTaskMedia: vi.fn((): Promise<any> => new Promise<never>(() => {})),
+  listTaskMedia: vi.fn((): Promise<unknown> => new Promise<never>(() => {})),
   getMediaPreviewUrl: vi.fn(async () => "https://storage.test/signed-preview.jpg"),
 }));
 
@@ -57,7 +57,7 @@ describe("task media page streaming shell & formal card design", () => {
     expect(boundaries.length).toBeGreaterThanOrEqual(1);
     const galleryBoundary = boundaries.find((b) => (b.key as string)?.includes("|1"));
     expect(galleryBoundary).toBeDefined();
-    expect((galleryBoundary as any).props.fallback).toBeTruthy();
+    expect((galleryBoundary as ReactElement<Record<string, unknown>>).props.fallback).toBeTruthy();
   });
 
   it("renders formal card design: preview, kind badge, status, compound datetime, non-clickable title, TSK/MED ref codes, View task link, and moderation actions", async () => {
@@ -88,7 +88,9 @@ describe("task media page streaming shell & formal card design", () => {
     );
     expect(galleryElement).toBeDefined();
 
-    const resolved = await (galleryElement!.type as (props: unknown) => Promise<ReactElement>)(galleryElement!.props);
+    const resolved = await (galleryElement!.type as (props: unknown) => Promise<ReactElement>)(
+      galleryElement!.props,
+    );
     const html = renderToStaticMarkup(resolved);
 
     // Card structure
@@ -120,7 +122,7 @@ describe("task media page streaming shell & formal card design", () => {
     expect(html).toContain("MED-33333333");
 
     // Action footer: View task link button
-    expect(html).toContain("href=\"/tasks/22222222-2222-4222-8222-222222222222\"");
+    expect(html).toContain('href="/tasks/22222222-2222-4222-8222-222222222222"');
     expect(html).toContain("View task");
 
     // Moderation action buttons

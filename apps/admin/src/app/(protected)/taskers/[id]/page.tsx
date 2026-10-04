@@ -388,10 +388,21 @@ async function TaskerApplicationRecord({
               {initials(detail.userDisplayName)}
             </div>
             <div style={{ minWidth: 0 }}>
-              <h1 className="dk-booking-hero-title" style={{ margin: 0, fontSize: "clamp(20px, 2.5vw, 26px)" }}>
+              <h1
+                className="dk-booking-hero-title"
+                style={{ margin: 0, fontSize: "clamp(20px, 2.5vw, 26px)" }}
+              >
                 {detail.userDisplayName}
               </h1>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6, flexWrap: "wrap" }}>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  marginTop: 6,
+                  flexWrap: "wrap",
+                }}
+              >
                 <span className="dk-task-ref-chip" title={detail.userId ?? detail.id}>
                   <span className="dk-task-ref-label">Applicant Ref: </span>
                   <span className="dk-task-ref-value">{formattedUserRef}</span>
@@ -405,7 +416,9 @@ async function TaskerApplicationRecord({
                 className={`dk-status-action-dot dk-status-action-dot-${taskerApplicationStatusTone(detail.status)}`}
                 aria-hidden="true"
               />
-              <span className="dk-status-action-label">{taskerApplicationStatusLabel(detail.status)}</span>
+              <span className="dk-status-action-label">
+                {taskerApplicationStatusLabel(detail.status)}
+              </span>
             </div>
             {detail.userId ? (
               <>
@@ -436,14 +449,20 @@ async function TaskerApplicationRecord({
           </Fact>
           <Fact label="Review Status">
             {waiting ? (
-              <span style={{ color: "var(--dk-warning)", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <span
+                style={{
+                  color: "var(--dk-warning)",
+                  fontWeight: 700,
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: 6,
+                }}
+              >
                 <ClockIcon />
                 <span>Waiting ({formatElapsed(detail.submittedAt)})</span>
               </span>
             ) : (
-              <span style={{ fontWeight: 700, color: "var(--dk-textPrimary)" }}>
-                Decided
-              </span>
+              <span style={{ fontWeight: 700, color: "var(--dk-textPrimary)" }}>Decided</span>
             )}
           </Fact>
           <Fact label="Portfolio Evidence">
@@ -507,7 +526,8 @@ async function TaskerApplicationRecord({
                 <h2 id="services-heading">Services & Coverage</h2>
               </div>
               <span className="dk-card-badge">
-                {detail.specialties.length} {detail.specialties.length === 1 ? "specialty" : "specialties"}
+                {detail.specialties.length}{" "}
+                {detail.specialties.length === 1 ? "specialty" : "specialties"}
               </span>
             </div>
             <dl className="dk-fact-grid" style={{ marginTop: 16 }}>
@@ -610,7 +630,8 @@ async function TaskerApplicationRecord({
             ) : (
               <>
                 <p className="dk-card-note" style={{ margin: "0 0 14px 0" }}>
-                  A written reason is required and recorded against your Admin account in the audit trail.
+                  A written reason is required and recorded against your Admin account in the audit
+                  trail.
                 </p>
                 <TaskerDecisionPanel applicationId={detail.id} currentStatus={detail.status} />
               </>
@@ -637,8 +658,8 @@ async function TaskerApplicationRecord({
                 <LockIcon className="dk-callout-icon" aria-hidden="true" />
               </div>
               <p>
-                Only the provider token reference is stored. Raw card and wallet credentials are never
-                exposed to this console or stored unencrypted.
+                Only the provider token reference is stored. Raw card and wallet credentials are
+                never exposed to this console or stored unencrypted.
               </p>
             </div>
           </section>

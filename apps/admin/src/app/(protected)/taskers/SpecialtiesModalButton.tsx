@@ -79,7 +79,11 @@ export function SpecialtiesModalButton({
                 <span className="dk-specialties-item-num">{index + 1}.</span>
                 <span className="dk-specialties-item-name">{specialty}</span>
               </div>
-              <span className="dk-specialties-item-check" aria-hidden="true" title="Declared specialty">
+              <span
+                className="dk-specialties-item-check"
+                aria-hidden="true"
+                title="Declared specialty"
+              >
                 ✓
               </span>
             </div>

@@ -4,7 +4,10 @@ import { Icon, type IconName } from "./Icon";
 
 export type BadgeTone = "neutral" | "brand" | "success" | "warning" | "error" | "info";
 
-const TONE_COLORS: Record<BadgeTone, { background: string; text: string; dot: string; border: string }> = {
+const TONE_COLORS: Record<
+  BadgeTone,
+  { background: string; text: string; dot: string; border: string }
+> = {
   neutral: {
     background: theme.surfaceSubtle,
     text: theme.textSecondary,
@@ -103,4 +106,3 @@ const styles = StyleSheet.create({
     letterSpacing: 0.15,
   },
 });
-

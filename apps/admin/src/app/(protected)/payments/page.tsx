@@ -19,7 +19,11 @@ import { EmptyState, TableRegionSkeleton, SkeletonBone } from "@/components/ui/A
 import { RecordList, type ColumnDef } from "@/components/ui/RecordList";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { QueueFilters } from "@/components/ui/QueueFilters";
-import type { PaymentIntentRow, ProviderEventRow, PaymentIntentStatus } from "@/lib/repository/types";
+import type {
+  PaymentIntentRow,
+  ProviderEventRow,
+  PaymentIntentStatus,
+} from "@/lib/repository/types";
 
 export const metadata: Metadata = { title: "Payments & ledger" };
 
@@ -55,7 +59,8 @@ export default async function PaymentsPage({
   const activeStatus = (PAYMENT_STATUS_OPTIONS as ReadonlyArray<string>).includes(status ?? "")
     ? (status as PaymentIntentStatus)
     : undefined;
-  const activeSort = sort && PAYMENT_SORT_OPTIONS.some((opt) => opt.value === sort) ? sort : undefined;
+  const activeSort =
+    sort && PAYMENT_SORT_OPTIONS.some((opt) => opt.value === sort) ? sort : undefined;
   const cleanQ = q?.trim() || undefined;
 
   return (
@@ -64,12 +69,7 @@ export default async function PaymentsPage({
         items={[{ label: "Dashboard", href: "/dashboard" }, { label: "Payments & ledger" }]}
       />
       <Suspense fallback={<PaymentsLedgerFallback />}>
-        <PaymentsLedgerSection
-          page={page}
-          status={activeStatus}
-          q={cleanQ}
-          sort={activeSort}
-        />
+        <PaymentsLedgerSection page={page} status={activeStatus} q={cleanQ} sort={activeSort} />
       </Suspense>
     </>
   );
@@ -178,12 +178,7 @@ async function PaymentsLedgerSection({
         key={`${status ?? ""}|${q ?? ""}|${sort ?? ""}|${page}`}
         fallback={<TableRegionSkeleton columns={7} />}
       >
-        <PaymentIntentsTable
-          page={page}
-          status={status}
-          q={q}
-          sort={sort}
-        />
+        <PaymentIntentsTable page={page} status={status} q={q} sort={sort} />
       </Suspense>
 
       <h2 style={{ marginTop: 32 }}>Provider events</h2>
@@ -303,7 +298,10 @@ async function PaymentIntentsTable({
 
   if (intentsPage.items.length === 0) {
     return (
-      <EmptyState title="No payment records" description="There are no payment intents matching this filter." />
+      <EmptyState
+        title="No payment records"
+        description="There are no payment intents matching this filter."
+      />
     );
   }
 

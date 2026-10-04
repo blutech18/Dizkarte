@@ -41,4 +41,3 @@ export function ticketStatusMeaning(status: string): string {
       return "Support ticket is currently in handling.";
   }
 }
-

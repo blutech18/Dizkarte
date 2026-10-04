@@ -179,9 +179,7 @@ export default function ProfileScreen() {
               >
                 {session.displayName}
               </Text>
-              {isVerified ? (
-                <Icon name="check-circle" size={17} color={theme.onPrimary} />
-              ) : null}
+              {isVerified ? <Icon name="check-circle" size={17} color={theme.onPrimary} /> : null}
             </View>
             <Text style={[styles.email, { fontSize: fontSize.xs + 1 }]} numberOfLines={1}>
               {session.email}
@@ -356,10 +354,7 @@ export default function ProfileScreen() {
       </CenterDialogModal>
 
       {/* Full Profile Photo Viewer Modal */}
-      <CenterDialogModal
-        visible={showPhotoModal}
-        onClose={() => setShowPhotoModal(false)}
-      >
+      <CenterDialogModal visible={showPhotoModal} onClose={() => setShowPhotoModal(false)}>
         <View style={styles.photoModalCard}>
           {/* Modal Header */}
           <View style={styles.photoModalHeader}>
@@ -389,13 +384,9 @@ export default function ProfileScreen() {
             ) : (
               <View style={styles.photoModalPlaceholder}>
                 <View style={styles.photoModalInitialsCircle}>
-                  <Text style={styles.photoModalInitialsText}>
-                    {initials(session.displayName)}
-                  </Text>
+                  <Text style={styles.photoModalInitialsText}>{initials(session.displayName)}</Text>
                 </View>
-                <Text style={styles.photoModalPlaceholderText}>
-                  No profile photo uploaded
-                </Text>
+                <Text style={styles.photoModalPlaceholderText}>No profile photo uploaded</Text>
               </View>
             )}
           </View>

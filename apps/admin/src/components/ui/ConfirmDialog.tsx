@@ -109,62 +109,63 @@ export function ConfirmDialog({
       {disabled && disabledReason && disabledReasonPresentation === "text" ? (
         <p className="dk-field-description">{disabledReason}</p>
       ) : null}
-      {open && mounted ? createPortal(
-        <div
-          className="dk-overlay"
-          onKeyDown={(event) => {
-            if (event.key === "Escape") close();
-          }}
-        >
-          <div
-            className="dk-dialog"
-            role="alertdialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            ref={dialogRef}
-            tabIndex={-1}
-          >
-            <h2 id={titleId} className="dk-dialog-title">
-              {title}
-            </h2>
-            <p className="dk-dialog-body">{description}</p>
-            {requireReason ? (
-              <div className="dk-field">
-                <label className="dk-label dk-required" htmlFor={reasonId}>
-                  Reason
-                </label>
-                <textarea
-                  id={reasonId}
-                  className="dk-textarea"
-                  value={reason}
-                  onChange={(event) => setReason(event.target.value)}
-                  aria-invalid={error ? "true" : undefined}
-                  aria-describedby={error ? `${reasonId}-error` : undefined}
-                />
-                {error ? (
-                  <p id={`${reasonId}-error`} className="dk-field-error" role="alert">
+      {open && mounted
+        ? createPortal(
+            <div
+              className="dk-overlay"
+              onKeyDown={(event) => {
+                if (event.key === "Escape") close();
+              }}
+            >
+              <div
+                className="dk-dialog"
+                role="alertdialog"
+                aria-modal="true"
+                aria-labelledby={titleId}
+                ref={dialogRef}
+                tabIndex={-1}
+              >
+                <h2 id={titleId} className="dk-dialog-title">
+                  {title}
+                </h2>
+                <p className="dk-dialog-body">{description}</p>
+                {requireReason ? (
+                  <div className="dk-field">
+                    <label className="dk-label dk-required" htmlFor={reasonId}>
+                      Reason
+                    </label>
+                    <textarea
+                      id={reasonId}
+                      className="dk-textarea"
+                      value={reason}
+                      onChange={(event) => setReason(event.target.value)}
+                      aria-invalid={error ? "true" : undefined}
+                      aria-describedby={error ? `${reasonId}-error` : undefined}
+                    />
+                    {error ? (
+                      <p id={`${reasonId}-error`} className="dk-field-error" role="alert">
+                        {error}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : error ? (
+                  <p className="dk-field-error" role="alert">
                     {error}
                   </p>
                 ) : null}
+                <div className="dk-dialog-actions">
+                  <Button variant="secondary" onClick={close} disabled={submitting}>
+                    Cancel
+                  </Button>
+                  <Button variant={variant} onClick={handleConfirm} loading={submitting}>
+                    {confirmLabel}
+                  </Button>
+                </div>
               </div>
-            ) : error ? (
-              <p className="dk-field-error" role="alert">
-                {error}
-              </p>
-            ) : null}
-            <div className="dk-dialog-actions">
-              <Button variant="secondary" onClick={close} disabled={submitting}>
-                Cancel
-              </Button>
-              <Button variant={variant} onClick={handleConfirm} loading={submitting}>
-                {confirmLabel}
-              </Button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
     </>
   );
 }
-

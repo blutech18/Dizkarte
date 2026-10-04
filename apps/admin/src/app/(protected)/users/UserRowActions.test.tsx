@@ -13,12 +13,7 @@ vi.mock("./actions", () => ({
 
 describe("UserRowActions", () => {
   it("renders Suspend and Ban buttons for active users by default without Profile link", () => {
-    render(
-      <UserRowActions
-        userId="user-001"
-        status="active"
-      />,
-    );
+    render(<UserRowActions userId="user-001" status="active" />);
 
     expect(screen.getByRole("button", { name: /Suspend/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Ban/i })).toBeInTheDocument();
@@ -26,13 +21,7 @@ describe("UserRowActions", () => {
   });
 
   it("renders Profile link with correct href when showProfileLink is true", () => {
-    render(
-      <UserRowActions
-        userId="user-002"
-        status="active"
-        showProfileLink
-      />,
-    );
+    render(<UserRowActions userId="user-002" status="active" showProfileLink />);
 
     const profileLink = screen.getByRole("link", { name: /Profile/i });
     expect(profileLink).toBeInTheDocument();
@@ -41,12 +30,7 @@ describe("UserRowActions", () => {
   });
 
   it("renders Reactivate button when user is suspended", () => {
-    render(
-      <UserRowActions
-        userId="user-003"
-        status="suspended"
-      />,
-    );
+    render(<UserRowActions userId="user-003" status="suspended" />);
 
     expect(screen.getByRole("button", { name: /Reactivate/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Suspend$/i })).not.toBeInTheDocument();

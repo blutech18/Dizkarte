@@ -146,10 +146,7 @@ async function TaskerApplicationsTable({ page, active, search }: TaskerApplicati
       key: "specialties",
       header: "Specialties",
       render: (row) => (
-        <SpecialtiesModalButton
-          specialties={row.specialties}
-          applicantName={row.userDisplayName}
-        />
+        <SpecialtiesModalButton specialties={row.specialties} applicantName={row.userDisplayName} />
       ),
     },
     {
@@ -173,11 +170,7 @@ async function TaskerApplicationsTable({ page, active, search }: TaskerApplicati
       key: "actions",
       header: "Actions",
       render: (row) => (
-        <TaskerRowActions
-          applicationId={row.id}
-          userId={row.userId}
-          status={row.status}
-        />
+        <TaskerRowActions applicationId={row.id} userId={row.userId} status={row.status} />
       ),
     },
   ];

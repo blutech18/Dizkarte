@@ -170,11 +170,7 @@ async function VerificationCasesTable({ page, active, search }: VerificationCase
       key: "actions",
       header: "Actions",
       render: (row) => (
-        <VerificationRowActions
-          caseId={row.id}
-          userId={row.userId}
-          status={row.status}
-        />
+        <VerificationRowActions caseId={row.id} userId={row.userId} status={row.status} />
       ),
     },
   ];

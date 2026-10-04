@@ -426,10 +426,7 @@ export function MyTaskFilterPanel({
           </View>
 
           <View style={[sheet.section, sheet.lastSection]}>
-            <FilterSectionHeader
-              title="Sort"
-              description="Choose which tasks appear first."
-            />
+            <FilterSectionHeader title="Sort" description="Choose which tasks appear first." />
             <View style={sheet.choiceGrid} accessibilityRole="radiogroup">
               {MY_TASK_SORT_OPTIONS.map((option) => (
                 <FilterChoice

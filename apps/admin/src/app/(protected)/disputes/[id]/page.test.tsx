@@ -19,11 +19,13 @@ const dispute = {
   subject: null,
 };
 
-const { getDispute, getFinanceProviderAvailability, getPaymentIntentByBooking } = vi.hoisted(() => ({
-  getDispute: vi.fn(async () => dispute),
-  getFinanceProviderAvailability: vi.fn(async () => ({ available: true, message: "OK" })),
-  getPaymentIntentByBooking: vi.fn(async () => null),
-}));
+const { getDispute, getFinanceProviderAvailability, getPaymentIntentByBooking } = vi.hoisted(
+  () => ({
+    getDispute: vi.fn(async () => dispute),
+    getFinanceProviderAvailability: vi.fn(async () => ({ available: true, message: "OK" })),
+    getPaymentIntentByBooking: vi.fn(async () => null),
+  }),
+);
 
 vi.mock("server-only", () => ({}));
 
@@ -70,7 +72,7 @@ describe("dispute detail page", () => {
 
     const boundaries = walk(shell).filter((element) => element.type === Suspense);
     expect(boundaries.length).toBeGreaterThanOrEqual(1);
-    expect((boundaries[0] as any).props.fallback).toBeTruthy();
+    expect((boundaries[0] as ReactElement<Record<string, unknown>>).props.fallback).toBeTruthy();
   });
 
   it("renders dispute record and assigns actions panel with pure serializable props", async () => {
@@ -86,7 +88,9 @@ describe("dispute detail page", () => {
     );
     expect(recordElement).toBeDefined();
 
-    const resolved = await (recordElement!.type as (props: unknown) => Promise<ReactElement>)(recordElement!.props);
+    const resolved = await (recordElement!.type as (props: unknown) => Promise<ReactElement>)(
+      recordElement!.props,
+    );
     const html = renderToStaticMarkup(resolved);
 
     expect(html).toContain("Dispute on booking book-101");

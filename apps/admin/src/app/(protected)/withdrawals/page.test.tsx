@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { Suspense, type ReactElement } from "react";
+import type { QueueFiltersProps } from "@/components/ui/QueueFilters";
 
 const { listWithdrawals, getFinanceProviderAvailability } = vi.hoisted(() => ({
-  listWithdrawals: vi.fn((): Promise<any> => new Promise<never>(() => {})),
+  listWithdrawals: vi.fn((): Promise<unknown> => new Promise<never>(() => {})),
   getFinanceProviderAvailability: vi.fn(() => ({
     payoutProviderAvailable: false,
     paymentProviderAvailable: false,
@@ -74,10 +75,12 @@ describe("withdrawals page streaming shell and filters", () => {
     })) as ReactElement;
 
     const elements = walk(shell);
-    const filtersElement = elements.find((el) => (el.props as any)?.basePath === "/withdrawals");
+    const filtersElement = elements.find(
+      (el) => (el.props as Record<string, unknown>)?.basePath === "/withdrawals",
+    );
     expect(filtersElement).toBeDefined();
 
-    const props = (filtersElement as any).props;
+    const props = (filtersElement as ReactElement<QueueFiltersProps>).props;
     expect(props.search).toEqual({
       label: "Search withdrawals by reference or tasker",
       placeholder: "Search reference, tasker name...",
@@ -85,10 +88,10 @@ describe("withdrawals page streaming shell and filters", () => {
     });
 
     expect(props.selects).toHaveLength(2);
-    expect(props.selects[0].name).toBe("status");
-    expect(props.selects[0].value).toBe("PAID");
-    expect(props.selects[1].name).toBe("sort");
-    expect(props.selects[1].value).toBe("amount_desc");
+    expect(props.selects[0]?.name).toBe("status");
+    expect(props.selects[0]?.value).toBe("PAID");
+    expect(props.selects[1]?.name).toBe("sort");
+    expect(props.selects[1]?.value).toBe("amount_desc");
 
     const boundary = elements.find(
       (el) => el.type === Suspense && (el.key as string) === "PAID|tasker juan|amount_desc|2",

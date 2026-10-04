@@ -372,11 +372,7 @@ export function Icon({ name, size = 20, color = "currentColor" }: IconProps) {
     case "refresh":
       return (
         <Frame size={size} color={color}>
-          <Path
-            {...STROKE_PROPS}
-            stroke={color}
-            d="M21 12a9 9 0 1 1-2.64-6.36L21 8M21 3v5h-5"
-          />
+          <Path {...STROKE_PROPS} stroke={color} d="M21 12a9 9 0 1 1-2.64-6.36L21 8M21 3v5h-5" />
         </Frame>
       );
     case "clock":

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatReferenceId, formatDateSegment } from "./reference-id";
+import { formatReferenceId } from "./reference-id";
 
 describe("formatReferenceId", () => {
   const taskId = "c21fe6c4-48d0-4458-80f8-1d1e807736d5";

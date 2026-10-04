@@ -63,9 +63,12 @@ function makeRepository() {
   const client = new FakeClient();
   // Only the realtime surface is exercised, so the fake implements just that.
   const repository = new SupabaseMarketplaceRepository(
-    () => client as unknown as ConstructorParameters<typeof SupabaseMarketplaceRepository>[0] extends () => infer Client
-      ? Client
-      : never,
+    () =>
+      client as unknown as ConstructorParameters<
+        typeof SupabaseMarketplaceRepository
+      >[0] extends () => infer Client
+        ? Client
+        : never,
   );
   return { client, repository };
 }
@@ -83,9 +86,7 @@ describe("SupabaseMarketplaceRepository realtime subscriptions", () => {
     unsubscribe();
 
     // Immediate remount must not attach a listener to the cached channel.
-    expect(() =>
-      repository.subscribeToConversation(CONVERSATION, VIEWER, () => {}),
-    ).not.toThrow();
+    expect(() => repository.subscribeToConversation(CONVERSATION, VIEWER, () => {})).not.toThrow();
 
     const topics = [...client.channels.keys()];
     expect(topics).toHaveLength(2);

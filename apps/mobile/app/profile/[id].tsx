@@ -616,4 +616,3 @@ const styles = StyleSheet.create({
     color: theme.textSecondary,
   },
 });
-

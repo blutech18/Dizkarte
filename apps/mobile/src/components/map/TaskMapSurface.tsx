@@ -158,8 +158,7 @@ export function TaskMapSurface({ items, onSelectTask, origin }: TaskMapSurfacePr
         return;
       }
 
-      const task =
-        typeof taskOrId === "string" ? points.find((p) => p.id === taskId) : taskOrId;
+      const task = typeof taskOrId === "string" ? points.find((p) => p.id === taskId) : taskOrId;
       if (!task) return;
 
       setSelectedTask(task);
@@ -286,7 +285,11 @@ export function TaskMapSurface({ items, onSelectTask, origin }: TaskMapSurfacePr
                     isSelected ? styles.taskMarkerImageFrameSelected : null,
                   ]}
                 >
-                  <Image source={taskMarkerImage} style={styles.taskMarkerImage} resizeMode="cover" />
+                  <Image
+                    source={taskMarkerImage}
+                    style={styles.taskMarkerImage}
+                    resizeMode="cover"
+                  />
                 </View>
               </View>
             </Marker>

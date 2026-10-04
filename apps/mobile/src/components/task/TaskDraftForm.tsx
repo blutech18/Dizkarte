@@ -194,7 +194,7 @@ export function TaskDraftForm({ value, onChange, errors }: TaskDraftFormProps) {
 
       <LocationSearchModal
         visible={locationSearchOpen}
-        userCityHint={value.cityName || value.landmark}
+        userCityHint={value.landmark}
         onSelect={async (selection) => {
           const localityPatch = await resolvePsgcLocality(repository, selection);
           onChange({

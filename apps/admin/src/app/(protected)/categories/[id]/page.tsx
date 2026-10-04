@@ -140,11 +140,7 @@ async function CategoryRecord({ categoryId }: { readonly categoryId: string }) {
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
-            <TagIcon
-              width={34}
-              height={34}
-              style={{ color: "var(--dk-primary)", flexShrink: 0 }}
-            />
+            <TagIcon width={34} height={34} style={{ color: "var(--dk-primary)", flexShrink: 0 }} />
             <div>
               <h1
                 className="dk-booking-hero-title"
@@ -220,7 +216,11 @@ async function CategoryRecord({ categoryId }: { readonly categoryId: string }) {
         {/* Main Column */}
         <div className="dk-task-main-col">
           <section className="dk-card dk-task-card" aria-labelledby="naming-heading">
-            <h2 id="naming-heading" className="dk-card-title" style={{ margin: "0 0 2px 0", lineHeight: 1.3 }}>
+            <h2
+              id="naming-heading"
+              className="dk-card-title"
+              style={{ margin: "0 0 2px 0", lineHeight: 1.3 }}
+            >
               Name and slug
             </h2>
             <p className="dk-card-description" style={{ margin: "0 0 16px 0", lineHeight: 1.4 }}>
@@ -230,7 +230,11 @@ async function CategoryRecord({ categoryId }: { readonly categoryId: string }) {
           </section>
 
           <section className="dk-card dk-task-card" aria-labelledby="order-heading">
-            <h2 id="order-heading" className="dk-card-title" style={{ margin: "0 0 2px 0", lineHeight: 1.3 }}>
+            <h2
+              id="order-heading"
+              className="dk-card-title"
+              style={{ margin: "0 0 2px 0", lineHeight: 1.3 }}
+            >
               Marketplace display order
             </h2>
             <p className="dk-card-description" style={{ margin: "0 0 16px 0", lineHeight: 1.4 }}>
@@ -280,7 +284,11 @@ async function CategoryRecord({ categoryId }: { readonly categoryId: string }) {
         <div className="dk-task-side-col">
           <section className="dk-card dk-task-card" aria-labelledby="state-heading">
             <div className="dk-card-header-flex" style={{ marginBottom: 2 }}>
-              <h2 id="state-heading" className="dk-card-title" style={{ margin: 0, fontSize: 16, lineHeight: 1.3 }}>
+              <h2
+                id="state-heading"
+                className="dk-card-title"
+                style={{ margin: 0, fontSize: 16, lineHeight: 1.3 }}
+              >
                 Availability
               </h2>
               <StatusBadge
@@ -309,7 +317,11 @@ async function CategoryRecord({ categoryId }: { readonly categoryId: string }) {
           </section>
 
           <section className="dk-card dk-task-card" aria-labelledby="quick-ref-heading">
-            <h2 id="quick-ref-heading" className="dk-card-title" style={{ fontSize: 16, marginBottom: 14 }}>
+            <h2
+              id="quick-ref-heading"
+              className="dk-card-title"
+              style={{ fontSize: 16, marginBottom: 14 }}
+            >
               Quick reference
             </h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

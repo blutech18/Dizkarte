@@ -162,7 +162,10 @@ async function TasksTable({
       render: (row) => (
         <div style={{ display: "flex", flexDirection: "column", gap: 3, textAlign: "left" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span className="dk-task-title" style={{ fontWeight: 650, color: "var(--dk-textPrimary)" }}>
+            <span
+              className="dk-task-title"
+              style={{ fontWeight: 650, color: "var(--dk-textPrimary)" }}
+            >
               {row.title}
             </span>
             {row.flagged ? <StatusBadge tone="warning" label="Flagged" /> : null}
@@ -257,4 +260,3 @@ async function TasksTable({
     </>
   );
 }
-

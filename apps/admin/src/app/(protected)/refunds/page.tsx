@@ -78,7 +78,8 @@ export default async function RefundsPage({
   const active = (STATUS_OPTIONS as ReadonlyArray<string>).includes(status ?? "")
     ? status
     : undefined;
-  const activeSort = sort && REFUND_SORT_OPTIONS.some((opt) => opt.value === sort) ? sort : undefined;
+  const activeSort =
+    sort && REFUND_SORT_OPTIONS.some((opt) => opt.value === sort) ? sort : undefined;
   const cleanQ = q?.trim() || undefined;
   const availability = getAdminRepository().getFinanceProviderAvailability();
 
@@ -123,12 +124,7 @@ export default async function RefundsPage({
           key={`${active ?? ""}|${cleanQ ?? ""}|${activeSort ?? ""}|${page}`}
           fallback={<TableRegionSkeleton columns={7} />}
         >
-          <RefundsTable
-            page={page}
-            status={active}
-            q={cleanQ}
-            sort={activeSort}
-          />
+          <RefundsTable page={page} status={active} q={cleanQ} sort={activeSort} />
         </Suspense>
       </PageSection>
     </>
@@ -203,9 +199,7 @@ async function RefundsTable({
     {
       key: "reason",
       header: "Reason",
-      render: (row) => (
-        <span style={{ fontSize: 13 }}>{row.reason ?? "No reason recorded"}</span>
-      ),
+      render: (row) => <span style={{ fontSize: 13 }}>{row.reason ?? "No reason recorded"}</span>,
     },
     {
       key: "updated",
@@ -259,7 +253,8 @@ async function RefundsTable({
         caption="Refunds"
         cardTitle={(row) => (
           <span>
-            {row.bookingId ? formatReferenceId(row.bookingId, "BK") : "Refund"} · {formatPhp(row.amountCentavos)}
+            {row.bookingId ? formatReferenceId(row.bookingId, "BK") : "Refund"} ·{" "}
+            {formatPhp(row.amountCentavos)}
           </span>
         )}
       />

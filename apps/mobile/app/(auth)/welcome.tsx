@@ -13,23 +13,10 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
-import Svg, {
-  Defs,
-  LinearGradient,
-  RadialGradient,
-  Rect,
-  Stop,
-} from "react-native-svg";
+import Svg, { Defs, LinearGradient, RadialGradient, Rect, Stop } from "react-native-svg";
 import { Button } from "../../src/components/ui/Button";
 import { Icon, type IconName } from "../../src/components/ui/Icon";
-import {
-  theme,
-  spacing,
-  fontSize,
-  lineHeight,
-  radii,
-  useResponsiveLayout,
-} from "../../src/theme";
+import { theme, spacing, fontSize, lineHeight, radii, useResponsiveLayout } from "../../src/theme";
 
 /* eslint-disable @typescript-eslint/no-require-imports -- static asset requires are standard RN */
 const CATEGORIES: ReadonlyArray<{
@@ -281,8 +268,8 @@ export default function WelcomeScreen() {
               paddingBottom: isTablet
                 ? spacing.lg
                 : insets.bottom > 0
-                ? Math.min(insets.bottom, 16)
-                : 12,
+                  ? Math.min(insets.bottom, 16)
+                  : 12,
             },
           ]}
         >
@@ -606,5 +593,3 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 });
-
-

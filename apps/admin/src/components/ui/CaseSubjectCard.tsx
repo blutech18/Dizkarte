@@ -133,4 +133,3 @@ function formatExtraValue(value: string | number | boolean | null): string {
   if (typeof value === "boolean") return value ? "Yes" : "No";
   return String(value);
 }
-

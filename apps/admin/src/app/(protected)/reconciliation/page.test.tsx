@@ -1,8 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { Suspense, type ReactElement } from "react";
+import type { QueueFiltersProps } from "@/components/ui/QueueFilters";
 
 const { listReconciliationRows, getReconciliationSummary } = vi.hoisted(() => ({
-  listReconciliationRows: vi.fn((): Promise<any> => new Promise<never>(() => {})),
+  listReconciliationRows: vi.fn((): Promise<unknown> => new Promise<never>(() => {})),
   getReconciliationSummary: vi.fn(async () => ({
     matched: 10,
     duplicate: 1,
@@ -78,10 +79,12 @@ describe("reconciliation page streaming shell and filters", () => {
     })) as ReactElement;
 
     const elements = walk(shell);
-    const filtersElement = elements.find((el) => (el.props as any)?.basePath === "/reconciliation");
+    const filtersElement = elements.find(
+      (el) => (el.props as Record<string, unknown>)?.basePath === "/reconciliation",
+    );
     expect(filtersElement).toBeDefined();
 
-    const props = (filtersElement as any).props;
+    const props = (filtersElement as ReactElement<QueueFiltersProps>).props;
     expect(props.search).toEqual({
       label: "Search reconciliation by booking or payment reference",
       placeholder: "Search booking, payment reference...",
@@ -89,10 +92,10 @@ describe("reconciliation page streaming shell and filters", () => {
     });
 
     expect(props.selects).toHaveLength(2);
-    expect(props.selects[0].name).toBe("status");
-    expect(props.selects[0].value).toBe("MATCHED");
-    expect(props.selects[1].name).toBe("sort");
-    expect(props.selects[1].value).toBe("diff_desc");
+    expect(props.selects[0]?.name).toBe("status");
+    expect(props.selects[0]?.value).toBe("MATCHED");
+    expect(props.selects[1]?.name).toBe("sort");
+    expect(props.selects[1]?.value).toBe("diff_desc");
 
     const boundary = elements.find(
       (el) => el.type === Suspense && (el.key as string) === "MATCHED|booking-99|diff_desc|2",

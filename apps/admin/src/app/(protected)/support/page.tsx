@@ -46,7 +46,8 @@ export default async function SupportTicketsPage({
   const activeStatus = status
     ? TICKET_STATUS_OPTIONS.find((s) => s.toLowerCase() === status.toLowerCase())
     : undefined;
-  const activeSort = sort && TICKET_SORT_OPTIONS.some((opt) => opt.value === sort) ? sort : undefined;
+  const activeSort =
+    sort && TICKET_SORT_OPTIONS.some((opt) => opt.value === sort) ? sort : undefined;
   const cleanQ = q?.trim() || undefined;
 
   return (
@@ -89,12 +90,7 @@ export default async function SupportTicketsPage({
           key={`${activeStatus ?? ""}|${cleanQ ?? ""}|${activeSort ?? ""}|${page}`}
           fallback={<TableRegionSkeleton columns={7} />}
         >
-          <SupportTicketsTable
-            page={page}
-            status={activeStatus}
-            q={cleanQ}
-            sort={activeSort}
-          />
+          <SupportTicketsTable page={page} status={activeStatus} q={cleanQ} sort={activeSort} />
         </Suspense>
       </PageSection>
     </>
@@ -137,23 +133,17 @@ async function SupportTicketsTable({
     {
       key: "subject",
       header: "Subject",
-      render: (row) => (
-        <span style={{ fontWeight: 600, fontSize: 13.5 }}>{row.subject}</span>
-      ),
+      render: (row) => <span style={{ fontWeight: 600, fontSize: 13.5 }}>{row.subject}</span>,
     },
     {
       key: "requester",
       header: "Requester",
-      render: (row) => (
-        <span style={{ fontSize: 13 }}>{row.requesterDisplayName}</span>
-      ),
+      render: (row) => <span style={{ fontSize: 13 }}>{row.requesterDisplayName}</span>,
     },
     {
       key: "category",
       header: "Category",
-      render: (row) => (
-        <span className="dk-badge dk-badge-neutral">{row.category}</span>
-      ),
+      render: (row) => <span className="dk-badge dk-badge-neutral">{row.category}</span>,
     },
     {
       key: "status",
@@ -174,13 +164,14 @@ async function SupportTicketsTable({
     {
       key: "assignee",
       header: "Assignee",
-      render: (row) => (
+      render: (row) =>
         row.assignee ? (
           <span style={{ fontSize: 13, fontWeight: 500 }}>{row.assignee}</span>
         ) : (
-          <span className="dk-muted" style={{ fontSize: 12.5 }}>Unassigned</span>
-        )
-      ),
+          <span className="dk-muted" style={{ fontSize: 12.5 }}>
+            Unassigned
+          </span>
+        ),
     },
     {
       key: "actions",

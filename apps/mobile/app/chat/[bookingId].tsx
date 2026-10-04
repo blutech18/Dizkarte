@@ -547,8 +547,13 @@ export default function ChatScreen() {
           {booking ? (
             <View style={styles.contextCard}>
               <Pressable
-                style={({ pressed }) => [styles.contextRow, pressed ? styles.contextRowPressed : null]}
-                onPress={() => router.push({ pathname: "/booking/[id]", params: { id: booking.id } })}
+                style={({ pressed }) => [
+                  styles.contextRow,
+                  pressed ? styles.contextRowPressed : null,
+                ]}
+                onPress={() =>
+                  router.push({ pathname: "/booking/[id]", params: { id: booking.id } })
+                }
                 accessibilityRole="button"
                 accessibilityLabel={`Open booking with ${counterpartName}, ${STATUS_LABEL[booking.status]}`}
               >
@@ -573,7 +578,9 @@ export default function ChatScreen() {
                           { backgroundColor: STATUS_DOT_COLOR[booking.status] },
                         ]}
                       />
-                      <Text style={[styles.statusLabel, { color: STATUS_DOT_COLOR[booking.status] }]}>
+                      <Text
+                        style={[styles.statusLabel, { color: STATUS_DOT_COLOR[booking.status] }]}
+                      >
                         {STATUS_LABEL[booking.status]}
                       </Text>
                     </View>
@@ -585,7 +592,10 @@ export default function ChatScreen() {
               <View style={styles.contextDivider} />
 
               <Pressable
-                style={({ pressed }) => [styles.rebookBtn, pressed ? styles.rebookBtnPressed : null]}
+                style={({ pressed }) => [
+                  styles.rebookBtn,
+                  pressed ? styles.rebookBtnPressed : null,
+                ]}
                 onPress={() => setRebookOpen(true)}
                 accessibilityRole="button"
                 accessibilityLabel={`Rebook ${firstName}`}
@@ -596,52 +606,52 @@ export default function ChatScreen() {
           ) : null}
         </View>
 
-      <FlatList
-        ref={listRef}
-        style={styles.messageList}
-        data={rows}
-        keyExtractor={(row) => row.key}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-        onScroll={handleListScroll}
-        scrollEventThrottle={16}
-        onLayout={handleListLayout}
-        onContentSizeChange={handleListContentSizeChange}
-        ListEmptyComponent={
-          <View style={styles.emptyChat}>
-            <View style={styles.emptyChatIconCircle}>
-              <Icon name="chat" size={22} color={theme.primary} />
+        <FlatList
+          ref={listRef}
+          style={styles.messageList}
+          data={rows}
+          keyExtractor={(row) => row.key}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          onScroll={handleListScroll}
+          scrollEventThrottle={16}
+          onLayout={handleListLayout}
+          onContentSizeChange={handleListContentSizeChange}
+          ListEmptyComponent={
+            <View style={styles.emptyChat}>
+              <View style={styles.emptyChatIconCircle}>
+                <Icon name="chat" size={22} color={theme.primary} />
+              </View>
+              <Text style={styles.emptyChatTitle}>No messages yet</Text>
+              <Text style={styles.emptyChatText}>
+                Send the first message to {firstName || "your counterpart"} to coordinate the work.
+              </Text>
             </View>
-            <Text style={styles.emptyChatTitle}>No messages yet</Text>
-            <Text style={styles.emptyChatText}>
-              Send the first message to {firstName || "your counterpart"} to coordinate the work.
-            </Text>
-          </View>
-        }
-        renderItem={({ item }) =>
-          item.kind === "separator" ? (
-            <View style={styles.daySeparatorRow}>
-              <View style={styles.daySeparatorLine} />
-              <Text style={styles.daySeparatorLabel}>{item.label}</Text>
-              <View style={styles.daySeparatorLine} />
-            </View>
-          ) : (
-            <MessageBubble
-              message={item.message}
-              mine={item.message.senderId === session.userId}
-              grouped={item.grouped}
-              animateEntry={
-                !reduceMotion && enteringMessageIds.current.has(String(item.message.id))
-              }
-              onEntryAnimationComplete={handleMessageEntryComplete}
-              onRetry={() => handleRetry(item.message)}
-              {...(item.message.senderId === session.userId
-                ? {}
-                : { onReport: () => setReportMessageId(String(item.message.id)) })}
-            />
-          )
-        }
-      />
+          }
+          renderItem={({ item }) =>
+            item.kind === "separator" ? (
+              <View style={styles.daySeparatorRow}>
+                <View style={styles.daySeparatorLine} />
+                <Text style={styles.daySeparatorLabel}>{item.label}</Text>
+                <View style={styles.daySeparatorLine} />
+              </View>
+            ) : (
+              <MessageBubble
+                message={item.message}
+                mine={item.message.senderId === session.userId}
+                grouped={item.grouped}
+                animateEntry={
+                  !reduceMotion && enteringMessageIds.current.has(String(item.message.id))
+                }
+                onEntryAnimationComplete={handleMessageEntryComplete}
+                onRetry={() => handleRetry(item.message)}
+                {...(item.message.senderId === session.userId
+                  ? {}
+                  : { onReport: () => setReportMessageId(String(item.message.id)) })}
+              />
+            )
+          }
+        />
 
         <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
           {sendError ? (

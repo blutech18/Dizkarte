@@ -91,7 +91,8 @@ export default async function ReconciliationPage({
   const { status, q, sort, page: pageParam } = await searchParams;
   const page = Math.max(1, Number.parseInt(pageParam ?? "1", 10) || 1);
   const isValidStatus = status && (STATUS_OPTIONS as ReadonlyArray<string>).includes(status);
-  const activeSort = sort && RECONCILIATION_SORT_OPTIONS.some((opt) => opt.value === sort) ? sort : undefined;
+  const activeSort =
+    sort && RECONCILIATION_SORT_OPTIONS.some((opt) => opt.value === sort) ? sort : undefined;
   const cleanQ = q?.trim() || undefined;
   const repository = getAdminRepository();
 
@@ -161,7 +162,11 @@ async function ReconciliationSummary() {
   const summary = await getAdminRepository().getReconciliationSummary();
 
   return (
-    <div role="group" aria-label="Reconciliation summary" className="dk-kpi-grid dk-reconciliation-grid">
+    <div
+      role="group"
+      aria-label="Reconciliation summary"
+      className="dk-kpi-grid dk-reconciliation-grid"
+    >
       <SummaryCard
         label="Matched"
         value={summary.matched}
@@ -307,7 +312,8 @@ async function ReconciliationTable({
           style={{
             fontVariantNumeric: "tabular-nums",
             fontWeight: row.differenceCentavos !== 0 ? 700 : 400,
-            color: row.differenceCentavos !== 0 ? "var(--dk-errorSolid)" : "var(--dk-textSecondary)",
+            color:
+              row.differenceCentavos !== 0 ? "var(--dk-errorSolid)" : "var(--dk-textSecondary)",
           }}
         >
           {formatPhpSigned(row.differenceCentavos)}

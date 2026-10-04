@@ -347,12 +347,7 @@ export default function NotificationsScreen() {
               pressed ? styles.tabPillPressed : null,
             ]}
           >
-            <Text
-              style={[
-                styles.tabPillText,
-                filter === "all" ? styles.tabPillTextActive : null,
-              ]}
-            >
+            <Text style={[styles.tabPillText, filter === "all" ? styles.tabPillTextActive : null]}>
               All {notifications.length > 0 ? `(${notifications.length})` : ""}
             </Text>
           </Pressable>
@@ -369,10 +364,7 @@ export default function NotificationsScreen() {
             ]}
           >
             <Text
-              style={[
-                styles.tabPillText,
-                filter === "unread" ? styles.tabPillTextActive : null,
-              ]}
+              style={[styles.tabPillText, filter === "unread" ? styles.tabPillTextActive : null]}
             >
               Unread {unreadCount > 0 ? `(${unreadCount})` : ""}
             </Text>
@@ -455,7 +447,13 @@ function NotificationCard({
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           <Svg width="100%" height="100%">
             <Defs>
-              <LinearGradient id={`notifGrad-${notification.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+              <LinearGradient
+                id={`notifGrad-${notification.id}`}
+                x1="0%"
+                y1="0%"
+                x2="100%"
+                y2="100%"
+              >
                 <Stop offset="0%" stopColor="#F3EEFF" stopOpacity="0.9" />
                 <Stop offset="55%" stopColor="#F9F7FE" stopOpacity="0.65" />
                 <Stop offset="100%" stopColor="#FFFFFF" stopOpacity="0.35" />
@@ -677,4 +675,3 @@ const styles = StyleSheet.create({
     color: theme.primary,
   },
 });
-

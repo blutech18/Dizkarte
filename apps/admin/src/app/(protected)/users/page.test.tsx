@@ -14,7 +14,7 @@ import { renderToStaticMarkup } from "react-dom/server";
  */
 
 const { listUsers } = vi.hoisted(() => ({
-  listUsers: vi.fn((): Promise<any> => new Promise<never>(() => {})),
+  listUsers: vi.fn((): Promise<unknown> => new Promise<never>(() => {})),
 }));
 
 // `server-only` throws on import outside a server component; the modules under
@@ -117,7 +117,9 @@ describe("users page streaming shell", () => {
     );
     expect(tableElement).toBeDefined();
 
-    const resolved = await (tableElement!.type as (props: unknown) => Promise<ReactElement>)(tableElement!.props);
+    const resolved = await (tableElement!.type as (props: unknown) => Promise<ReactElement>)(
+      tableElement!.props,
+    );
     const html = renderToStaticMarkup(resolved);
 
     // Avatar initials

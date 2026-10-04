@@ -41,4 +41,3 @@ export function reportStatusMeaning(status: string): string {
       return "Report status recorded in system audit log.";
   }
 }
-
